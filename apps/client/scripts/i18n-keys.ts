@@ -4,8 +4,9 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const here = new URL("../", import.meta.url).pathname;
+const here = fileURLToPath(new URL("../", import.meta.url));
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -31,7 +32,7 @@ export function keys(): Set<string> {
   return out;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const all = [...keys()].sort();
   const lang = process.argv[2];
   if (!lang) for (const k of all) console.log(k);

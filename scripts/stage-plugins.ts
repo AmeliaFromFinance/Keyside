@@ -3,13 +3,14 @@
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const out = process.argv[2];
 if (!out) {
   console.error("usage: stage-plugins.ts <out dir>");
   process.exit(2);
 }
-const root = new URL("../plugins/", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../plugins/", import.meta.url));
 rmSync(out, { recursive: true, force: true });
 for (const name of readdirSync(root)) {
   const dir = join(root, name);

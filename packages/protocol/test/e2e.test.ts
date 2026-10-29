@@ -10,8 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ClientHandshake, importPsk, type Session } from "../src/channel.ts";
 import { fromB64u } from "../src/bytes.ts";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../../../", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../../", import.meta.url));
 const bin = process.env.KEYSIDE_BIN ?? join(root, "target/debug/keyside");
 const ADMIN = 17442;
 const LAN = 17443;

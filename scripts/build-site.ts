@@ -4,8 +4,9 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative } from "node:path";
 import { Marked } from "marked";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../", import.meta.url));
 const site = join(root, "site");
 const out = join(site, "dist");
 const repo = "https://github.com/AmeliaFromFinance/keyside";

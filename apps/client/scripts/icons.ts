@@ -1,8 +1,9 @@
 // Copies the curated Lucide icons into the client and the companion (for hardware decks).
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-const here = new URL("../", import.meta.url).pathname;
+const here = fileURLToPath(new URL("../", import.meta.url));
 const names = readFileSync(`${here}scripts/icon-list.txt`, "utf8").split(/\s+/).filter(Boolean);
 const icons: Record<string, string> = {};
 for (const n of names) {

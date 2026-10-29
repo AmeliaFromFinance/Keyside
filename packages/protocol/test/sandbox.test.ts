@@ -7,8 +7,9 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, cpSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../../../", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../../", import.meta.url));
 const bin = process.env.KEYSIDE_BIN ?? join(root, "target/debug/keyside");
 const ADMIN = 17462;
 const hasDeno = !!process.env.KEYSIDE_DENO || (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").some((d) => existsSync(join(d, process.platform === "win32" ? "deno.exe" : "deno")));
@@ -20,7 +21,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), "keyside-sandbox-"));
   const plugins = join(dir, "bundled");
-  cpSync(new URL("./fixtures/probe", import.meta.url).pathname, join(plugins, "probe"), { recursive: true });
+  cpSync(fileURLToPath(new URL("./fixtures/probe", import.meta.url)), join(plugins, "probe"), { recursive: true });
   mkdirSync(join(dir, "data"));
   writeFileSync(join(dir, "data", "settings.json"), JSON.stringify({ adminPort: ADMIN, lanPort: ADMIN + 1, mdns: false, followFocus: false, lanEnabled: false }));
   if (!existsSync(bin) || !hasDeno) return;

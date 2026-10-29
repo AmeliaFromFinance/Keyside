@@ -4,8 +4,9 @@
 import { build } from "esbuild";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../plugins/", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../plugins/", import.meta.url));
 const only = process.argv.slice(2);
 const names = readdirSync(root).filter((n) => existsSync(join(root, n, "src/main.ts")) && (only.length === 0 || only.includes(n)));
 

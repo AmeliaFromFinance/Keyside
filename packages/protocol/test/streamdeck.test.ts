@@ -8,8 +8,9 @@ import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync, readdi
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { zip } from "./fixtures/zip.ts";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../../../", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../../", import.meta.url));
 const bin = process.env.KEYSIDE_BIN ?? join(root, "target/debug/keyside");
 const ADMIN = 17472;
 const hasDeno = !!process.env.KEYSIDE_DENO || (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").some((d) => existsSync(join(d, process.platform === "win32" ? "deno.exe" : "deno")));
@@ -29,7 +30,7 @@ before(() => {
 after(() => child?.kill());
 
 function pluginZip() {
-  const base = new URL("./fixtures/sdplugin/", import.meta.url).pathname;
+  const base = fileURLToPath(new URL("./fixtures/sdplugin/", import.meta.url));
   const files: Record<string, Uint8Array> = {};
   const walk = (d: string) => {
     for (const n of readdirSync(d)) {
