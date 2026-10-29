@@ -79,7 +79,37 @@ importers:
         specifier: workspace:*
         version: link:../../packages/sdk
 
+  plugins/streamlabs:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
   plugins/twitch:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/veadotube:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/vnyan:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/vtubestudio:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/warudo:
     dependencies:
       '@phonedeck/sdk':
         specifier: workspace:*

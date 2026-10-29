@@ -1,0 +1,32 @@
+{
+  "id": "dev.phonedeck.vnyan",
+  "name": "VNyan",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "vnyan",
+  "description": "Triggers VNyan node graphs through its WebSocket Command node.",
+  "homepage": "https://suvidriel.itch.io/vnyan",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "cat",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "default": 8000, "minimum": 1, "maximum": 65535, "description": "VNyan: Settings > Misc > WebSocket server." }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "command",
+      "name": "Send command",
+      "icon": "zap",
+      "description": "Fires every WebSocket Command node whose command text matches.",
+      "settings": { "type": "object", "properties": { "command": { "type": "string", "title": "Command text", "maxLength": 500 } }, "required": ["command"] }
+    }
+  ],
+  "variables": [{ "name": "connected", "title": "Connected", "type": "boolean" }]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "dev.phonedeck.veadotube",
+  "name": "veadotube",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "veado",
+  "description": "Switch, push and pop avatar states in veadotube mini or veadotube, with state thumbnails on the keys.",
+  "homepage": "https://veado.tube",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "smile",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "minimum": 1, "maximum": 65535, "description": "The port of veadotube's WebSocket server, shown in its program settings. Set a fixed port there so it doesn't change." }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "state",
+      "name": "Avatar state",
+      "icon": "smile",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "state": { "type": "string", "title": "State", "x-options": "dynamic" },
+          "op": { "type": "string", "title": "On press", "enum": ["set", "toggle", "push", "pop", "hold"], "enumNames": ["Switch to it", "Toggle on top", "Put on top", "Remove", "On top while held"], "default": "set" },
+          "thumbnail": { "type": "boolean", "title": "Show the state picture", "default": true }
+        },
+        "required": ["state"]
+      }
+    },
+    { "id": "clear", "name": "Clear states", "icon": "rotate-ccw", "description": "Back to the base state." }
+  ],
+  "variables": [{ "name": "state", "title": "Current state", "type": "string" }]
+}

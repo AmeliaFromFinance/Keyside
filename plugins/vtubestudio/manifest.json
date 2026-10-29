@@ -1,0 +1,52 @@
+{
+  "id": "dev.phonedeck.vtubestudio",
+  "name": "VTube Studio",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "vts",
+  "description": "Hotkeys, expressions and model switching, with the active model and expressions lit up.",
+  "homepage": "https://denchisoft.com",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "scan-face",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "default": 8001, "minimum": 1, "maximum": 65535, "description": "VTube Studio: Settings > Start API. Click Allow when PhoneDeck asks for access." },
+      "token": { "type": "string", "format": "secret", "x-hidden": true }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "hotkey",
+      "name": "Hotkey",
+      "icon": "zap",
+      "settings": { "type": "object", "properties": { "hotkey": { "type": "string", "title": "Hotkey", "x-options": "dynamic" } }, "required": ["hotkey"] }
+    },
+    {
+      "id": "expression",
+      "name": "Expression",
+      "icon": "smile",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "expression": { "type": "string", "title": "Expression", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off", "hold"], "enumNames": ["Toggle", "Turn on", "Turn off", "On while held"], "default": "toggle" }
+        },
+        "required": ["expression"]
+      }
+    },
+    {
+      "id": "model",
+      "name": "Load model",
+      "icon": "user-round",
+      "settings": { "type": "object", "properties": { "model": { "type": "string", "title": "Model", "x-options": "dynamic" } }, "required": ["model"] }
+    }
+  ],
+  "variables": [{ "name": "model", "title": "Current model", "type": "string" }]
+}

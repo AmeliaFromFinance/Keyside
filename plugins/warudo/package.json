@@ -1,0 +1,6 @@
+{
+  "name": "@phonedeck/plugin-warudo",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+}

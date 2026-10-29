@@ -1,0 +1,38 @@
+{
+  "id": "dev.phonedeck.warudo",
+  "name": "Warudo",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "warudo",
+  "description": "Triggers Warudo blueprints that start with an On WebSocket Action node.",
+  "homepage": "https://warudo.app",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "user-round",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "default": 19190, "minimum": 1, "maximum": 65535 }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "action",
+      "name": "WebSocket action",
+      "icon": "zap",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "title": "Action name", "description": "The Action field of the On WebSocket Action node.", "maxLength": 200 },
+          "data": { "type": "string", "title": "Data", "description": "Optional text passed to the node's Data output.", "format": "textarea", "maxLength": 4000 }
+        },
+        "required": ["action"]
+      }
+    }
+  ],
+  "variables": [{ "name": "connected", "title": "Connected", "type": "boolean" }]
+}
