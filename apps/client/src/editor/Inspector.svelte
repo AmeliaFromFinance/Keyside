@@ -6,6 +6,7 @@
   import SettingsForm from "./SettingsForm.svelte";
   import SdPanel from "./SdPanel.svelte";
   import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits } from "./state.svelte.ts";
+  import { actionMatches, searchWords } from "./search.ts";
   import { req } from "../lib/deck.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
 
@@ -122,7 +123,7 @@
   const choices = $derived(
     allActions()
       .filter((a) => admin || !a.adminOnly)
-      .filter((a) => !addQuery || `${a.name} ${a.group}`.toLowerCase().includes(addQuery.toLowerCase())),
+      .filter((a) => actionMatches(a, searchWords(addQuery))),
   );
 
   function resize(dw: number, dh: number) {
@@ -333,7 +334,7 @@
 </Sheet>
 
 <Sheet open={adding !== null} onclose={() => (adding = null)} title={t("Add step")} wide>
-  <input class="input" bind:value={addQuery} placeholder={t("Search actions")} aria-label={t("Search actions")} />
+  <input class="input" bind:value={addQuery} placeholder={t("Search plugins and actions")} aria-label={t("Search plugins and actions")} />
   <div class="choices">
     {#each choices as a (a.id)}
       <button class="choice" onclick={() => addStep(a.id)}>
