@@ -116,6 +116,12 @@ export interface Host {
   authorize(url: string): Promise<{ code: string; redirectUri: string }>;
   /** Sends one UDP datagram (needs the "udp" permission and the host in "net"). */
   udp(host: string, port: number, data: Uint8Array): Promise<void>;
+  /**
+   * Runs one of the exact commands listed under "run" in the manifest, such as
+   * ["equibop", "--toggle-mic"]. Only plugins that ship with Keyside get this permission.
+   * Fails with "not installed" when the program isn't found. `code` is null if it keeps running.
+   */
+  run(argv: string[]): Promise<{ code: number | null }>;
   /** Local app bridges the companion opens for you (needs the "ipc" permission). */
   ipc: {
     open(bridge: "discord"): Promise<void>;
@@ -279,6 +285,10 @@ class Runtime implements Host {
     let bin = "";
     for (const b of data) bin += String.fromCharCode(b);
     await this.#call("udp.send", { host, port, data: btoa(bin) });
+  }
+
+  run(argv: string[]) {
+    return this.#call("run", { argv }) as Promise<{ code: number | null }>;
   }
 
   #sync(list: Instance[]) {

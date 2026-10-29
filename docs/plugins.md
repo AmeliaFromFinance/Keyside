@@ -70,6 +70,17 @@ If you changed the editor port in Keyside settings, use that port in the redirec
 
 The Discord desktop app must be running on this PC.
 
+### Equibop
+
+Equibop, a Discord client for Linux, can't be controlled the way Discord can. Keyside runs its `--toggle-mic`, `--toggle-deafen` and `--toggle-vad` commands instead.
+
+1. Under **App**, choose **Equibop (Linux)**. No application or secret is needed.
+2. Leave **Equibop install** on **Find it**, or pick **Installed package** or **Flatpak** if you have both.
+
+Mute, Deafen and Push to talk work. Joining channels and volume need the Discord app.
+
+Equibop doesn't report its state, so keys show what Keyside last sent. If you mute in Equibop itself, press the key once to get back in step. If Equibop isn't open, a key press starts it.
+
 ## VTube Studio
 
 1. In VTube Studio: **Settings**, turn on **Start API** (port `8001`).

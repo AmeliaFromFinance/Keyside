@@ -314,6 +314,9 @@ impl Host {
     pub fn install(&self, pkg: &package::Package, source: Source, approve: bool) -> Result<()> {
         let m = &pkg.manifest;
         manifest::validate(m).map_err(anyhow::Error::msg)?;
+        if !m.permissions.run.is_empty() && source != Source::Bundled {
+            bail!("only plugins that ship with Keyside can run programs");
+        }
         {
             let st = self.state.lock();
             if let Some(other) = st.installed.values().find(|i| i.manifest.prefix == m.prefix && i.manifest.id != m.id) {
@@ -955,6 +958,15 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             crate::actions::core::send_udp(dest.trim_start_matches('[').trim_end_matches(']'), port, &bytes).await?;
             Ok(Value::Null)
         }
+        "run" => {
+            let argv: Vec<String> = params.get("argv").cloned().and_then(|v| serde_json::from_value(v).ok()).ok_or("missing argv")?;
+            // Exact match against the manifest, and only for plugins that ship with Keyside.
+            let allowed = m.permissions.run.contains(&argv) && host.get(&m.id).is_some_and(|i| i.source == Source::Bundled && i.granted.run.contains(&argv));
+            if !allowed {
+                return Err("command not allowed".into());
+            }
+            run_fixed(&argv).await
+        }
         "ipc.open" | "ipc.send" => {
             let bridge = params.get("bridge").and_then(Value::as_str).ok_or("missing bridge")?;
             let granted = host.get(&m.id).is_some_and(|i| i.granted.ipc.iter().any(|g| g == bridge) && m.permissions.ipc.iter().any(|g| g == bridge));
@@ -975,6 +987,29 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             }
         }
         _ => Err(format!("unknown method {method}")),
+    }
+}
+
+/// Runs one of a plugin's fixed commands: no shell, no output. A command still running after
+/// a few seconds (say it started the app itself) is left running.
+async fn run_fixed(argv: &[String]) -> Result<Value, String> {
+    // A few at a time, so a stuck key can't pile up processes.
+    static SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+    let _slot = SLOTS.try_acquire().map_err(|_| "busy, try again")?;
+    let mut cmd = tokio::process::Command::new(&argv[0]);
+    cmd.args(&argv[1..]).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // no console window
+    let mut child = cmd.spawn().map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { "not installed".to_string() } else { e.to_string() })?;
+    match tokio::time::timeout(Duration::from_secs(5), child.wait()).await {
+        Ok(Ok(status)) => Ok(json!({ "code": status.code() })),
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => {
+            tokio::spawn(async move {
+                let _ = child.wait().await;
+            });
+            Ok(json!({ "code": null }))
+        }
     }
 }
 
@@ -1039,6 +1074,25 @@ mod tests {
         assert!(!valid_image("https://evil.example/x.png"));
         assert!(!valid_image("data:text/html;base64,PHNjcmlwdD4="));
         assert!(!valid_image("data:image/png;base64,<script>"));
+    }
+
+    #[tokio::test]
+    async fn only_bundled_plugins_may_run_commands() {
+        let data = tempfile::tempdir().unwrap();
+        let app = App::new(crate::app::Options { data_dir: Some(data.path().into()), bundled_plugins: None }).unwrap();
+        let src = tempfile::tempdir().unwrap();
+        let manifest = json!({
+            "id": "dev.example.runner", "name": "Runner", "version": "1.0.0", "author": "Me", "prefix": "runner",
+            "host": "^1.0", "entry": "main.js", "actions": [], "permissions": { "run": [["equibop", "--toggle-mic"]] }
+        });
+        std::fs::write(src.path().join("manifest.json"), manifest.to_string()).unwrap();
+        std::fs::write(src.path().join("main.js"), "").unwrap();
+        let pkg = package::Package::from_dir(src.path()).unwrap();
+        for source in [Source::File, Source::Registry] {
+            let e = app.plugins.install(&pkg, source, true).unwrap_err().to_string();
+            assert!(e.contains("ship with Keyside"), "{e}");
+        }
+        assert!(app.plugins.install(&pkg, Source::Bundled, false).is_ok());
     }
 
     #[test]

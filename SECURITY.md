@@ -24,6 +24,8 @@ Only the latest release gets security fixes.
 - no starting programs, no native code, no environment variables,
 - network access only to the hosts it declares, which you see before installing.
 
+Plugins that ship with Keyside may run a few exact commands listed in their manifest, such as Equibop's `--toggle-mic`. Nothing else can be passed to them, there's no shell, and plugins from anywhere else can't ask for this.
+
 Every message a plugin sends is checked: it can only change its own keys and its own variables. A plugin that floods messages or keeps crashing is stopped. Plugins from the registry are checked against a pinned hash and signing key.
 
 **Stream Deck plugins.** JavaScript plugins run in the same sandbox with no internet access unless you grant it. Programs (`.exe`, macOS apps) can't be sandboxed, so Keyside only runs them after you explicitly agree. Their settings pages load from a separate origin in a sandboxed frame.

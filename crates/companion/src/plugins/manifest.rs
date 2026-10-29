@@ -112,13 +112,28 @@ pub struct Permissions {
     pub udp: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ipc: Vec<String>,
+    /// Exact commands the plugin may run, such as ["equibop", "--toggle-mic"].
+    /// Only plugins that ship with Keyside get this.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub run: Vec<Vec<String>>,
 }
 
 impl Permissions {
     /// True when `self` asks for nothing beyond `granted`.
     pub fn within(&self, granted: &Permissions) -> bool {
-        self.net.iter().all(|n| granted.net.contains(n)) && (!self.udp || granted.udp) && self.ipc.iter().all(|i| granted.ipc.contains(i))
+        self.net.iter().all(|n| granted.net.contains(n))
+            && (!self.udp || granted.udp)
+            && self.ipc.iter().all(|i| granted.ipc.contains(i))
+            && self.run.iter().all(|r| granted.run.contains(r))
     }
+}
+
+/// A program name found on PATH (no paths, no shell) and plain arguments.
+fn valid_command(argv: &[String]) -> bool {
+    (1..=6).contains(&argv.len())
+        && argv[0].bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+        && !argv[0].starts_with('-')
+        && argv.iter().all(|a| !a.is_empty() && a.len() <= 128 && !a.chars().any(char::is_control))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -259,6 +274,9 @@ pub fn validate(m: &Manifest) -> Result<(), String> {
     if m.permissions.net.len() > 32 || m.permissions.ipc.iter().any(|i| i != "discord") {
         return err("unsupported permissions");
     }
+    if m.permissions.run.len() > 16 || !m.permissions.run.iter().all(|c| valid_command(c)) {
+        return err("invalid run permission");
+    }
     for n in &m.permissions.net {
         check_net(n, m.connection.as_ref())?;
     }
@@ -391,6 +409,23 @@ mod tests {
     #[test]
     fn accepts_good_manifest() {
         validate(&manifest()).unwrap();
+    }
+
+    #[test]
+    fn run_commands_are_plain_programs_and_arguments() {
+        let ok = |argv: &[&str]| {
+            let mut m = manifest();
+            m.permissions.run = vec![argv.iter().map(|a| a.to_string()).collect()];
+            validate(&m).is_ok()
+        };
+        assert!(ok(&["equibop", "--toggle-mic"]));
+        assert!(ok(&["flatpak", "run", "io.github.equicord.equibop", "--toggle-mic"]));
+        assert!(!ok(&["/bin/sh", "-c", "x"]), "no paths");
+        assert!(!ok(&["../evil"]));
+        assert!(!ok(&["-x"]));
+        assert!(!ok(&[]));
+        assert!(!ok(&["equibop", "a\nb"]));
+        assert!(!ok(&["a", "b", "c", "d", "e", "f", "g"]), "too long");
     }
 
     #[test]

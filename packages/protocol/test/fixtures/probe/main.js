@@ -13,6 +13,15 @@ async function attempt(name, fn) {
   }
 }
 
+// Requests to the host, answered in the read loop below.
+const pending = new Map();
+let nextId = 1000;
+function ask(method, params) {
+  const id = nextId++;
+  send({ jsonrpc: "2.0", id, method, params });
+  return new Promise((ok, fail) => pending.set(id, { ok, fail }));
+}
+
 async function probe(init) {
   const data = init.dataDir;
   const root = data.replace(/[\\/]plugin-data[\\/].*$/, "");
@@ -34,6 +43,10 @@ async function probe(init) {
   });
   await attempt("writeOwnData", () => Deno.writeTextFile(`${data}/ok.txt`, "ok"));
   await attempt("readOwnCode", () => Deno.readTextFile(new URL("./main.js", import.meta.url)));
+  // Only the exact commands in the manifest may run.
+  await attempt("hostRunUnlisted", () => ask("run", { argv: ["sh", "-c", "true"] }).catch((e) => Promise.reject(new Error(e.message === "command not allowed" ? "permission refused" : e.message))));
+  await attempt("hostRunExtraArgs", () => ask("run", { argv: ["true", "--x"] }).catch((e) => Promise.reject(new Error(e.message === "command not allowed" ? "permission refused" : e.message))));
+  await attempt("hostRunListed", () => ask("run", { argv: ["true"] }));
   report("done", true);
 }
 
@@ -47,7 +60,12 @@ for (;;) {
   while ((i = buf.indexOf("\n")) >= 0) {
     const msg = JSON.parse(buf.slice(0, i));
     buf = buf.slice(i + 1);
-    if (msg.id !== undefined && msg.method) {
+    if (msg.id !== undefined && !msg.method && pending.has(msg.id)) {
+      const p = pending.get(msg.id);
+      pending.delete(msg.id);
+      if (msg.error) p.fail(new Error(msg.error.message));
+      else p.ok(msg.result);
+    } else if (msg.id !== undefined && msg.method) {
       send({ jsonrpc: "2.0", id: msg.id, result: null });
       if (msg.method === "initialize") probe(msg.params);
     }

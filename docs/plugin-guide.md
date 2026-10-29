@@ -68,6 +68,7 @@ Plugins get nothing by default. Ask for what you need:
 | `"net": ["{host}:{port}"]` | Connections to the address in your connection settings |
 | `"udp": true` | Sending UDP to hosts in `net`, through `host.udp()` |
 | `"ipc": ["discord"]` | Talking to the Discord app through `host.ipc` |
+| `"run": [["equibop", "--toggle-mic"]]` | Running those exact commands through `host.run()`. Only for plugins that ship with Keyside |
 
 Wildcards aren't allowed. People see this list before installing, and again if an update asks for more.
 
@@ -142,6 +143,7 @@ Updates are batched, so calling `set` often is fine.
 | `host.openBrowser(url)` | Opens an https page on the PC |
 | `host.authorize(url)` | Browser sign-in with a redirect back to Keyside. Returns the code and redirect URI |
 | `host.udp(host, port, bytes)` | Sends a UDP datagram |
+| `host.run(argv)` | Runs one of the commands listed under `run` |
 | `host.log.info(...)` | Writes to the Keyside log |
 | `host.dataDir` | A folder only this plugin can read and write |
 

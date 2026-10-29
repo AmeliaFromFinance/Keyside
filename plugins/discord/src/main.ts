@@ -1,5 +1,6 @@
-// Discord desktop RPC. The companion opens Discord's local IPC socket for us and relays
-// frames; this plugin handles sign-in and commands.
+// Discord over its desktop RPC: the companion opens Discord's local IPC socket and relays
+// frames, this plugin handles sign-in and commands. Equibop (a Linux client) has no RPC for
+// voice, so for it the plugin runs Equibop's --toggle-mic, --toggle-deafen and --toggle-vad.
 
 import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { Session, fromResponse } from "../../_lib/session.ts";
@@ -19,10 +20,42 @@ let ready = false;
 let open = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const waiting = new Waiters<any>();
-let readyWait: ((ok: boolean) => void) | null = null;
-const voice = { mute: false, deaf: false, input: 1, output: 1, channel: "" };
+let readyWait: ((data: any) => void) | null = null;
+const voice = { mute: false, deaf: false, ptt: false, input: 1, output: 1, channel: "" };
 
 const cfg = () => ({ id: String(setting(host.connection, "clientId", "")).trim(), secret: String(setting(host.connection, "clientSecret", "")).trim() });
+const equibop = () => String(setting(host.connection, "app", "discord")) === "equibop";
+
+// Equibop's own Rich Presence server (arRPC) answers on Discord's socket but can't do voice.
+const ARRPC_USER = "1045800378228281345";
+
+/** How Equibop is started, tried in this order. Must match "run" in the manifest. */
+function launchers(): string[][] {
+  const how = String(setting(host.connection, "install", "auto"));
+  const native = ["equibop"];
+  const flatpak = ["flatpak", "run", "io.github.equicord.equibop"];
+  return how === "native" ? [native] : how === "flatpak" ? [flatpak] : [native, flatpak];
+}
+let launcher: string[] | null = null;
+
+/** Sends one toggle to the running Equibop. Starts Equibop if it isn't open. */
+async function toggleInEquibop(flag: "--toggle-mic" | "--toggle-deafen" | "--toggle-vad") {
+  let last = "";
+  for (const l of launcher ? [launcher] : launchers()) {
+    try {
+      const { code } = await host.run([...l, flag]);
+      if (code !== null && code !== 0) throw new Error("not installed");
+      if (!launcher) host.status("connected", "Equibop");
+      launcher = l;
+      return;
+    } catch (e) {
+      last = errorText(e);
+    }
+  }
+  const msg = /not installed/.test(last) ? "Equibop isn't installed, or isn't on PATH" : last;
+  host.status("error", msg);
+  throw new Error(msg);
+}
 
 function frame(op: number, payload: unknown) {
   return host.ipc.send("discord", { op, payload });
@@ -44,7 +77,7 @@ function onFrame(data: any) {
   }
   if (op !== OP.Frame || !p) return;
   if (p.cmd === "DISPATCH" && p.evt === "READY") {
-    readyWait?.(true);
+    readyWait?.(p.data ?? {});
     readyWait = null;
     return;
   }
@@ -64,6 +97,7 @@ function applyVoice(d: any) {
   if (!d) return;
   voice.mute = !!d.mute;
   voice.deaf = !!d.deaf;
+  if (typeof d.mode?.type === "string") voice.ptt = d.mode.type === "PUSH_TO_TALK";
   if (typeof d.input?.volume === "number") voice.input = d.input.volume / 100;
   if (typeof d.output?.volume === "number") voice.output = d.output.volume / 200;
   render();
@@ -78,6 +112,13 @@ async function channelName() {
 async function connect(gen: number) {
   const { id, secret } = cfg();
   ready = false;
+  if (equibop()) {
+    // Equibop doesn't report its state, so keys show what Keyside last sent.
+    ready = true;
+    host.status("connected", "Equibop");
+    render();
+    return;
+  }
   if (!id || !secret) {
     host.status("offline", "Add your Discord Application ID and Client secret in the plugin settings.");
     return;
@@ -87,12 +128,16 @@ async function connect(gen: number) {
       await host.ipc.open("discord");
       open = true;
     }
-    const got = new Promise<boolean>((r) => {
+    const got = new Promise<any>((r) => {
       readyWait = r;
-      setTimeout(() => r(false), 5000);
+      setTimeout(() => r(null), 5000);
     });
     await frame(OP.Handshake, { v: 1, client_id: id });
-    if (!(await got)) throw new Error("Discord didn't answer. Check the Application ID.");
+    const hello = await got;
+    if (!hello) throw new Error("Discord didn't answer. Check the Application ID.");
+    if (hello.user?.id === ARRPC_USER || hello.user?.username === "arrpc") {
+      throw new Error("Found Equibop or Vesktop instead of Discord. For Equibop, choose it under App.");
+    }
     if (!session.load(id)) {
       host.status("connecting", "Allow Keyside in the Discord window");
       const { code } = await command("AUTHORIZE", { client_id: id, scopes: SCOPES }, undefined, 120_000);
@@ -121,13 +166,18 @@ async function connect(gen: number) {
   render();
 }
 
+const discordOnly = new Set(["join", "leave", "input-volume", "output-volume"]);
+
 function view(k: Key): KeyView | null {
   if (!ready) return { disabled: true };
+  if (equibop() && discordOnly.has(k.action)) return { disabled: true, sub: "Discord app only" };
   switch (k.action) {
     case "mute":
       return voice.mute || voice.deaf ? { tone: "danger", badge: "MUTED", badgeTone: "danger", icon: "mic-off" } : { badge: "ON", badgeTone: "success" };
     case "deafen":
       return voice.deaf ? { tone: "danger", badge: "DEAF", badgeTone: "danger", icon: "volume-x" } : null;
+    case "voice-mode":
+      return voice.ptt ? { tone: "accent", badge: "PTT", badgeTone: "accent" } : { badge: "VOICE", badgeTone: "success" };
     case "join":
       return voice.channel && voice.channel === k.settings.channel ? { tone: "accent", badge: "IN", badgeTone: "accent" } : null;
     case "leave":
@@ -153,6 +203,7 @@ function render() {
 
 function restart() {
   generation++;
+  launcher = null;
   if (retryTimer) clearTimeout(retryTimer);
   waiting.failAll(new Error("restarting"));
   const { id, secret } = cfg();
@@ -166,11 +217,29 @@ function connected() {
 
 const set = (args: Record<string, unknown>) => (connected(), command("SET_VOICE_SETTINGS", args).then(applyVoice));
 
+/** Equibop only toggles, so it's sent only when the wanted state differs from the last one sent. */
+async function equibopSet(which: "mute" | "deaf" | "ptt", on: boolean) {
+  if (voice[which] === on) return;
+  await toggleInEquibop(which === "mute" ? "--toggle-mic" : which === "deaf" ? "--toggle-deafen" : "--toggle-vad");
+  voice[which] = on;
+  render();
+}
+
+function setMute(on: boolean) {
+  return equibop() ? equibopSet("mute", on) : set({ mute: on });
+}
+
+function onlyDiscord() {
+  if (equibop()) throw new Error("Equibop can't do this. It works with the Discord app.");
+  connected();
+}
+
 export default definePlugin({
   start(h) {
     host = h;
     host.ipc.on("discord", onFrame, () => {
       open = false;
+      if (equibop()) return;
       ready = false;
       waiting.failAll(new Error("Discord closed"));
       host.status("offline", "Discord isn't running");
@@ -187,22 +256,32 @@ export default definePlugin({
   },
   actions: {
     mute: {
-      press: ({ settings }) => set({ mute: settings.mode === "hold" ? false : want(settings.mode ?? "toggle", voice.mute) }),
-      release: ({ settings }) => (settings.mode === "hold" ? set({ mute: true }) : undefined),
+      press: ({ settings }) => setMute(settings.mode === "hold" ? false : want(settings.mode ?? "toggle", voice.mute)),
+      release: ({ settings }) => (settings.mode === "hold" ? setMute(true) : undefined),
       appear: render,
     },
-    deafen: { press: ({ settings }) => set({ deaf: want(settings.mode ?? "toggle", voice.deaf) }), appear: render },
+    deafen: {
+      press: ({ settings }) => (equibop() ? equibopSet("deaf", want(settings.mode ?? "toggle", voice.deaf)) : set({ deaf: want(settings.mode ?? "toggle", voice.deaf) })),
+      appear: render,
+    },
+    "voice-mode": {
+      press({ settings }) {
+        const ptt = want(settings.mode ?? "toggle", voice.ptt);
+        return equibop() ? equibopSet("ptt", ptt) : set({ mode: { type: ptt ? "PUSH_TO_TALK" : "VOICE_ACTIVITY" } });
+      },
+      appear: render,
+    },
     join: {
       async press({ settings }) {
-        connected();
+        onlyDiscord();
         const id = String(settings.channel ?? "").trim();
         if (!/^\d{5,24}$/.test(id)) throw new Error("Channel ID should be a long number");
         await command("SELECT_VOICE_CHANNEL", { channel_id: id, force: true });
       },
       appear: render,
     },
-    leave: { press: () => (connected(), command("SELECT_VOICE_CHANNEL", { channel_id: null })), appear: render },
-    "input-volume": { slide: ({ value }) => set({ input: { volume: Math.round(clamp01(value) * 100) } }), appear: render },
-    "output-volume": { slide: ({ value }) => set({ output: { volume: Math.round(clamp01(value) * 200) } }), appear: render },
+    leave: { press: () => (onlyDiscord(), command("SELECT_VOICE_CHANNEL", { channel_id: null })), appear: render },
+    "input-volume": { slide: ({ value }) => (onlyDiscord(), set({ input: { volume: Math.round(clamp01(value) * 100) } })), appear: render },
+    "output-volume": { slide: ({ value }) => (onlyDiscord(), set({ output: { volume: Math.round(clamp01(value) * 200) } })), appear: render },
   },
 });

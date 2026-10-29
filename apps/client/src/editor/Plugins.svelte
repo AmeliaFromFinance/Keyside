@@ -10,6 +10,7 @@
     net?: string[];
     udp?: boolean;
     ipc?: string[];
+    run?: string[][];
   }
   interface Info {
     id: string;
@@ -65,6 +66,7 @@
     for (const n of p.net ?? []) out.push(n.includes("{") ? t("Connect to the address set in its settings ({n})", { n }) : t("Connect to {n}", { n }));
     if (p.udp) out.push(t("Send UDP messages to those addresses"));
     if (p.ipc?.includes("discord")) out.push(t("Talk to the Discord app on this PC"));
+    for (const c of p.run ?? []) out.push(t("Run {command}", { command: c.join(" ") }));
     if (!out.length) out.push(t("No network access"));
     return out;
   }

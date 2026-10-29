@@ -47,7 +47,16 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
       const m = JSON.parse(line);
       if (m.method) {
         sent.push({ method: m.method, params: m.params });
-        if (m.id !== undefined) inbox.push(JSON.stringify({ jsonrpc: "2.0", id: m.id, result: opts.respond?.({ method: m.method, params: m.params }) ?? null }));
+        if (m.id !== undefined) {
+          // respond may throw (or return an Error) to make the call fail.
+          let reply: unknown;
+          try {
+            reply = opts.respond?.({ method: m.method, params: m.params }) ?? null;
+          } catch (e) {
+            reply = e instanceof Error ? e : new Error(String(e));
+          }
+          inbox.push(JSON.stringify(reply instanceof Error ? { jsonrpc: "2.0", id: m.id, error: { code: -32000, message: reply.message } } : { jsonrpc: "2.0", id: m.id, result: reply }));
+        }
         wake?.();
       } else if (m.id !== undefined) {
         const r = replies.get(m.id);

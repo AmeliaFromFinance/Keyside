@@ -48,3 +48,105 @@ test("authorizes through the Discord app and mirrors mute state", async () => {
   await h.stop();
   await token.close();
 });
+
+test("switches push to talk through Discord", async () => {
+  const token = await fakeHttp(() => ({ json: { access_token: "acc", refresh_token: "ref", expires_in: 604800 } }));
+  endpoints.token = `${token.url}/api/oauth2/token`;
+  const sets: any[] = [];
+  let h: Harness;
+  const reply = (payload: object) => setTimeout(() => void h.emit("ipc.message", { bridge: "discord", data: { op: 1, payload } }), 1);
+  const voice: any = { mute: false, deaf: false, mode: { type: "VOICE_ACTIVITY" } };
+  h = createTestHost(plugin, {
+    connection: { clientId: "123", clientSecret: "shh" },
+    respond(s) {
+      if (s.method !== "ipc.send") return undefined;
+      const { op, payload: p } = s.params.data;
+      if (op === 0) reply({ cmd: "DISPATCH", evt: "READY", data: {} });
+      else if (p.cmd === "AUTHORIZE") reply({ cmd: p.cmd, nonce: p.nonce, data: { code: "c" } });
+      else if (p.cmd === "AUTHENTICATE") reply({ cmd: p.cmd, nonce: p.nonce, data: { user: { username: "fern" } } });
+      else if (p.cmd === "GET_VOICE_SETTINGS") reply({ cmd: p.cmd, nonce: p.nonce, data: voice });
+      else if (p.cmd === "SET_VOICE_SETTINGS") (sets.push(p.args), reply({ cmd: p.cmd, nonce: p.nonce, data: Object.assign(voice, p.args) }));
+      else reply({ cmd: p.cmd, nonce: p.nonce, data: {} });
+      return null;
+    },
+  });
+  await h.start();
+  await h.sync([{ id: "p", action: "voice-mode" }]);
+  await eventually(() => h.view("p")?.badge === "VOICE");
+  await h.press("p", "voice-mode", { mode: "toggle" });
+  assert.deepEqual(sets.at(-1), { mode: { type: "PUSH_TO_TALK" } });
+  await eventually(() => h.view("p")?.badge === "PTT");
+  await h.stop();
+  await token.close();
+});
+
+test("says so when Equibop's Rich Presence answers instead of Discord", async () => {
+  let h: Harness;
+  h = createTestHost(plugin, {
+    connection: { clientId: "123", clientSecret: "shh" },
+    respond(s) {
+      if (s.method === "ipc.send" && s.params.data.op === 0) {
+        setTimeout(() => void h.emit("ipc.message", { bridge: "discord", data: { op: 1, payload: { cmd: "DISPATCH", evt: "READY", data: { user: { id: "1045800378228281345", username: "arrpc" } } } } }), 1);
+      }
+      return null;
+    },
+  });
+  await h.start();
+  await eventually(() => h.status()?.state === "error");
+  assert.match(String(h.status()?.detail), /Equibop/);
+  await h.stop();
+});
+
+test("controls Equibop with its toggle commands and falls back to Flatpak", async () => {
+  const ran: string[][] = [];
+  const h = createTestHost(plugin, {
+    connection: { app: "equibop" },
+    respond(s) {
+      if (s.method !== "run") return undefined;
+      ran.push(s.params.argv);
+      if (s.params.argv[0] === "equibop") throw new Error("not installed");
+      return { code: 0 };
+    },
+  });
+  await h.start();
+  await h.sync([
+    { id: "m", action: "mute" },
+    { id: "d", action: "deafen" },
+    { id: "j", action: "join", settings: { channel: "123456789" } },
+  ]);
+  await eventually(() => h.status()?.state === "connected");
+  await eventually(() => h.view("j")?.disabled === true && h.view("j")?.sub === "Discord app only");
+
+  await h.press("m", "mute", { mode: "toggle" });
+  assert.deepEqual(ran, [
+    ["equibop", "--toggle-mic"],
+    ["flatpak", "run", "io.github.equicord.equibop", "--toggle-mic"],
+  ]);
+  await eventually(() => h.view("m")?.badge === "MUTED");
+
+  // Already muted: nothing to send.
+  await h.press("m", "mute", { mode: "on" });
+  assert.equal(ran.length, 2);
+
+  await h.press("d", "deafen", { mode: "toggle" });
+  assert.deepEqual(ran.at(-1), ["flatpak", "run", "io.github.equicord.equibop", "--toggle-deafen"]);
+  await eventually(() => h.view("d")?.badge === "DEAF");
+  await assert.rejects(h.press("j", "join", { channel: "123456789" }), /Discord app/);
+  await h.stop();
+});
+
+test("reports a missing Equibop", async () => {
+  const h = createTestHost(plugin, {
+    connection: { app: "equibop" },
+    respond(s) {
+      if (s.method === "run") throw new Error("not installed");
+      return undefined;
+    },
+  });
+  await h.start();
+  await h.sync([{ id: "m", action: "mute" }]);
+  await assert.rejects(h.press("m", "mute", { mode: "toggle" }), /isn't installed/);
+  assert.equal(h.status()?.state, "error");
+  assert.notEqual(h.view("m")?.badge, "MUTED");
+  await h.stop();
+});

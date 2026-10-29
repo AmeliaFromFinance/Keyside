@@ -322,6 +322,7 @@ export default {
   "System": "Sistema",
   "Tablet": "Tableta",
   "Tailscale is on. Paired phones on your tailnet can reach this PC from anywhere.": "Tailscale está activo. Los móviles emparejados de tu tailnet pueden llegar a este PC desde cualquier sitio.",
+  "Run {command}": "Ejecutar {command}",
   "Talk to the Discord app on this PC": "Hablar con la app de Discord en este PC",
   "Taller": "Más alto",
   "Teal": "Verde azulado",

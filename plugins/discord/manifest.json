@@ -1,26 +1,52 @@
 {
   "id": "dev.keyside.discord",
   "name": "Discord",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "discord",
-  "description": "Mute, deafen and voice channel controls for the Discord desktop app, with the current state on the keys.",
+  "description": "Mute, deafen, voice mode and voice channel controls for the Discord desktop app, with the current state on the keys. Also works with Equibop on Linux.",
   "homepage": "https://discord.com/developers/applications",
   "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "headset",
-  "permissions": { "net": ["discord.com"], "ipc": ["discord"] },
+  "permissions": {
+    "net": ["discord.com"],
+    "ipc": ["discord"],
+    "run": [
+      ["equibop", "--toggle-mic"],
+      ["equibop", "--toggle-deafen"],
+      ["equibop", "--toggle-vad"],
+      ["flatpak", "run", "io.github.equicord.equibop", "--toggle-mic"],
+      ["flatpak", "run", "io.github.equicord.equibop", "--toggle-deafen"],
+      ["flatpak", "run", "io.github.equicord.equibop", "--toggle-vad"]
+    ]
+  },
   "connection": {
     "type": "object",
     "properties": {
+      "app": {
+        "type": "string",
+        "title": "App",
+        "enum": ["discord", "equibop"],
+        "enumNames": ["Discord", "Equibop (Linux)"],
+        "default": "discord",
+        "description": "Equibop needs no application. Keys run Equibop's --toggle-mic, --toggle-deafen and --toggle-vad, so they show what Keyside last sent."
+      },
+      "install": {
+        "type": "string",
+        "title": "Equibop install",
+        "enum": ["auto", "native", "flatpak"],
+        "enumNames": ["Find it", "Installed package", "Flatpak"],
+        "default": "auto"
+      },
       "clientId": {
         "type": "string",
-        "title": "Application ID",
+        "title": "Application ID (Discord only)",
         "maxLength": 32,
         "description": "Create an application at discord.com/developers, add http://127.0.0.1 under OAuth2 > Redirects and paste its Application ID and Client Secret here. Discord then asks you to allow Keyside once."
       },
-      "clientSecret": { "type": "string", "format": "secret", "title": "Client secret" },
+      "clientSecret": { "type": "string", "format": "secret", "title": "Client secret (Discord only)" },
       "session": { "type": "string", "format": "secret", "x-hidden": true }
     }
   },
@@ -38,6 +64,13 @@
       "icon": "headphones",
       "kind": "toggle",
       "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Deafen", "Undeafen"], "default": "toggle" } } }
+    },
+    {
+      "id": "voice-mode",
+      "name": "Push to talk",
+      "icon": "radio",
+      "kind": "toggle",
+      "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Push to talk", "Voice activity"], "default": "toggle" } } }
     },
     {
       "id": "join",

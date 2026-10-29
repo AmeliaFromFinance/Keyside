@@ -67,10 +67,10 @@ test("a plugin can't reach anything it wasn't granted", { skip: (!existsSync(bin
     }
   }
   assert.equal(vars["probe.done"], true, "probe plugin ran");
-  for (const blocked of ["readSecrets", "readIdentity", "readEtc", "writeOutside", "writeOwnCode", "env", "run", "ffi", "sys", "remoteImport", "netOther", "netPublic"]) {
+  for (const blocked of ["readSecrets", "readIdentity", "readEtc", "writeOutside", "writeOwnCode", "env", "run", "ffi", "sys", "remoteImport", "netOther", "netPublic", "hostRunUnlisted", "hostRunExtraArgs"]) {
     assert.equal(vars[`probe.${blocked}`], "denied", `${blocked} must be denied`);
   }
-  for (const allowed of ["netGranted", "writeOwnData", "readOwnCode"]) {
+  for (const allowed of ["netGranted", "writeOwnData", "readOwnCode", "hostRunListed"]) {
     assert.equal(vars[`probe.${allowed}`], "allowed", `${allowed} must work`);
   }
 });

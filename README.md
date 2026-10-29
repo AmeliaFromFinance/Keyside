@@ -53,7 +53,7 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | VTube Studio | Hotkeys, expressions, model switching |
 | VNyan, Warudo | Trigger node graphs and blueprints |
 | veadotube | Avatar states with thumbnails |
-| Discord | Mute, deafen, voice channels, mic and speaker volume |
+| Discord | Mute, deafen, push to talk, voice channels, mic and speaker volume. Equibop on Linux too |
 | Spotify | Now playing with album art, playback, volume, like, playlists |
 | Voicemeeter | Mute, gain, routing and scripts over VBAN |
 | Elgato Key Light | Power, brightness, colour temperature, presets |
