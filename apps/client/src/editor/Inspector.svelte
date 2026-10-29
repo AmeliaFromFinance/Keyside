@@ -7,7 +7,7 @@
   import SdPanel from "./SdPanel.svelte";
   import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits } from "./state.svelte.ts";
   import { req } from "../lib/deck.svelte.ts";
-  import { t } from "../lib/i18n.svelte.ts";
+  import { t, mark } from "../lib/i18n.svelte.ts";
 
   let { admin = false }: { admin?: boolean } = $props();
 
@@ -21,27 +21,27 @@
   const pg = $derived(page());
 
   const colors: Array<[KeyColor, string]> = [
-    ["default", "Default"],
-    ["teal", "Teal"],
-    ["violet", "Violet"],
-    ["green", "Green"],
-    ["amber", "Amber"],
-    ["red", "Red"],
-    ["blue", "Blue"],
+    ["default", mark("Default")],
+    ["teal", mark("Teal")],
+    ["violet", mark("Violet")],
+    ["green", mark("Green")],
+    ["amber", mark("Amber")],
+    ["red", mark("Red")],
+    ["blue", mark("Blue")],
   ];
   const kinds: Array<[KeyKind, string]> = [
-    ["button", "Button"],
-    ["toggle", "Toggle"],
-    ["folder", "Folder"],
-    ["back", "Back"],
-    ["slider", "Slider"],
-    ["widget", "Text or chat"],
+    ["button", mark("Button")],
+    ["toggle", mark("Toggle")],
+    ["folder", mark("Folder")],
+    ["back", mark("Back")],
+    ["slider", mark("Slider")],
+    ["widget", mark("Text or chat")],
   ];
   const tones: Array<[Tone, string]> = [
-    ["accent", "Highlight"],
-    ["danger", "Red"],
-    ["success", "Green text"],
-    ["warning", "Amber text"],
+    ["accent", mark("Highlight")],
+    ["danger", mark("Red")],
+    ["success", mark("Green text")],
+    ["warning", mark("Amber text")],
   ];
 
   function edit(fn: (k: Key) => void) {

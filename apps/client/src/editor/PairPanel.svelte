@@ -154,7 +154,7 @@
       <span class="dot" class:ok={d.online}></span>
       <span class="name">{d.name}</span>
       <span class="meta">
-        {d.online ? t("online") : t("seen {t} ago", { t: ago(d.lastSeen * 1000, now) })}{d.hasPin ? " · PIN" : ""}{d.scope !== "deck" ? ` · ${t(d.scope === "editor" ? "editor" : "moderator")}` : ""}
+        {d.online ? t("online") : t("seen {t} ago", { t: ago(d.lastSeen * 1000, now) })}{d.hasPin ? " · PIN" : ""}{d.scope !== "deck" ? ` · ${d.scope === "editor" ? t("editor") : t("moderator")}` : ""}
       </span>
       <button class="btn danger small" onclick={() => revoke(d.id)}>{t("Revoke")}</button>
     </div>

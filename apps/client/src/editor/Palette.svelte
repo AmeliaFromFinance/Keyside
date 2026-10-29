@@ -1,17 +1,17 @@
 <script lang="ts">
   import Icon from "../components/Icon.svelte";
   import { ed, allActions, type ActionDef } from "./state.svelte.ts";
-  import { t } from "../lib/i18n.svelte.ts";
+  import { t, mark } from "../lib/i18n.svelte.ts";
 
   let { admin = false }: { admin?: boolean } = $props();
   let q = $state("");
   let showAll = $state<Record<string, boolean>>({});
 
   const layoutItems: ActionDef[] = [
-    { id: "kind:folder", name: "Folder", group: "Layout", icon: "folder", description: "sub-page" },
-    { id: "kind:slider", name: "Slider", group: "Layout", icon: "sliders-vertical", description: "value" },
-    { id: "kind:widget", name: "Text or chat", group: "Layout", icon: "message-square", description: "live text" },
-    { id: "kind:button", name: "Multi-action", group: "Layout", icon: "layers", description: "steps" },
+    { id: "kind:folder", name: mark("Folder"), group: mark("Layout"), icon: "folder", description: mark("sub-page") },
+    { id: "kind:slider", name: mark("Slider"), group: mark("Layout"), icon: "sliders-vertical", description: mark("value") },
+    { id: "kind:widget", name: mark("Text or chat"), group: mark("Layout"), icon: "message-square", description: mark("live text") },
+    { id: "kind:button", name: mark("Multi-action"), group: mark("Layout"), icon: "layers", description: mark("steps") },
   ];
 
   const groups = $derived.by(() => {
@@ -20,7 +20,7 @@
     const map = new Map<string, ActionDef[]>();
     for (const a of items) {
       if (needle && !`${a.name} ${a.group} ${a.description ?? ""}`.toLowerCase().includes(needle)) continue;
-      const g = a.group ?? "Other";
+      const g = a.group ?? mark("Other");
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(a);
     }

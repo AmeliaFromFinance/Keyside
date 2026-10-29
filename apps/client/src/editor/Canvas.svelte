@@ -3,14 +3,14 @@
   import Icon from "../components/Icon.svelte";
   import type { FormFactor, KeyKind, KeyView } from "@phonedeck/protocol";
   import { ed, page, profile, change, addKey, addPage, moveKey, placements, previewView, actionDef } from "./state.svelte.ts";
-  import { t } from "../lib/i18n.svelte.ts";
+  import { t, mark } from "../lib/i18n.svelte.ts";
   import { deck } from "../lib/deck.svelte.ts";
 
   const factors: Array<[FormFactor, string]> = [
-    ["phone-portrait", "Phone"],
-    ["phone-landscape", "Phone, sideways"],
-    ["tablet", "Tablet"],
-    ["desktop", "Desktop browser"],
+    ["phone-portrait", mark("Phone")],
+    ["phone-landscape", mark("Phone, sideways")],
+    ["tablet", mark("Tablet")],
+    ["desktop", mark("Desktop browser")],
   ];
 
   const pg = $derived(page());

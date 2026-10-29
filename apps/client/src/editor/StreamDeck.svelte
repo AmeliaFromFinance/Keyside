@@ -38,6 +38,12 @@
     html: mark("Web page plugin, can't run here"),
   };
 
+  // Reasons the companion gives for a plugin that can't run, so they get translated.
+  mark("This plugin has no version for this system");
+  mark("Web-page plugins need Elgato's app and can't run in PhoneDeck");
+  mark("Needs your permission to run unsandboxed");
+  mark("The plugin runtime (Deno) is missing");
+
   let list = $state<Info[]>([]);
   let deno = $state(true);
   let staged = $state<Staged | null>(null);
