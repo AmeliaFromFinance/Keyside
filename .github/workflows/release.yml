@@ -47,7 +47,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: System libraries
         if: runner.os == 'Linux'
         run: |
@@ -60,8 +60,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -89,7 +89,7 @@ jobs:
             echo "- **Linux:** use the AppImage, or the .deb or .rpm package."
             echo "EOF"
           } >> "$GITHUB_ENV"
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -112,13 +112,13 @@ jobs:
       ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -136,7 +136,7 @@ jobs:
           "$tools/zipalign" -p 4 apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk Keyside.apk
           "$tools/apksigner" sign --ks release.keystore --ks-pass env:ANDROID_KEYSTORE_PASSWORD Keyside.apk
           rm release.keystore
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: env.ANDROID_KEYSTORE != ''
         with:
           draft: true
