@@ -113,6 +113,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/sdk
 
+  plugins/goxlr:
+    dependencies:
+      '@keyside/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
   plugins/homeassistant:
     dependencies:
       '@keyside/sdk':

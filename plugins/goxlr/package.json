@@ -1,0 +1,6 @@
+{
+  "name": "@keyside/plugin-goxlr",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@keyside/sdk": "workspace:*" }
+}

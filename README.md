@@ -55,6 +55,7 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | veadotube | Avatar states with thumbnails |
 | Discord | Mute, deafen, push to talk, noise suppression, echo cancellation, voice channels, mic and speaker volume. Equibop on Linux too |
 | Spotify | Now playing with album art, playback, volume, like, playlists |
+| GoXLR | Fader and cough mutes, channel volumes, voice effects and presets, samples, routing, profiles (through the GoXLR Utility) |
 | Voicemeeter | Mute, gain, routing, macro buttons, presets, the recorder and scripts over VBAN |
 | Elgato Key Light | Power, brightness, colour temperature, presets |
 | Philips Hue | Rooms, zones, lights, scenes, brightness, colour |

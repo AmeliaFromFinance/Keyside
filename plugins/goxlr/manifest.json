@@ -1,0 +1,152 @@
+{
+  "id": "dev.keyside.goxlr",
+  "name": "GoXLR",
+  "version": "1.0.0",
+  "author": "Keyside",
+  "prefix": "goxlr",
+  "description": "Fader mutes, cough, volumes, effects, samples, routing and profiles through the GoXLR Utility.",
+  "homepage": "https://github.com/GoXLR-on-Linux/goxlr-utility",
+  "license": "GPL-3.0-or-later",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "sliders-horizontal",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "default": 14564, "minimum": 1, "maximum": 65535, "description": "Install the GoXLR Utility and keep it running. The official GoXLR app has no API." },
+      "serial": { "type": "string", "title": "Serial number", "maxLength": 40, "description": "Only needed with more than one GoXLR. Leave empty to use the first." }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "fader-mute",
+      "name": "Fader mute",
+      "icon": "volume-x",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "fader": { "type": "string", "title": "Fader", "enum": ["A", "B", "C", "D"], "enumNames": ["A (1st)", "B (2nd)", "C (3rd)", "D (4th)"], "default": "A" },
+          "to": { "type": "string", "title": "Mute", "enum": ["fader", "all"], "enumNames": ["As set on the fader", "Everywhere"], "default": "fader" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Mute", "Unmute"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "cough",
+      "name": "Cough mute",
+      "icon": "mic-off",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "title": "Mute", "enum": ["button", "all"], "enumNames": ["As set on the cough button", "Everywhere"], "default": "button" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off", "hold"], "enumNames": ["Toggle", "Mute", "Unmute", "Mute while held"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "volume",
+      "name": "Volume",
+      "icon": "sliders-vertical",
+      "kind": "slider",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "title": "Channel",
+            "enum": ["Mic", "Chat", "Music", "Game", "Console", "LineIn", "System", "Sample", "Headphones", "MicMonitor", "LineOut"],
+            "enumNames": ["Mic", "Chat", "Music", "Game", "Console", "Line in", "System", "Samples", "Headphones", "Mic monitor", "Line out"],
+            "default": "Music"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect",
+      "name": "Voice effect",
+      "icon": "sparkles",
+      "kind": "toggle",
+      "description": "Full-size GoXLR only.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "effect": { "type": "string", "title": "Effect", "enum": ["fx", "megaphone", "robot", "hardtune"], "enumNames": ["All effects (FX)", "Megaphone", "Robot", "Hard tune"], "default": "fx" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off", "hold"], "enumNames": ["Toggle", "Turn on", "Turn off", "On while held"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "preset",
+      "name": "Effect preset",
+      "icon": "audio-waveform",
+      "description": "Full-size GoXLR only.",
+      "settings": {
+        "type": "object",
+        "properties": { "preset": { "type": "string", "title": "Preset", "x-options": "dynamic" } },
+        "required": ["preset"]
+      }
+    },
+    {
+      "id": "sample",
+      "name": "Sample",
+      "icon": "audio-lines",
+      "description": "Full-size GoXLR only.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "bank": { "type": "string", "title": "Bank", "enum": ["A", "B", "C"], "default": "A" },
+          "button": { "type": "string", "title": "Button", "enum": ["TopLeft", "TopRight", "BottomLeft", "BottomRight"], "enumNames": ["Top left", "Top right", "Bottom left", "Bottom right"], "default": "TopLeft" },
+          "op": { "type": "string", "title": "On press", "enum": ["play", "stop", "toggle"], "enumNames": ["Play", "Stop", "Play or stop"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "route",
+      "name": "Routing",
+      "icon": "cable",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "From",
+            "enum": ["Microphone", "Chat", "Music", "Game", "Console", "LineIn", "System", "Samples"],
+            "enumNames": ["Mic", "Chat", "Music", "Game", "Console", "Line in", "System", "Samples"],
+            "default": "Music"
+          },
+          "output": {
+            "type": "string",
+            "title": "To",
+            "enum": ["BroadcastMix", "Headphones", "ChatMic", "Sampler", "LineOut", "StreamMix2"],
+            "enumNames": ["Stream mix", "Headphones", "Chat mic", "Sampler", "Line out", "Stream mix 2"],
+            "default": "BroadcastMix"
+          },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "profile",
+      "name": "Load profile",
+      "icon": "layers",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "title": "Type", "enum": ["device", "mic"], "enumNames": ["Device profile", "Mic profile"], "default": "device" },
+          "profile": { "type": "string", "title": "Profile", "x-options": "dynamic" }
+        },
+        "required": ["profile"]
+      }
+    }
+  ],
+  "variables": [
+    { "name": "profile", "title": "Device profile", "type": "string" },
+    { "name": "mic_profile", "title": "Mic profile", "type": "string" }
+  ]
+}

@@ -116,6 +116,13 @@ VBAN text can't report state back, so toggle keys follow what Keyside last sent.
 
 **Load preset** needs the full path of a settings file saved from Voicemeeter (**Menu > Save Settings**), on the Voicemeeter PC. **Macro button** presses buttons in Voicemeeter's Macro Buttons app, numbered from 1 in the order they appear there.
 
+## GoXLR
+
+1. Install the [GoXLR Utility](https://github.com/GoXLR-on-Linux/goxlr-utility/releases/latest) and keep it running. It works on Windows, macOS and Linux. The official GoXLR app has no way for other apps to control it.
+2. In Keyside, the defaults work if the Utility is on this PC: address `127.0.0.1`, port `14564`.
+
+Keys follow the GoXLR itself, so pressing a button on the device updates the keys too. With more than one GoXLR, enter the serial number of the one to control. It's shown in the Utility. Effects, effect presets and samples need the full-size GoXLR.
+
 ## Elgato Key Light
 
 Enter each light's IP address, found in Elgato Control Center under the light's settings. Up to four lights.
