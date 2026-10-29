@@ -15,7 +15,26 @@ const BACKGROUND: &str = "--background";
 
 struct Companion(Arc<App>);
 
-/// The editor is the companion's own local page. It gets no access to Tauri's APIs.
+/// Zoom that keeps the editor readable on big screens: 1080 logical pixels tall is 100%.
+fn auto_zoom(monitor: Option<tauri::Monitor>) -> f64 {
+    let Some(m) = monitor else { return 1.0 };
+    let tall = f64::from(m.size().height) / m.scale_factor();
+    ((tall / 1080.0 * 4.0).round() / 4.0).clamp(1.0, 2.0)
+}
+
+/// Zooms the editor window to the saved level, or the automatic one. Returns the level used.
+fn apply_zoom(handle: &AppHandle, saved: Option<f64>) -> f64 {
+    let Some(w) = handle.get_webview_window("editor") else { return saved.unwrap_or(1.0) };
+    let zoom = saved.unwrap_or_else(|| auto_zoom(w.current_monitor().ok().flatten()));
+    if let Err(e) = w.set_zoom(zoom) {
+        tracing::warn!("couldn't zoom the editor: {e}");
+    }
+    *handle.state::<Companion>().0.editor_zoom.write() = zoom;
+    zoom
+}
+
+/// The editor is the companion's own local page. It gets no access to Tauri's APIs; zoom
+/// requests reach this app through the companion instead.
 fn open_editor(handle: &AppHandle) {
     if let Some(w) = handle.get_webview_window("editor") {
         let _ = w.unminimize();
@@ -25,9 +44,29 @@ fn open_editor(handle: &AppHandle) {
     }
     let app = handle.state::<Companion>().0.clone();
     let Ok(url) = keyside::editor_url(&app).parse() else { return };
-    let built = WebviewWindowBuilder::new(handle, "editor", WebviewUrl::External(url)).title("Keyside").inner_size(1360.0, 860.0).min_inner_size(960.0, 600.0).build();
-    if let Err(e) = built {
-        tracing::error!("couldn't open the editor window: {e}");
+    // Size the window for the zoom it will get, within the screen.
+    let monitor = handle.primary_monitor().ok().flatten();
+    let zoom = app.settings.read().editor_zoom.unwrap_or_else(|| auto_zoom(monitor.clone()));
+    let (max_w, max_h) = monitor.map(|m| (f64::from(m.size().width) / m.scale_factor() * 0.9, f64::from(m.size().height) / m.scale_factor() * 0.9)).unwrap_or((f64::MAX, f64::MAX));
+    let built = WebviewWindowBuilder::new(handle, "editor", WebviewUrl::External(url))
+        .title("Keyside")
+        .inner_size((1360.0 * zoom).min(max_w), (860.0 * zoom).min(max_h))
+        .min_inner_size(960.0, 600.0)
+        .initialization_script("window.__KEYSIDE_DESKTOP__ = true;")
+        // Some webviews reset zoom when a page loads.
+        .on_page_load(|w, p| {
+            if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+                let saved = w.app_handle().state::<Companion>().0.settings.read().editor_zoom;
+                apply_zoom(w.app_handle(), saved);
+            }
+        })
+        .build();
+    match built {
+        Ok(_) => {
+            let saved = app.settings.read().editor_zoom;
+            apply_zoom(handle, saved);
+        }
+        Err(e) => tracing::error!("couldn't open the editor window: {e}"),
     }
 }
 
@@ -40,6 +79,8 @@ fn main() {
         .setup(|app| {
             let plugins = app.path().resource_dir().ok().map(|d| d.join("plugins")).filter(|d| d.is_dir());
             let companion = tauri::async_runtime::block_on(keyside::start(Options { data_dir: None, bundled_plugins: plugins }))?;
+            let handle = app.handle().clone();
+            *companion.zoom_hook.write() = Some(Box::new(move |saved| apply_zoom(&handle, saved)));
             app.manage(Companion(companion));
 
             let open = MenuItem::with_id(app, "open", "Open Keyside", true, None::<&str>)?;

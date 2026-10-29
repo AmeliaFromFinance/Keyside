@@ -174,6 +174,8 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
                 "fingerprint": *app.tls_fingerprint.read(),
                 "deno": crate::plugins::sandbox::find_deno().is_some(),
                 "uptime": app.started.elapsed().as_secs(),
+                "zoom": *app.editor_zoom.read(),
+                "zoomAuto": st.editor_zoom.is_none(),
             }))
         }
         "settings.get" => {
@@ -185,7 +187,8 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             let mut merged = serde_json::to_value(app.settings.read().clone()).unwrap_or(Value::Null);
             if let (Some(m), Some(patch)) = (merged.as_object_mut(), a.as_object()) {
                 for (k, v) in patch {
-                    if m.contains_key(k) {
+                    // Zoom has its own op, so an open settings form can't undo it.
+                    if m.contains_key(k) && k != "editorZoom" {
                         m.insert(k.clone(), v.clone());
                     }
                 }
@@ -201,6 +204,33 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             next.save(&app.paths).map_err(OpError::failed)?;
             *app.settings.write() = next;
             Ok(json!({ "restartNeeded": true }))
+        }
+        "editor.zoom" => {
+            need_admin(who)?;
+            // Like browsers: Ctrl + and - walk these steps.
+            const STEPS: [f64; 13] = [0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+            let saved = if let Some(v) = a.get("value") {
+                v.as_f64().map(|z| z.clamp(STEPS[0], STEPS[STEPS.len() - 1]))
+            } else {
+                let cur = *app.editor_zoom.read();
+                match a.get("step").and_then(Value::as_i64) {
+                    Some(1) => Some(STEPS.into_iter().find(|z| *z > cur + 0.001).unwrap_or(STEPS[STEPS.len() - 1])),
+                    Some(-1) => Some(STEPS.into_iter().rev().find(|z| *z < cur - 0.001).unwrap_or(STEPS[0])),
+                    Some(0) => None,
+                    _ => return Err(OpError::invalid("step must be -1, 0 or 1")),
+                }
+            };
+            let applied = {
+                let hook = app.zoom_hook.read();
+                let hook = hook.as_ref().ok_or_else(|| OpError::invalid("zoom only works in the desktop app"))?;
+                hook(saved)
+            };
+            *app.editor_zoom.write() = applied;
+            let mut next = app.settings.read().clone();
+            next.editor_zoom = saved;
+            next.save(&app.paths).map_err(OpError::failed)?;
+            *app.settings.write() = next;
+            Ok(json!({ "zoom": applied, "auto": saved.is_none() }))
         }
         "pairing.start" => {
             need_admin(who)?;
@@ -477,6 +507,34 @@ mod tests {
         new.profiles[0].pages[0].keys[0].actions.push(Action { kind: "core.launch".into(), settings: s, review: false });
         assert!(check_editor_changes(&old, &new).is_err());
         assert!(check_editor_changes(&new, &new).is_ok(), "existing steps can stay");
+    }
+
+    #[tokio::test]
+    async fn zoom_steps_saves_and_goes_back_to_automatic() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+        let admin = Who { admin: true, device: String::new(), name: String::new(), scope: Scope::Editor, pages: None };
+        let phone = Who { admin: false, ..admin.clone() };
+        assert!(handle(&app, &admin, "editor.zoom", json!({ "step": 1 })).await.is_err(), "needs the desktop app");
+
+        *app.zoom_hook.write() = Some(Box::new(|saved| saved.unwrap_or(1.25)));
+        *app.editor_zoom.write() = 1.25;
+        let z = |r: R| r.ok().unwrap()["zoom"].as_f64().unwrap();
+        assert_eq!(z(handle(&app, &admin, "editor.zoom", json!({ "step": 1 })).await), 1.5);
+        assert_eq!(app.settings.read().editor_zoom, Some(1.5));
+        assert_eq!(z(handle(&app, &admin, "editor.zoom", json!({ "step": -1 })).await), 1.25);
+        assert_eq!(z(handle(&app, &admin, "editor.zoom", json!({ "value": 9.0 })).await), 3.0);
+        assert_eq!(z(handle(&app, &admin, "editor.zoom", json!({ "step": 0 })).await), 1.25);
+        assert_eq!(app.settings.read().editor_zoom, None);
+        assert!(handle(&app, &phone, "editor.zoom", json!({ "step": 1 })).await.is_err(), "only the local editor");
+
+        // An open settings form can't undo it.
+        *app.editor_zoom.write() = 1.25;
+        assert!(handle(&app, &admin, "editor.zoom", json!({ "value": 1.1 })).await.is_ok());
+        let mut form = serde_json::to_value(app.settings.read().clone()).unwrap();
+        form["editorZoom"] = Value::Null;
+        assert!(handle(&app, &admin, "settings.set", form).await.is_ok());
+        assert_eq!(app.settings.read().editor_zoom, Some(1.1));
     }
 
     #[test]

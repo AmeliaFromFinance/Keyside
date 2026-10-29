@@ -15,6 +15,7 @@
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
+  import { zoomControls } from "../lib/zoom.ts";
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
@@ -30,6 +31,7 @@
   let reviewCount = $state(0);
 
   $effect(() => everySecond((n) => (now = n)));
+  $effect(() => (admin ? zoomControls() : undefined));
 
   $effect(() => {
     if (deck.conn.s === "open" && !loaded) {

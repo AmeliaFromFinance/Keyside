@@ -14,3 +14,4 @@ plugins/*/main.js
 /apps/desktop/src-tauri/target/
 /apps/desktop/src-tauri/resources/
 /apps/desktop/src-tauri/gen/
+.svelte-check/

@@ -7,7 +7,7 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 First release.
 
 - Deck for phones, tablets and browsers, with layouts that adapt to every screen.
-- Desktop editor with drag and drop, undo, live preview and per-screen arrangements.
+- Desktop editor with drag and drop, undo, live preview and per-screen arrangements. It sizes itself for big screens and zooms with Ctrl and + or -, or Ctrl and the scroll wheel.
 - QR pairing with a confirmation code, end-to-end encryption and optional PIN.
 - Deck, editor and moderator access levels.
 - Built-in actions: hotkeys, text, media keys, links, apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.

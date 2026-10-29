@@ -60,7 +60,14 @@ pub struct App {
     pub admin_sessions: Mutex<HashMap<String, std::time::Instant>>,
     /// Failed editor sign-ins and the time sign-in is blocked until.
     pub login_fails: Mutex<(u32, Option<std::time::Instant>)>,
+    /// Set by the desktop app: zooms its editor window to the saved level (None: automatic)
+    /// and returns the level it used.
+    pub zoom_hook: RwLock<Option<ZoomHook>>,
+    /// The editor window's current zoom.
+    pub editor_zoom: RwLock<f64>,
 }
+
+pub type ZoomHook = Box<dyn Fn(Option<f64>) -> f64 + Send + Sync>;
 
 impl App {
     pub fn new(opts: Options) -> Result<Arc<Self>> {
@@ -104,6 +111,8 @@ impl App {
             started: std::time::Instant::now(),
             admin_sessions: Mutex::new(HashMap::new()),
             login_fails: Mutex::new((0, None)),
+            zoom_hook: RwLock::new(None),
+            editor_zoom: RwLock::new(1.0),
         });
         app.plugins.attach(&app);
         Ok(app)

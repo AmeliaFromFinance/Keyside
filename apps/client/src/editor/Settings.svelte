@@ -2,6 +2,7 @@
   import Icon from "../components/Icon.svelte";
   import { req } from "../lib/deck.svelte.ts";
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
+  import { inDesktopApp, zoomTo } from "../lib/zoom.ts";
 
   interface Info {
     name: string;
@@ -11,6 +12,8 @@
     adminPort: number;
     fingerprint: string;
     deno: boolean;
+    zoom: number;
+    zoomAuto: boolean;
   }
   interface Token {
     id: string;
@@ -50,6 +53,17 @@
     tokens = await req("tokens.list");
   }
 
+  const sizes = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+  const pct = (z: number) => `${Math.round(z * 100)}%`;
+  const modKey = /Mac/i.test(navigator.userAgent) ? "Cmd" : "Ctrl";
+
+  async function setZoom(v: string) {
+    if (!info) return;
+    const r = await zoomTo(v === "auto" ? null : Number(v));
+    info.zoom = r.zoom;
+    info.zoomAuto = r.auto;
+  }
+
   const tailscale = $derived((info?.addresses ?? []).filter((a) => /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(a)));
 </script>
 
@@ -60,7 +74,7 @@
     <h3>{t("This PC")}</h3>
     <p>Keyside <span class="mono">{info.version}</span></p>
     <p>{t("Phones connect to")} {#each info.addresses as a (a)}<span class="mono addr">{a}:{info.lanPort}</span>{:else}<span class="bad">{t("no network found")}</span>{/each}</p>
-    <p class="muted">{t("Certificate")} <span class="mono">{info.fingerprint}</span></p>
+    <p class="muted">{t("Certificate")} <span class="mono fp">{info.fingerprint}</span></p>
     {#if !info.deno}<p class="bad"><Icon name="triangle-alert" size={18} />{t("The plugin runtime is missing, so plugins can't run. Reinstall Keyside.")}</p>{/if}
     {#if tailscale.length}
       <p class="ok"><Icon name="globe" size={18} />{t("Tailscale is on. Paired phones on your tailnet can reach this PC from anywhere.")}</p>
@@ -80,6 +94,16 @@
         {#each Object.entries(languages) as [code, name] (code)}<option value={code}>{name}</option>{/each}
       </select>
     </label>
+    {#if info && inDesktopApp()}
+      <label class="field">
+        <span>{t("Interface size")}</span>
+        <select value={info.zoomAuto ? "auto" : String(info.zoom)} onchange={(e) => void setZoom(e.currentTarget.value).catch((err) => (error = err.message))}>
+          <option value="auto">{info.zoomAuto ? t("Automatic ({size})", { size: pct(info.zoom) }) : t("Automatic")}</option>
+          {#each sizes as z (z)}<option value={String(z)}>{pct(z)}</option>{/each}
+        </select>
+        <small>{t("{key} and + or -, or {key} and the scroll wheel, also change it.", { key: modKey })}</small>
+      </label>
+    {/if}
     <label class="check"><input type="checkbox" bind:checked={s.followFocus} />{t("Switch layouts to match the app in front")}</label>
     <label class="check"><input type="checkbox" bind:checked={s.hardwareDecks} />{t("Use Stream Deck hardware plugged into this PC")}</label>
   </section>
@@ -128,6 +152,9 @@
 </section>
 
 <style>
+  .fp {
+    overflow-wrap: anywhere;
+  }
   .card {
     display: flex;
     flex-direction: column;

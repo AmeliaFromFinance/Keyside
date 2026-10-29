@@ -58,6 +58,8 @@ pub struct Settings {
     pub hardware_decks: bool,
     pub registry_url: String,
     pub locale: String,
+    /// Editor zoom in the desktop app. None picks one from the screen size.
+    pub editor_zoom: Option<f64>,
 }
 
 impl Default for Settings {
@@ -74,6 +76,7 @@ impl Default for Settings {
             hardware_decks: true,
             registry_url: DEFAULT_REGISTRY.into(),
             locale: "en".into(),
+            editor_zoom: None,
         }
     }
 }
