@@ -15,6 +15,8 @@ export interface FieldSchema {
   maximum?: number;
   format?: string;
   "x-options"?: string;
+  /** Shows the field only while another field has one of these values. */
+  "x-showWhen"?: Record<string, string[]>;
 }
 
 export interface Schema {
@@ -32,6 +34,8 @@ export interface ActionDef {
   kind?: "button" | "toggle" | "slider";
   settings?: Schema;
   adminOnly?: boolean;
+  /** Only makes sense as a step in a list, like "If". */
+  stepOnly?: boolean;
 }
 
 export interface CatalogPlugin {

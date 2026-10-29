@@ -369,25 +369,31 @@ mod imp {
                     }
                 }
                 KeyKind::Slider | KeyKind::Widget => {}
-                _ => match key.hold.filter(|h| *h > 0) {
-                    Some(ms) => {
-                        self.hold_gen += 1;
-                        let generation = self.hold_gen;
-                        self.holds.insert(key.id.clone(), generation);
-                        let tx = self.events.clone();
-                        let id = key.id.clone();
-                        tokio::spawn(async move {
-                            tokio::time::sleep(Duration::from_millis(ms as u64)).await;
-                            let _ = tx.send(Event::HoldDone(id, generation)).await;
-                        });
+                _ => {
+                    if key.repeat.is_some() {
+                        self.app.held.lock().insert(key_path(&self.profile, &self.page, &key.id));
                     }
-                    None => self.fire(&key.id),
-                },
+                    match key.hold.filter(|h| *h > 0) {
+                        Some(ms) => {
+                            self.hold_gen += 1;
+                            let generation = self.hold_gen;
+                            self.holds.insert(key.id.clone(), generation);
+                            let tx = self.events.clone();
+                            let id = key.id.clone();
+                            tokio::spawn(async move {
+                                tokio::time::sleep(Duration::from_millis(ms as u64)).await;
+                                let _ = tx.send(Event::HoldDone(id, generation)).await;
+                            });
+                        }
+                        None => self.fire(&key.id),
+                    }
+                }
             }
         }
 
         fn up(&mut self, i: u8) {
             let Some(key) = self.key_at(i) else { return };
+            self.app.held.lock().remove(&key_path(&self.profile, &self.page, &key.id));
             self.holds.remove(&key.id);
             if self.fired.remove(&key.id) {
                 tokio::spawn(actions::release(self.app.clone(), self.ctx(&key.id), key.actions));
@@ -425,8 +431,9 @@ mod imp {
             let app = self.app.clone();
             let ctx = self.ctx(id);
             let started = Instant::now();
+            let repeat = key.repeat;
             tokio::spawn(async move {
-                actions::run_steps(app.clone(), ctx, list, off).await;
+                actions::run_key(app.clone(), ctx, list, off, repeat).await;
                 app.running.lock().remove(&path);
                 tracing::debug!("hardware key ran in {:?}", started.elapsed());
             });

@@ -17,3 +17,4 @@ search trash-2 grip-vertical file-up file-down save list-plus arrow-up-down
 headphone-off
 shield-alert
 cctv
+split

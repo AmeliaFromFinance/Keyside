@@ -28,6 +28,12 @@ fn base_actions() -> Value {
     json!([
         { "id": "core.wait", "group": "Flow", "name": "Wait", "icon": "timer", "settings": { "type": "object", "required": ["ms"], "properties": {
             "ms": { "type": "integer", "title": "Milliseconds", "minimum": 0, "maximum": 60000, "default": 1000 } } } },
+        { "id": "core.if", "group": "Flow", "name": "If", "icon": "split", "stepOnly": true, "description": "runs the next steps only when true", "settings": { "type": "object", "required": ["var", "op"], "properties": {
+            "var": { "type": "string", "title": "Variable", "x-options": "variables", "maxLength": 120 },
+            "op": { "type": "string", "title": "Check", "enum": ["eq", "ne", "contains", "gt", "lt", "truthy", "falsy"], "enumNames": ["is", "is not", "contains", "is above", "is below", "is on", "is off"], "default": "truthy" },
+            "value": { "type": "string", "title": "Value", "maxLength": 200, "x-showWhen": { "op": ["eq", "ne", "contains", "gt", "lt"] } } } } },
+        { "id": "core.else", "group": "Flow", "name": "Otherwise", "icon": "split", "stepOnly": true, "description": "runs when the If was false" },
+        { "id": "core.end", "group": "Flow", "name": "End if", "icon": "split", "stepOnly": true },
         { "id": "core.page", "group": "Deck", "name": "Go to page", "icon": "file", "settings": { "type": "object", "required": ["page"], "properties": {
             "page": { "type": "string", "title": "Page", "x-options": "pages" } } } },
         { "id": "core.profile", "group": "Deck", "name": "Switch profile", "icon": "layers", "settings": { "type": "object", "required": ["profile"], "properties": {
@@ -36,11 +42,11 @@ fn base_actions() -> Value {
             "name": { "type": "string", "title": "Timer name", "maxLength": 24, "default": "break" },
             "mode": { "type": "string", "title": "Type", "enum": ["countdown", "stopwatch"], "enumNames": ["Countdown", "Stopwatch"], "default": "countdown" },
             "op": { "type": "string", "title": "On press", "enum": ["toggle", "start", "stop", "reset"], "enumNames": ["Start or stop", "Start", "Stop", "Reset"], "default": "toggle" },
-            "seconds": { "type": "integer", "title": "Countdown seconds", "minimum": 1, "maximum": 86400, "default": 300 } } } },
+            "seconds": { "type": "integer", "title": "Countdown seconds", "minimum": 1, "maximum": 86400, "default": 300, "x-showWhen": { "mode": ["countdown"] } } } } },
         { "id": "core.var", "group": "Deck", "name": "Set variable", "icon": "variable", "settings": { "type": "object", "required": ["name"], "properties": {
             "name": { "type": "string", "title": "Variable (starts with user.)", "maxLength": 80, "default": "user." },
             "op": { "type": "string", "title": "Change", "enum": ["set", "toggle", "inc", "dec"], "enumNames": ["Set to", "Toggle on/off", "Add", "Subtract"], "default": "set" },
-            "value": { "type": "string", "title": "Value", "maxLength": 512 } } } },
+            "value": { "type": "string", "title": "Value", "maxLength": 512, "x-showWhen": { "op": ["set", "inc", "dec"] } } } } },
         { "id": "core.keys", "group": "Keyboard", "name": "Hotkey", "icon": "keyboard", "settings": { "type": "object", "required": ["keys"], "properties": {
             "keys": { "type": "string", "title": "Keys", "format": "hotkey", "maxLength": 60, "description": "For example ctrl+shift+f13" } } } },
         { "id": "core.text", "group": "Keyboard", "name": "Type text", "icon": "type", "settings": { "type": "object", "required": ["text"], "properties": {

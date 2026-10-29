@@ -54,6 +54,18 @@
     return (off ? key?.offActions : key?.actions) ?? [];
   }
 
+  /** How far each step is indented inside If blocks. */
+  function depths(steps: Action[]): number[] {
+    let d = 0;
+    return steps.map((a) => {
+      if (a.type === "core.else") return Math.max(0, d - 1);
+      if (a.type === "core.end") return (d = Math.max(0, d - 1));
+      return a.type === "core.if" ? d++ : d;
+    });
+  }
+
+  const OPS: Record<string, string> = { eq: mark("is"), ne: mark("is not"), contains: mark("contains"), gt: mark("is above"), lt: mark("is below"), truthy: mark("is on"), falsy: mark("is off") };
+
   function editStep(off: boolean, i: number, fn: (a: Action) => void) {
     edit((k) => {
       const l = off ? (k.offActions ??= []) : k.actions;
@@ -79,13 +91,22 @@
 
   function addStep(type: string) {
     const off = adding === "off";
-    edit((k) => (off ? (k.offActions ??= []) : k.actions).push(newAction(type)));
+    edit((k) => {
+      const l = off ? (k.offActions ??= []) : k.actions;
+      // An If comes with its End. Otherwise goes inside the last If block.
+      const end = l.map((a) => a.type).lastIndexOf("core.end");
+      if (type === "core.else" && end >= 0) l.splice(end, 0, newAction(type));
+      else l.push(newAction(type), ...(type === "core.if" ? [newAction("core.end")] : []));
+    });
     adding = null;
     addQuery = "";
   }
 
   function badge(a: Action): string {
     if (a.type === "core.wait") return "WAIT";
+    if (a.type === "core.if") return "IF";
+    if (a.type === "core.else") return "ELSE";
+    if (a.type === "core.end") return "END";
     const plugin = ed.catalog.plugins.find((p) => a.type.startsWith(`${p.id}/`));
     if (plugin) return plugin.prefix.toUpperCase().slice(0, 6);
     return "CORE";
@@ -93,12 +114,19 @@
 
   function summary(a: Action): string {
     if (a.type === "core.wait") return t("Delay {ms} ms", { ms: String(a.settings.ms ?? 0) });
+    if (a.type === "core.if") {
+      const op = String(a.settings.op ?? "truthy");
+      const value = op === "truthy" || op === "falsy" ? "" : ` ${a.settings.value ?? ""}`;
+      return t("If {var} {check}{value}", { var: String(a.settings.var || "…"), check: t(OPS[op] ?? op), value });
+    }
+    if (a.type === "core.else") return t("Otherwise");
+    if (a.type === "core.end") return t("End if");
     const def = actionDef(a.type);
     const name = t(def?.name ?? a.type);
     const detail = Object.entries(a.settings)
       .filter(([, v]) => typeof v === "string" || typeof v === "number")
       .slice(0, 2)
-      .map(([k, v]) => (k === "args" || k === "url" ? `${v}` : `${v}`))
+      .map(([, v]) => String(v))
       .join(" ");
     return detail ? `${name} ${detail}` : name;
   }
@@ -108,7 +136,7 @@
     if (!k) return;
     testing = true;
     try {
-      for (const a of k.actions) await req("action.test", { action: $state.snapshot(a) });
+      await req("steps.test", { actions: $state.snapshot(k.actions) });
     } catch (e: any) {
       ed.error = e.message;
     } finally {
@@ -238,6 +266,17 @@
           <label class="field inline"><input type="number" min="200" max="10000" step="100" value={key.hold} oninput={(e) => edit((k) => (k.hold = Math.min(10000, Math.max(200, Number(e.currentTarget.value)))))} /><span>ms</span></label>
         {/if}
       </div>
+      {#if key.kind === "button"}
+        <div class="two">
+          <label class="check">
+            <input type="checkbox" checked={!!key.repeat} onchange={(e) => edit((k) => (k.repeat = e.currentTarget.checked ? 500 : undefined))} />
+            {t("Repeat while held")}
+          </label>
+          {#if key.repeat}
+            <label class="field inline"><span>{t("every")}</span><input type="number" min="100" max="10000" step="50" value={key.repeat} oninput={(e) => edit((k) => (k.repeat = Math.min(10000, Math.max(100, Number(e.currentTarget.value)))))} /><span>ms</span></label>
+          {/if}
+        </div>
+      {/if}
 
       <div class="field">
         <span>{t("Light up when")}</span>
@@ -269,11 +308,12 @@
       </div>
 
       {#each key.kind === "toggle" ? [false, true] : [false] as off (off)}
+        {@const depth = depths(list(off))}
         <section class="steps">
           <h3>{off ? t("When turned off") : key.kind === "toggle" ? t("When turned on") : t("Steps · run in order")}</h3>
           {#each list(off) as a, i (i)}
             {@const def = actionDef(a.type)}
-            <div class="step" class:open={open === `${off}${i}`} class:review={a.review}>
+            <div class="step" class:open={open === `${off}${i}`} class:review={a.review} class:flow={a.type === "core.if" || a.type === "core.else" || a.type === "core.end"} style:--depth={depth[i]}>
               <button class="summary" onclick={() => (open = open === `${off}${i}` ? null : `${off}${i}`)}>
                 <span class="n mono">{i + 1}</span>
                 <span class="kind">{badge(a)}</span>
@@ -448,12 +488,16 @@
     font-weight: 500;
   }
   .step {
+    margin-left: calc(var(--depth, 0) * 20px);
     display: grid;
     grid-template-columns: 1fr auto auto;
     align-items: center;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line-soft);
     background: var(--surface);
+  }
+  .step.flow:not(.open) {
+    background: var(--raised);
   }
   .step.open {
     border-color: var(--accent);

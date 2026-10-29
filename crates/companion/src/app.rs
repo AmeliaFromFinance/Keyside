@@ -52,6 +52,11 @@ pub struct App {
     pub nav: broadcast::Sender<(String, Nav)>,
     /// Keys whose steps are running, so a double tap doesn't start them twice.
     pub running: Mutex<HashSet<String>>,
+    /// Keys held down right now, for keys that repeat while held.
+    pub held: Mutex<HashSet<String>>,
+    /// Steps that ran on the last press of a key with if/otherwise steps, so its release
+    /// only reaches those.
+    pub ran: Mutex<HashMap<String, Vec<usize>>>,
     pub addresses: RwLock<Vec<IpAddr>>,
     pub tls_fingerprint: RwLock<String>,
     pub bundled_plugins: Option<PathBuf>,
@@ -105,6 +110,8 @@ impl App {
             approvals: Mutex::new(HashMap::new()),
             nav,
             running: Mutex::new(HashSet::new()),
+            held: Mutex::new(HashSet::new()),
+            ran: Mutex::new(HashMap::new()),
             addresses: RwLock::new(Vec::new()),
             tls_fingerprint: RwLock::new(String::new()),
             bundled_plugins: opts.bundled_plugins,

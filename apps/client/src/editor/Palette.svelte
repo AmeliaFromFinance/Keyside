@@ -47,7 +47,7 @@
   const words = $derived(searchWords(q));
 
   const groups = $derived.by(() => {
-    const items = [...allActions().filter((a) => admin || !a.adminOnly), ...layoutItems];
+    const items = [...allActions().filter((a) => (admin || !a.adminOnly) && !a.stepOnly), ...layoutItems];
     const map = new Map<string, ActionDef[]>();
     for (const a of items) {
       const g = a.group ?? mark("Other");

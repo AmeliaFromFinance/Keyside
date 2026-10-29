@@ -35,7 +35,7 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 - **Stream Deck plugins.** Install `.streamDeckPlugin` files made for Elgato's app and use them on your phone.
 - **Secure pairing.** Scan a QR code, confirm a 6-digit code on both screens, done. Everything after that is end-to-end encrypted.
 - **Sandboxed plugins.** Plugins can only reach the hosts you allow. They can't read your files or start programs.
-- **Multi-actions, toggles, folders, sliders, timers, chat widgets, variables and hold-to-confirm.**
+- **Multi-actions with if and otherwise, toggles, folders, sliders, timers, chat widgets, variables, hold-to-confirm and repeat while held.**
 - **Moderator access.** Give a mod a phone that only sees the pages you pick.
 - **Share layouts** as a code or file. Imported steps that control apps stay off until you approve them.
 - **HTTP API** so other tools can press keys, set variables and restyle keys.

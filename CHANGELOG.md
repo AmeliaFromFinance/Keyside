@@ -26,6 +26,7 @@ First release.
 - Physical Elgato Stream Deck support.
 - Layout sharing with codes, files and a gallery.
 - Step recorder, multi-actions, toggles, folders, sliders and chat widgets.
+- If and otherwise steps that check a variable, and keys that repeat while held.
 - HTTP API with scoped tokens.
 - English, German, Spanish and French.
 - Apps for Windows, macOS, Linux, Android and iOS.

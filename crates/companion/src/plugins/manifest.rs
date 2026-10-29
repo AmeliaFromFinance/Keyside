@@ -1,6 +1,6 @@
 //! Plugin manifest parsing and checks. A manifest that fails here is never run.
 
-use std::collections::BTreeMap;
+use indexmap::IndexMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -85,7 +85,7 @@ pub struct Schema {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(default)]
-    pub properties: BTreeMap<String, Field>,
+    pub properties: IndexMap<String, Field>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub required: Vec<String>,
 }

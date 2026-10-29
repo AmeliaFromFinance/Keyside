@@ -94,6 +94,16 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             let (plugin, action) = kind.split_once('/').ok_or_else(|| OpError::invalid("not a plugin action"))?;
             app.plugins.options(plugin, action, field, &settings).await.map_err(OpError::failed)
         }
+        "steps.test" => {
+            need_edit(who)?;
+            let list: Vec<Action> = serde_json::from_value(a.get("actions").cloned().unwrap_or(Value::Null)).map_err(|_| OpError::invalid("invalid steps"))?;
+            if list.len() > 100 || list.iter().any(|x| !model::valid_action_type(&x.kind) || (actions::is_admin_only(x) && !who.admin)) {
+                return Err(OpError::forbidden());
+            }
+            let ctx = Ctx { device: who.device.clone(), profile: "test".into(), page: "test".into(), key: "test".into(), local: who.admin };
+            tokio::spawn(actions::run_steps(app.clone(), ctx, list.into_iter().map(|x| Action { review: false, ..x }).collect(), false));
+            Ok(Value::Null)
+        }
         "action.test" => {
             need_edit(who)?;
             let action: Action = serde_json::from_value(a.get("action").cloned().unwrap_or(Value::Null)).map_err(|_| OpError::invalid("invalid action"))?;

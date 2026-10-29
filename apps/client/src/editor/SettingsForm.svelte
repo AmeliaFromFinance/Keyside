@@ -21,7 +21,12 @@
   let loading = $state<Record<string, boolean>>({});
   let failed = $state<Record<string, string>>({});
 
-  const fields = $derived(Object.entries(schema?.properties ?? {}).filter(([, f]) => !(f as { "x-hidden"?: boolean })["x-hidden"]));
+  const fields = $derived(
+    Object.entries(schema?.properties ?? {}).filter(([, f]) => {
+      if ((f as { "x-hidden"?: boolean })["x-hidden"]) return false;
+      return Object.entries(f["x-showWhen"] ?? {}).every(([k, ok]) => ok.includes(String(values[k] ?? schema?.properties[k]?.default ?? "")));
+    }),
+  );
 
   function set(name: string, v: unknown) {
     const next = { ...values };
@@ -52,6 +57,10 @@
         return ed.catalog.assets.filter((a) => a.kind === "sound").map((a) => ({ value: a.id, label: a.name }));
       case "midi":
         return ed.catalog.midi.map((m) => ({ value: m, label: m }));
+      case "variables":
+        return Object.keys(ed.catalog.variables)
+          .sort()
+          .map((v) => ({ value: v, label: v }));
       default:
         return [];
     }

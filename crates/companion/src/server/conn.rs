@@ -518,25 +518,31 @@ impl Conn {
             }
             KeyKind::Slider | KeyKind::Widget if key.actions.is_empty() => {}
             KeyKind::Slider => {}
-            _ => match key.hold.filter(|h| *h > 0) {
-                Some(ms) => {
-                    self.hold_gen += 1;
-                    let generation = self.hold_gen;
-                    self.holds.insert(id.to_string(), generation);
-                    let tx = self.itx.clone();
-                    let key = id.to_string();
-                    tokio::spawn(async move {
-                        tokio::time::sleep(Duration::from_millis(ms as u64)).await;
-                        let _ = tx.send(Internal::HoldDone { key, generation }).await;
-                    });
+            _ => {
+                if key.repeat.is_some() {
+                    self.app.held.lock().insert(key_path(&self.profile, &self.page, id));
                 }
-                None => self.fire(id).await,
-            },
+                match key.hold.filter(|h| *h > 0) {
+                    Some(ms) => {
+                        self.hold_gen += 1;
+                        let generation = self.hold_gen;
+                        self.holds.insert(id.to_string(), generation);
+                        let tx = self.itx.clone();
+                        let key = id.to_string();
+                        tokio::spawn(async move {
+                            tokio::time::sleep(Duration::from_millis(ms as u64)).await;
+                            let _ = tx.send(Internal::HoldDone { key, generation }).await;
+                        });
+                    }
+                    None => self.fire(id).await,
+                }
+            }
         }
         Ok(())
     }
 
     async fn up(&mut self, id: &str, cancel: bool) -> anyhow::Result<()> {
+        self.app.held.lock().remove(&key_path(&self.profile, &self.page, id));
         if self.holds.remove(id).is_some() && !cancel {
             self.link.send(&json!({ "t": "toast", "text": "Keep holding to confirm", "tone": Tone::Warning, "at": now_ms(), "local": true })).await?;
         }
@@ -573,8 +579,9 @@ impl Conn {
         self.fired.insert(id.to_string());
         let app = self.app.clone();
         let ctx = self.ctx(id);
+        let repeat = key.repeat;
         tokio::spawn(async move {
-            actions::run_steps(app.clone(), ctx, list, off).await;
+            actions::run_key(app.clone(), ctx, list, off, repeat).await;
             app.running.lock().remove(&path);
         });
     }

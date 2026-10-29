@@ -110,6 +110,9 @@ pub struct Key {
     pub color: Option<KeyColor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hold: Option<u32>,
+    /// Runs the steps again every this many ms while the key is held.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<u32>,
     #[serde(default)]
     pub actions: Vec<Action>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -371,6 +374,9 @@ fn validate_page(pg: &Page, page_ids: &HashSet<&str>) -> Result<(), Invalid> {
         opt_text("key subtitle", &k.sub, 64)?;
         if k.icon.as_deref().is_some_and(|i| !valid_icon(i)) {
             return bad("invalid icon");
+        }
+        if k.repeat.is_some_and(|r| !(100..=10_000).contains(&r)) {
+            return bad("repeat must be between 100 ms and 10 seconds");
         }
         if k.hold.is_some_and(|h| h > 10_000) {
             return bad("hold can be at most 10 seconds");

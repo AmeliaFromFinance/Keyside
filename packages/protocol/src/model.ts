@@ -56,6 +56,8 @@ export interface Key {
   color?: KeyColor;
   /** Milliseconds the key must be held before it fires. */
   hold?: number;
+  /** Runs the steps again every this many milliseconds while held. */
+  repeat?: number;
   actions: Action[];
   /** Toggle keys: run when switching off. */
   offActions?: Action[];
