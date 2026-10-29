@@ -2,7 +2,7 @@
 
 All notable changes to Keyside. Versions follow [semantic versioning](https://semver.org).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-29
 
 First release.
 
