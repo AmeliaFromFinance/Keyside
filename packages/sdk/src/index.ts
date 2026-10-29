@@ -29,6 +29,13 @@ export interface KeyView {
   disabled?: boolean;
 }
 
+export interface Pill {
+  label: string;
+  tone?: Tone;
+  /** Epoch ms for a running clock. */
+  since?: number;
+}
+
 export interface Option {
   value: string;
   label: string;
@@ -38,7 +45,12 @@ export interface Key {
   readonly id: string;
   readonly action: string;
   readonly settings: Settings;
+  /** The label and icon set in the layout, for picking variants (mic -> mic-off). */
+  readonly label: string;
+  readonly icon?: string;
+  /** Replaces this key's state. Fields you leave out show the layout's own values. */
   set(view: KeyView): void;
+  /** Back to the layout's own look. */
   clear(): void;
 }
 
@@ -89,8 +101,8 @@ export interface Host {
   setVar(name: string, value: VarValue): void;
   /** Adds a line to a feed declared in the manifest (chat, alerts). Text only. */
   feed(name: string, item: { text: string; author?: string; color?: string }): void;
-  /** Connection state shown in the deck header. `pill` adds a status chip, like REC. */
-  status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pill?: { label: string; tone?: Tone; since?: number } | null): void;
+  /** Connection state shown in the deck header. `pills` adds up to three status chips, like REC. */
+  status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pills?: Pill[] | Pill | null): void;
   toast(text: string, tone?: "default" | "success" | "warning" | "danger"): void;
   log: Record<"debug" | "info" | "warn" | "error", (...args: unknown[]) => void>;
   /** Saves values into the connection settings (for example OAuth tokens). */
@@ -115,6 +127,8 @@ interface Instance {
   id: string;
   action: string;
   settings: Settings;
+  label?: string;
+  icon?: string;
 }
 
 const FLUSH_MS = 50;
@@ -182,8 +196,8 @@ class Runtime implements Host {
 
   #handle(inst: Instance): Key {
     const existing = this.#handles.get(inst.id);
-    if (existing && existing.action === inst.action) {
-      (existing as { settings: Settings }).settings = inst.settings;
+    if (existing && existing.action === (inst.action.split("/").pop() ?? inst.action)) {
+      Object.assign(existing as object, { settings: inst.settings, label: inst.label ?? "", icon: inst.icon });
       return existing;
     }
     const rt = this;
@@ -191,6 +205,8 @@ class Runtime implements Host {
       id: inst.id,
       action: inst.action.split("/").pop() ?? inst.action,
       settings: inst.settings,
+      label: inst.label ?? "",
+      icon: inst.icon,
       set(view: KeyView) {
         if (!rt.#instances.has(inst.id)) return;
         const prev = rt.#views.get(inst.id);
@@ -229,9 +245,9 @@ class Runtime implements Host {
     this.#notify("feed.push", { feed: name, item });
   }
 
-  status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pill?: { label: string; tone?: Tone; since?: number } | null) {
+  status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pills?: Pill[] | Pill | null) {
     const params: Record<string, unknown> = { state, detail };
-    if (pill !== undefined) params.pill = pill;
+    if (pills !== undefined) params.pills = pills === null ? [] : Array.isArray(pills) ? pills : [pills];
     this.#notify("status.set", params);
   }
 

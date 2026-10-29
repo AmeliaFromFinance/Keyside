@@ -821,14 +821,16 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             let detail = params.get("detail").and_then(Value::as_str).map(|d| d.chars().filter(|c| !c.is_control()).take(120).collect());
             let mut e = app.engine.lock();
             e.set_connection(ConnectionView { id: m.id.clone(), name: m.name.clone(), status: state.into(), detail });
-            match params.get("pill") {
-                Some(Value::Object(p)) => {
-                    let label: String = p.get("label").and_then(Value::as_str).unwrap_or("").chars().filter(|c| !c.is_control()).take(24).collect();
-                    let tone = p.get("tone").cloned().and_then(|t| serde_json::from_value(t).ok()).unwrap_or(Tone::Default);
-                    let since = p.get("since").and_then(Value::as_u64);
-                    e.set_pill(&m.id, (!label.is_empty()).then(|| Pill { id: m.id.clone(), label, tone, since }));
-                }
-                Some(Value::Null) => e.set_pill(&m.id, None),
+            let one = |p: &Map<String, Value>| -> Option<Pill> {
+                let label: String = p.get("label").and_then(Value::as_str).unwrap_or("").chars().filter(|c| !c.is_control()).take(24).collect();
+                let tone = p.get("tone").cloned().and_then(|t| serde_json::from_value(t).ok()).unwrap_or(Tone::Default);
+                let since = p.get("since").and_then(Value::as_u64);
+                (!label.is_empty()).then(|| Pill { id: m.id.clone(), label, tone, since })
+            };
+            match (params.get("pills"), params.get("pill")) {
+                (Some(Value::Array(list)), _) => e.set_pills(&m.id, list.iter().filter_map(Value::as_object).filter_map(one).collect()),
+                (_, Some(Value::Object(p))) => e.set_pills(&m.id, one(p).into_iter().collect()),
+                (_, Some(Value::Null)) => e.set_pills(&m.id, Vec::new()),
                 _ => {}
             }
             Ok(Value::Null)

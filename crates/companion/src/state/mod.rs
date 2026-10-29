@@ -81,6 +81,10 @@ pub struct Instance {
     pub id: String,
     pub action: String,
     pub settings: serde_json::Map<String, Value>,
+    /// The key's own label and icon, so plugins can pick fitting variants (mic -> mic-off).
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 impl Engine {
@@ -266,20 +270,31 @@ impl Engine {
 
     pub fn remove_connection(&mut self, id: &str) {
         let a = self.connections.remove(id).is_some();
-        let b = self.pills.remove(id).is_some();
+        let prefix = format!("{id}#");
+        let before = self.pills.len();
+        self.pills.retain(|k, _| !k.starts_with(&prefix));
+        let b = self.pills.len() != before;
         if a || b {
             self.notify(Change::Status);
         }
     }
 
     pub fn set_pill(&mut self, id: &str, pill: Option<Pill>) {
-        let changed = match pill {
-            Some(p) => self.pills.insert(id.to_string(), p.clone()) != Some(p),
-            None => self.pills.remove(id).is_some(),
-        };
-        if changed {
-            self.notify(Change::Status);
+        self.set_pills(id, pill.into_iter().collect());
+    }
+
+    /// Replaces every status pill owned by `owner` (up to three).
+    pub fn set_pills(&mut self, owner: &str, pills: Vec<Pill>) {
+        let prefix = format!("{owner}#");
+        let before: Vec<Pill> = self.pills.iter().filter(|(k, _)| k.starts_with(&prefix)).map(|(_, v)| v.clone()).collect();
+        if before == pills {
+            return;
         }
+        self.pills.retain(|k, _| !k.starts_with(&prefix));
+        for (i, p) in pills.into_iter().take(3).enumerate() {
+            self.pills.insert(format!("{prefix}{i}"), p);
+        }
+        self.notify(Change::Status);
     }
 
     pub fn status(&self) -> (Vec<ConnectionView>, Vec<Pill>) {
@@ -306,7 +321,13 @@ impl Engine {
             for (off, list) in [(false, &k.actions), (true, &k.off_actions)] {
                 for (n, a) in list.iter().enumerate() {
                     if a.plugin().is_some_and(|(id, _)| id == plugin) && !a.review {
-                        out.push(Instance { id: instance_id(&p.id, &pg.id, &k.id, off, n), action: a.kind.clone(), settings: a.settings.clone() });
+                        out.push(Instance {
+                            id: instance_id(&p.id, &pg.id, &k.id, off, n),
+                            action: a.kind.clone(),
+                            settings: a.settings.clone(),
+                            label: k.label.clone(),
+                            icon: k.icon.clone(),
+                        });
                     }
                 }
             }
