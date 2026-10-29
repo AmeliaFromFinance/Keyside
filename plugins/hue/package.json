@@ -1,0 +1,6 @@
+{
+  "name": "@phonedeck/plugin-hue",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+}

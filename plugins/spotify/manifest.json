@@ -1,0 +1,47 @@
+{
+  "id": "dev.phonedeck.spotify",
+  "name": "Spotify",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "spotify",
+  "description": "Playback controls and a now-playing key with album art. Controlling playback needs Spotify Premium.",
+  "homepage": "https://developer.spotify.com/dashboard",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "music",
+  "permissions": { "net": ["accounts.spotify.com", "api.spotify.com", "i.scdn.co"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "clientId": {
+        "type": "string",
+        "title": "Client ID",
+        "maxLength": 64,
+        "description": "Create an app at developer.spotify.com/dashboard with Web API and the redirect URI http://127.0.0.1:7442/oauth/callback. Then press any Spotify key to sign in."
+      },
+      "session": { "type": "string", "format": "secret", "x-hidden": true }
+    }
+  },
+  "actions": [
+    { "id": "now-playing", "name": "Now playing", "icon": "disc-3", "description": "Album art and track. Press to play or pause." },
+    { "id": "play-pause", "name": "Play or pause", "icon": "play", "kind": "toggle" },
+    { "id": "next", "name": "Next track", "icon": "skip-forward" },
+    { "id": "previous", "name": "Previous track", "icon": "skip-back" },
+    { "id": "volume", "name": "Volume", "icon": "volume-2", "kind": "slider" },
+    { "id": "shuffle", "name": "Shuffle", "icon": "shuffle", "kind": "toggle" },
+    { "id": "repeat", "name": "Repeat", "icon": "repeat", "description": "Off, then all, then one track." },
+    { "id": "like", "name": "Like song", "icon": "heart", "kind": "toggle" },
+    {
+      "id": "play",
+      "name": "Play playlist or album",
+      "icon": "list-plus",
+      "settings": { "type": "object", "properties": { "uri": { "type": "string", "title": "Spotify link or URI", "maxLength": 200 } }, "required": ["uri"] }
+    }
+  ],
+  "variables": [
+    { "name": "track", "title": "Track", "type": "string" },
+    { "name": "artist", "title": "Artist", "type": "string" },
+    { "name": "playing", "title": "Playing", "type": "boolean" }
+  ]
+}

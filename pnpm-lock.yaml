@@ -67,7 +67,37 @@ importers:
 
   packages/sdk: {}
 
+  plugins/discord:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/homeassistant:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/hue:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/keylight:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
   plugins/obs:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/spotify:
     dependencies:
       '@phonedeck/sdk':
         specifier: workspace:*
@@ -103,6 +133,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/sdk
 
+  plugins/voicemeeter:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
   plugins/vtubestudio:
     dependencies:
       '@phonedeck/sdk':
@@ -110,6 +146,12 @@ importers:
         version: link:../../packages/sdk
 
   plugins/warudo:
+    dependencies:
+      '@phonedeck/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/youtube:
     dependencies:
       '@phonedeck/sdk':
         specifier: workspace:*

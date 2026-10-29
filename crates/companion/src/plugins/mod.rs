@@ -366,6 +366,10 @@ impl Host {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for e in entries.flatten() {
             let p = e.path();
+            // Shared code and hidden folders sit next to the plugins.
+            if e.file_name().to_string_lossy().starts_with(['_', '.']) {
+                continue;
+            }
             let pkg = if p.is_dir() { package::Package::from_dir(&p) } else if p.extension().is_some_and(|x| x == "pdp") { std::fs::read(&p).map_err(Into::into).and_then(|b| package::Package::from_zip(&b)) } else { continue };
             let pkg = match pkg {
                 Ok(p) => p,

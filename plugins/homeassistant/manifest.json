@@ -1,0 +1,75 @@
+{
+  "id": "dev.phonedeck.homeassistant",
+  "name": "Home Assistant",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "ha",
+  "description": "Toggle devices, run scenes and scripts, call any service and show live sensor values.",
+  "homepage": "https://www.home-assistant.io",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "house",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "homeassistant.local", "maxLength": 200 },
+      "port": { "type": "integer", "title": "Port", "default": 8123, "minimum": 1, "maximum": 65535 },
+      "secure": { "type": "boolean", "title": "Use HTTPS", "default": false },
+      "token": { "type": "string", "format": "secret", "title": "Access token", "description": "Home Assistant: your profile > Security > Long-lived access tokens > Create token." },
+      "watch": { "type": "string", "title": "Entities as variables", "format": "textarea", "maxLength": 4000, "description": "Optional. Entity IDs to show anywhere as {ha.sensor.name}, one per line." }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "toggle",
+      "name": "Toggle device",
+      "icon": "power",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "entity": { "type": "string", "title": "Device", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        },
+        "required": ["entity"]
+      }
+    },
+    {
+      "id": "activate",
+      "name": "Scene, script or button",
+      "icon": "sparkles",
+      "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Scene, script or button", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "brightness",
+      "name": "Light brightness",
+      "icon": "sun",
+      "kind": "slider",
+      "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Light", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "state",
+      "name": "Show state",
+      "icon": "gauge",
+      "description": "Shows a sensor or device state on the key.",
+      "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Entity", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "service",
+      "name": "Call service",
+      "icon": "code",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "service": { "type": "string", "title": "Service", "description": "Like light.turn_on or notify.mobile_app_phone.", "maxLength": 100 },
+          "entity": { "type": "string", "title": "Entity (optional)", "maxLength": 255 },
+          "data": { "type": "string", "title": "Data (JSON, optional)", "format": "textarea", "maxLength": 4000 }
+        },
+        "required": ["service"]
+      }
+    }
+  ]
+}

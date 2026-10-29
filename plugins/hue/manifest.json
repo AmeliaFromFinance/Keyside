@@ -1,0 +1,63 @@
+{
+  "id": "dev.phonedeck.hue",
+  "name": "Philips Hue",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "hue",
+  "description": "Rooms, zones, lights, scenes, brightness and colour through your Hue Bridge on the local network.",
+  "homepage": "https://www.philips-hue.com",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "lightbulb",
+  "permissions": { "net": ["{bridge}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "bridge": { "type": "string", "title": "Bridge address", "maxLength": 64, "description": "The bridge's IP address (Hue app: Settings > Bridges > i). Save, then press the round button on the bridge." },
+      "username": { "type": "string", "format": "secret", "x-hidden": true }
+    }
+  },
+  "actions": [
+    {
+      "id": "power",
+      "name": "On or off",
+      "icon": "lightbulb",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string", "title": "Room, zone or light", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        },
+        "required": ["target"]
+      }
+    },
+    {
+      "id": "brightness",
+      "name": "Brightness",
+      "icon": "sun",
+      "kind": "slider",
+      "settings": { "type": "object", "properties": { "target": { "type": "string", "title": "Room, zone or light", "x-options": "dynamic" } }, "required": ["target"] }
+    },
+    {
+      "id": "scene",
+      "name": "Scene",
+      "icon": "palette",
+      "settings": { "type": "object", "properties": { "scene": { "type": "string", "title": "Scene", "x-options": "dynamic" } }, "required": ["scene"] }
+    },
+    {
+      "id": "color",
+      "name": "Colour",
+      "icon": "droplet",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string", "title": "Room, zone or light", "x-options": "dynamic" },
+          "color": { "type": "string", "title": "Colour", "format": "color", "default": "#ff8a3d" }
+        },
+        "required": ["target", "color"]
+      }
+    }
+  ]
+}

@@ -85,7 +85,9 @@ export class Reconnecting {
     }
     ws.binaryType = "arraybuffer";
     this.#ws = ws;
+    let opened = false;
     ws.onopen = () => {
+      opened = true;
       if (this.#ws === ws) void Promise.resolve(this.#ev.open()).catch((e) => this.drop(e instanceof Error ? e.message : String(e)));
     };
     ws.onmessage = (e) => {
@@ -101,7 +103,8 @@ export class Reconnecting {
     ws.onclose = (e) => {
       if (this.#ws !== ws) return;
       this.#ws = null;
-      if (this.#ev.close(e.reason || (e.code === 1006 ? "can't reach the app" : `closed (${e.code})`), e.code) === "stop") this.#stopped = true;
+      const reason = e.reason || (opened ? "connection lost" : "no answer");
+      if (this.#ev.close(reason, e.code) === "stop") this.#stopped = true;
       else this.#schedule();
     };
   }

@@ -1,0 +1,6 @@
+{
+  "name": "@phonedeck/plugin-homeassistant",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+}

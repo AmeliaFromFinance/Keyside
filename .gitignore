@@ -10,3 +10,4 @@ dist/
 /apps/mobile/ios/App/Pods/
 coverage/
 apps/client/src/lib/icons.gen.ts
+plugins/*/main.js

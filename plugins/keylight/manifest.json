@@ -1,0 +1,66 @@
+{
+  "id": "dev.phonedeck.keylight",
+  "name": "Elgato Key Light",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "keylight",
+  "description": "Power, brightness and colour temperature for Elgato Key Light, Key Light Air, Ring Light and Light Strip.",
+  "homepage": "https://www.elgato.com",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "lamp",
+  "permissions": { "net": ["{light1}:9123", "{light2}:9123", "{light3}:9123", "{light4}:9123"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "light1": { "type": "string", "title": "Light 1 address", "maxLength": 64, "description": "The light's IP address, shown in Elgato Control Center under the light's settings." },
+      "light2": { "type": "string", "title": "Light 2 address", "maxLength": 64 },
+      "light3": { "type": "string", "title": "Light 3 address", "maxLength": 64 },
+      "light4": { "type": "string", "title": "Light 4 address", "maxLength": 64 }
+    }
+  },
+  "actions": [
+    {
+      "id": "power",
+      "name": "Light on or off",
+      "icon": "lightbulb",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "light": { "type": "string", "title": "Light", "enum": ["all", "1", "2", "3", "4"], "enumNames": ["All lights", "Light 1", "Light 2", "Light 3", "Light 4"], "default": "all" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "brightness",
+      "name": "Brightness",
+      "icon": "sun",
+      "kind": "slider",
+      "settings": { "type": "object", "properties": { "light": { "type": "string", "title": "Light", "enum": ["all", "1", "2", "3", "4"], "enumNames": ["All lights", "Light 1", "Light 2", "Light 3", "Light 4"], "default": "all" } } }
+    },
+    {
+      "id": "temperature",
+      "name": "Colour temperature",
+      "icon": "thermometer",
+      "kind": "slider",
+      "description": "Left is warm (2900 K), right is cool (7000 K).",
+      "settings": { "type": "object", "properties": { "light": { "type": "string", "title": "Light", "enum": ["all", "1", "2", "3", "4"], "enumNames": ["All lights", "Light 1", "Light 2", "Light 3", "Light 4"], "default": "all" } } }
+    },
+    {
+      "id": "preset",
+      "name": "Light preset",
+      "icon": "lamp-desk",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "light": { "type": "string", "title": "Light", "enum": ["all", "1", "2", "3", "4"], "enumNames": ["All lights", "Light 1", "Light 2", "Light 3", "Light 4"], "default": "all" },
+          "brightness": { "type": "integer", "title": "Brightness (%)", "minimum": 3, "maximum": 100, "default": 50 },
+          "kelvin": { "type": "integer", "title": "Temperature (K)", "minimum": 2900, "maximum": 7000, "default": 4500 }
+        }
+      }
+    }
+  ]
+}

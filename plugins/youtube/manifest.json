@@ -1,0 +1,42 @@
+{
+  "id": "dev.phonedeck.youtube",
+  "name": "YouTube Live",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "youtube",
+  "description": "Live chat, Super Chats and viewer count from your YouTube stream, and sending chat messages.",
+  "homepage": "https://console.cloud.google.com/apis/credentials",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "monitor-play",
+  "permissions": { "net": ["oauth2.googleapis.com", "www.googleapis.com"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "clientId": {
+        "type": "string",
+        "title": "Client ID",
+        "maxLength": 200,
+        "description": "Google Cloud console: enable YouTube Data API v3, then create an OAuth client of type TVs and Limited Input devices."
+      },
+      "clientSecret": { "type": "string", "format": "secret", "title": "Client secret" },
+      "session": { "type": "string", "format": "secret", "x-hidden": true }
+    }
+  },
+  "actions": [
+    { "id": "send", "name": "Send chat message", "icon": "send", "settings": { "type": "object", "properties": { "message": { "type": "string", "title": "Message", "maxLength": 200 } }, "required": ["message"] } }
+  ],
+  "variables": [
+    { "name": "live", "title": "Live", "type": "boolean" },
+    { "name": "viewers", "title": "Viewers", "type": "number" },
+    { "name": "likes", "title": "Likes", "type": "number" },
+    { "name": "title", "title": "Title", "type": "string" },
+    { "name": "last_superchat", "title": "Latest Super Chat", "type": "string" },
+    { "name": "last_member", "title": "Latest member", "type": "string" }
+  ],
+  "feeds": [
+    { "name": "chat", "title": "Chat" },
+    { "name": "events", "title": "Super Chats and members" }
+  ]
+}

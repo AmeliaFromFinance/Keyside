@@ -20,6 +20,8 @@ export interface Harness {
   slide(instance: string, action: string, value: number, settings?: Settings): Promise<void>;
   /** Several steps on one key, the way the host sends a multi-action key. */
   run(steps: Array<{ instance: string; action: string; settings?: Settings }>, phase?: "press" | "release"): Promise<void>;
+  /** Sends any host notification, such as "ipc.message". */
+  emit(method: string, params: unknown): Promise<void>;
   /** Latest connection status the plugin reported. */
   status(): { state: string; detail?: string; pills?: unknown[] } | undefined;
   options(action: string, field: string, settings?: Settings): Promise<Array<{ value: string; label: string }>>;
@@ -86,6 +88,7 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
     press: (i, a, s) => run(i, a, "press", s),
     release: (i, a, s) => run(i, a, "release", s),
     slide: (i, a, value, s = {}) => notify("slide", { instance: i, action: a, settings: s, value }),
+    emit: (method, params) => notify(method, params),
     run: (steps, phase = "press") => call("run", { steps: steps.map((s) => ({ settings: {}, ...s })), phase, device: "test" }),
     status() {
       let last: any;
