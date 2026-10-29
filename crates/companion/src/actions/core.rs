@@ -150,11 +150,7 @@ fn launch(m: &Map<String, Value>) -> Res {
     if !path.is_absolute() {
         return Err("program path must be absolute".into());
     }
-    let args: Vec<String> = m
-        .get("args")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).take(32).collect())
-        .unwrap_or_default();
+    let args: Vec<String> = lines(m.get("args")).into_iter().take(32).collect();
     let mut cmd = std::process::Command::new(&path);
     cmd.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
     if let Some(dir) = path.parent() {
@@ -162,6 +158,15 @@ fn launch(m: &Map<String, Value>) -> Res {
     }
     cmd.spawn().map_err(|e| format!("could not start {}: {e}", path.display()))?;
     Ok(None)
+}
+
+/// One value per line from a text field, or the items of a list.
+fn lines(v: Option<&Value>) -> Vec<String> {
+    match v {
+        Some(Value::String(s)) => s.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_string).collect(),
+        Some(Value::Array(a)) => a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    }
 }
 
 fn host_port(m: &Map<String, Value>) -> Result<(String, u16), String> {
@@ -177,22 +182,19 @@ async fn osc(m: &Map<String, Value>) -> Res {
     if !addr.starts_with('/') {
         return Err("OSC address must start with /".into());
     }
-    let args = m
-        .get("args")
-        .and_then(Value::as_array)
-        .map(|a| {
-            a.iter()
-                .take(16)
-                .filter_map(|v| match v {
-                    Value::Bool(b) => Some(OscType::Bool(*b)),
-                    Value::Number(n) if n.is_i64() => n.as_i64().map(|i| OscType::Int(i as i32)),
-                    Value::Number(n) => n.as_f64().map(|f| OscType::Float(f as f32)),
-                    Value::String(s) => Some(OscType::String(s.clone())),
-                    _ => None,
-                })
-                .collect()
+    let args = lines(m.get("args"))
+        .into_iter()
+        .take(16)
+        .map(|v| match v.as_str() {
+            "true" => OscType::Bool(true),
+            "false" => OscType::Bool(false),
+            s => match (s.parse::<i32>(), s.parse::<f32>()) {
+                (Ok(i), _) => OscType::Int(i),
+                (_, Ok(f)) => OscType::Float(f),
+                _ => OscType::String(s.to_string()),
+            },
         })
-        .unwrap_or_default();
+        .collect();
     let packet = rosc::encoder::encode(&OscPacket::Message(OscMessage { addr: addr.to_string(), args })).map_err(|e| e.to_string())?;
     send_udp(&host, port, &packet).await
 }
@@ -273,7 +275,12 @@ fn var(app: &App, m: &Map<String, Value>) -> Res {
     let mut e = app.engine.lock();
     let cur = e.var(name).unwrap_or(Value::Null);
     let next = match s(m, "op").unwrap_or("set") {
-        "set" => m.get("value").cloned().unwrap_or(Value::Null),
+        "set" => match m.get("value") {
+            Some(Value::String(t)) if t == "true" || t == "false" => Value::Bool(t == "true"),
+            Some(Value::String(t)) => t.trim().parse::<f64>().ok().and_then(serde_json::Number::from_f64).map(Value::Number).unwrap_or_else(|| Value::String(t.clone())),
+            Some(v) => v.clone(),
+            None => Value::Null,
+        },
         "toggle" => Value::Bool(!crate::state::view::truthy(&cur)),
         "inc" | "dec" => {
             let by = num(m, "value").unwrap_or(1.0) * if s(m, "op") == Some("dec") { -1.0 } else { 1.0 };

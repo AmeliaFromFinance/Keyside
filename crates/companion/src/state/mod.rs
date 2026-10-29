@@ -48,6 +48,7 @@ pub enum Change {
     Revoked(String),
     Pending,
     Plugins,
+    Pressed { profile: String, page: String, key: String, label: String, device: String },
 }
 
 pub struct Engine {
@@ -55,6 +56,8 @@ pub struct Engine {
     layout: LayoutFile,
     vars: HashMap<String, Value>,
     overrides: HashMap<String, ViewPatch>,
+    /// Set through the inbound API, keyed by "profile/page/key".
+    key_overrides: HashMap<String, ViewPatch>,
     toggles: HashMap<String, bool>,
     feeds: HashMap<String, VecDeque<FeedItem>>,
     connections: BTreeMap<String, ConnectionView>,
@@ -101,6 +104,7 @@ impl Engine {
                 layout,
                 vars: user_vars.into_iter().filter(|(k, _)| k.starts_with("user.")).collect(),
                 overrides: HashMap::new(),
+                key_overrides: HashMap::new(),
                 toggles: HashMap::new(),
                 feeds: HashMap::new(),
                 connections: BTreeMap::new(),
@@ -135,6 +139,7 @@ impl Engine {
         store::write_json(&self.paths.file("layout.json"), &new)?;
         let keep: HashSet<String> = all_keys(&new).map(|(p, pg, k)| key_path(&p.id, &pg.id, &k.id)).collect();
         self.toggles.retain(|k, _| keep.contains(k));
+        self.key_overrides.retain(|k, _| keep.contains(k));
         self.overrides.retain(|inst, _| inst.rsplit_once('/').is_some_and(|(k, _)| keep.contains(k)));
         if new.profiles.iter().all(|p| p.id != self.active_profile) {
             self.active_profile = new.default_profile.clone();
@@ -218,6 +223,16 @@ impl Engine {
         let changed = match patch {
             Some(p) => self.overrides.insert(instance.to_string(), p.clone()) != Some(p),
             None => self.overrides.remove(instance).is_some(),
+        };
+        if changed {
+            self.notify(Change::Keys);
+        }
+    }
+
+    pub fn set_key_override(&mut self, path: &str, patch: Option<ViewPatch>) {
+        let changed = match patch {
+            Some(p) => self.key_overrides.insert(path.to_string(), p.clone()) != Some(p),
+            None => self.key_overrides.remove(path).is_some(),
         };
         if changed {
             self.notify(Change::Keys);
@@ -345,6 +360,14 @@ impl Engine {
         let mut v = view::base_view(key, pos, folder_size);
         let get = |n: &str| self.var(n);
 
+        if let Some(name) = key.actions.iter().find(|a| a.kind == "core.timer").and_then(|a| a.settings.get("name")).and_then(Value::as_str) {
+            if let Some(t) = self.var(&format!("timer.{name}")) {
+                v.meta = Some(view::display(&t));
+            }
+            if self.var(&format!("timer.{name}.running")).is_some_and(|r| view::truthy(&r)) {
+                v.tone = Some(Tone::Accent);
+            }
+        }
         if key.kind == KeyKind::Toggle && self.toggle_state(&key_path(&profile.id, &page.id, &key.id)) {
             v.badge = Some("ON".into());
             v.tone = Some(Tone::Success);
@@ -363,6 +386,9 @@ impl Engine {
             if let Some(p) = self.overrides.get(&instance_id(&profile.id, &page.id, &key.id, false, n)) {
                 view::apply_patch(&mut v, p);
             }
+        }
+        if let Some(p) = self.key_overrides.get(&key_path(&profile.id, &page.id, &key.id)) {
+            view::apply_patch(&mut v, p);
         }
         for f in &key.feedback {
             if view::eval(&f.when, get) {

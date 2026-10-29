@@ -286,6 +286,15 @@ pub fn validate(m: &Manifest) -> Result<(), String> {
 
 /// Checks values against a schema and drops fields it doesn't define.
 pub fn clean_values(schema: Option<&Schema>, values: &Map<String, Value>) -> Result<Map<String, Value>, String> {
+    check_values(schema, values, true)
+}
+
+/// Like `clean_values`, but drops bad fields instead of failing. Used while a key is still being edited.
+pub fn sanitize(schema: Option<&Schema>, values: &Map<String, Value>) -> Map<String, Value> {
+    check_values(schema, values, false).unwrap_or_default()
+}
+
+fn check_values(schema: Option<&Schema>, values: &Map<String, Value>, strict: bool) -> Result<Map<String, Value>, String> {
     let Some(schema) = schema else { return Ok(Map::new()) };
     let mut out = Map::new();
     for (name, f) in &schema.properties {
@@ -305,9 +314,15 @@ pub fn clean_values(schema: Option<&Schema>, values: &Map<String, Value>) -> Res
             Field::Object { .. } => v.as_object().is_some_and(|o| o.len() <= 32 && o.iter().all(|(k, v)| k.len() <= 64 && v.as_str().is_some_and(|s| s.len() <= 1024))),
         };
         if !ok {
-            return err(format!("\"{name}\" has an invalid value"));
+            if strict {
+                return err(format!("\"{name}\" has an invalid value"));
+            }
+            continue;
         }
         out.insert(name.clone(), v.clone());
+    }
+    if !strict {
+        return Ok(out);
     }
     for r in &schema.required {
         if !out.contains_key(r) && !matches!(schema.properties.get(r), Some(f) if f.is_secret()) {

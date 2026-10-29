@@ -55,6 +55,10 @@ pub struct App {
     pub tls_fingerprint: RwLock<String>,
     pub bundled_plugins: Option<PathBuf>,
     pub started: std::time::Instant,
+    /// Signed-in local editor sessions (cookie value -> last use).
+    pub admin_sessions: Mutex<HashMap<String, std::time::Instant>>,
+    /// Failed editor sign-ins and the time sign-in is blocked until.
+    pub login_fails: Mutex<(u32, Option<std::time::Instant>)>,
 }
 
 impl App {
@@ -96,6 +100,8 @@ impl App {
             tls_fingerprint: RwLock::new(String::new()),
             bundled_plugins: opts.bundled_plugins,
             started: std::time::Instant::now(),
+            admin_sessions: Mutex::new(HashMap::new()),
+            login_fails: Mutex::new((0, None)),
         });
         app.plugins.attach(&app);
         Ok(app)
