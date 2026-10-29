@@ -6,7 +6,7 @@
   "prefix": "keylight",
   "description": "Power, brightness and colour temperature for Elgato Key Light, Key Light Air, Ring Light and Light Strip.",
   "homepage": "https://www.elgato.com",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "lamp",

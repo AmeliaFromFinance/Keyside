@@ -1,0 +1,15 @@
+{
+  "appId": "dev.phonedeck.app",
+  "appName": "PhoneDeck",
+  "webDir": "../client/dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never"
+  }
+}

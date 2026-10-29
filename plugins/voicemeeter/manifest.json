@@ -6,7 +6,7 @@
   "prefix": "vm",
   "description": "Mute, gain, routing and scripts for Voicemeeter, sent as VBAN text commands. Works over the network too.",
   "homepage": "https://vb-audio.com/Voicemeeter/vban.htm",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "sliders-vertical",

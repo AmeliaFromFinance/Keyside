@@ -6,7 +6,7 @@
   "prefix": "veado",
   "description": "Switch, push and pop avatar states in veadotube mini or veadotube, with state thumbnails on the keys.",
   "homepage": "https://veado.tube",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "smile",

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PhoneDeck",
+  "version": "0.1.0",
+  "identifier": "dev.phonedeck.desktop",
+  "build": {
+    "frontendDist": "../static"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Utility",
+    "shortDescription": "Your phone as a stream deck",
+    "longDescription": "PhoneDeck turns phones, tablets and browsers into a stream deck for OBS, Twitch, VTubing apps and more.",
+    "copyright": "PhoneDeck contributors",
+    "license": "GPL-3.0-or-later",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "externalBin": ["binaries/deno"],
+    "resources": {
+      "resources/plugins/": "plugins/"
+    },
+    "linux": {
+      "deb": { "depends": ["libudev1"] }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}

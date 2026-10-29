@@ -6,7 +6,7 @@
   "prefix": "ha",
   "description": "Toggle devices, run scenes and scripts, call any service and show live sensor values.",
   "homepage": "https://www.home-assistant.io",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "house",

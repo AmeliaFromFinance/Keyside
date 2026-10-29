@@ -6,7 +6,7 @@
   "prefix": "hue",
   "description": "Rooms, zones, lights, scenes, brightness and colour through your Hue Bridge on the local network.",
   "homepage": "https://www.philips-hue.com",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "lightbulb",

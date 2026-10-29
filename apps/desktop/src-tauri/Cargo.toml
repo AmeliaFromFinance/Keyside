@@ -1,0 +1,25 @@
+[package]
+name = "phonedeck-desktop"
+description = "PhoneDeck for Windows, macOS and Linux: runs the companion and keeps it in the tray."
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+# Built on its own so the main workspace doesn't need the desktop UI libraries.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+phonedeck = { package = "phonedeck-companion", path = "../../../crates/companion" }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
+strip = true

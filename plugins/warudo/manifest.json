@@ -6,7 +6,7 @@
   "prefix": "warudo",
   "description": "Triggers Warudo blueprints that start with an On WebSocket Action node.",
   "homepage": "https://warudo.app",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "user-round",

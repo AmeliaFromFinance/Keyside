@@ -6,7 +6,7 @@
   "prefix": "youtube",
   "description": "Live chat, Super Chats and viewer count from your YouTube stream, and sending chat messages.",
   "homepage": "https://console.cloud.google.com/apis/credentials",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "monitor-play",

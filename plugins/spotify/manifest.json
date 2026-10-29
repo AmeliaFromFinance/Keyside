@@ -6,7 +6,7 @@
   "prefix": "spotify",
   "description": "Playback controls and a now-playing key with album art. Controlling playback needs Spotify Premium.",
   "homepage": "https://developer.spotify.com/dashboard",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "music",

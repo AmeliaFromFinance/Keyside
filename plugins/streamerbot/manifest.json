@@ -6,7 +6,7 @@
   "prefix": "sb",
   "description": "Run Streamer.bot actions, show its global variables and mirror chat and alerts from the platforms it is connected to.",
   "homepage": "https://streamer.bot",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "bot",

@@ -6,7 +6,7 @@
   "prefix": "vnyan",
   "description": "Triggers VNyan node graphs through its WebSocket Command node.",
   "homepage": "https://suvidriel.itch.io/vnyan",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "cat",

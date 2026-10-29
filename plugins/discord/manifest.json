@@ -6,7 +6,7 @@
   "prefix": "discord",
   "description": "Mute, deafen and voice channel controls for the Discord desktop app, with the current state on the keys.",
   "homepage": "https://discord.com/developers/applications",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "headset",

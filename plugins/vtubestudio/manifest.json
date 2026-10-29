@@ -6,7 +6,7 @@
   "prefix": "vts",
   "description": "Hotkeys, expressions and model switching, with the active model and expressions lit up.",
   "homepage": "https://denchisoft.com",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "scan-face",

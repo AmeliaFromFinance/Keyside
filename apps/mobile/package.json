@@ -1,0 +1,21 @@
+{
+  "name": "@phonedeck/mobile",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "pnpm --filter @phonedeck/client build && cap sync",
+    "android": "pnpm sync && cap open android",
+    "ios": "pnpm sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor-mlkit/barcode-scanning": "^8.2.1",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  }
+}

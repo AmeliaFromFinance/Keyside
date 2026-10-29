@@ -6,7 +6,7 @@
   "prefix": "twitch",
   "description": "Chat and alerts on your deck, plus markers, clips, ads, chat modes, title, shoutouts and raids.",
   "homepage": "https://dev.twitch.tv/console/apps",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "host": "^1.0",
   "entry": "main.js",
   "icon": "tv",
