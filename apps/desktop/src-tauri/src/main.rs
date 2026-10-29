@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use phonedeck::app::{App, Options};
+use keyside::app::{App, Options};
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -24,33 +24,33 @@ fn open_editor(handle: &AppHandle) {
         return;
     }
     let app = handle.state::<Companion>().0.clone();
-    let Ok(url) = phonedeck::editor_url(&app).parse() else { return };
-    let built = WebviewWindowBuilder::new(handle, "editor", WebviewUrl::External(url)).title("PhoneDeck").inner_size(1360.0, 860.0).min_inner_size(960.0, 600.0).build();
+    let Ok(url) = keyside::editor_url(&app).parse() else { return };
+    let built = WebviewWindowBuilder::new(handle, "editor", WebviewUrl::External(url)).title("Keyside").inner_size(1360.0, 860.0).min_inner_size(960.0, 600.0).build();
     if let Err(e) = built {
         tracing::error!("couldn't open the editor window: {e}");
     }
 }
 
 fn main() {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_env("PHONEDECK_LOG").unwrap_or_else(|_| "info".into())).init();
+    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_env("KEYSIDE_LOG").unwrap_or_else(|_| "info".into())).init();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_editor(app)))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![BACKGROUND])))
         .setup(|app| {
             let plugins = app.path().resource_dir().ok().map(|d| d.join("plugins")).filter(|d| d.is_dir());
-            let companion = tauri::async_runtime::block_on(phonedeck::start(Options { data_dir: None, bundled_plugins: plugins }))?;
+            let companion = tauri::async_runtime::block_on(keyside::start(Options { data_dir: None, bundled_plugins: plugins }))?;
             app.manage(Companion(companion));
 
-            let open = MenuItem::with_id(app, "open", "Open PhoneDeck", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Open Keyside", true, None::<&str>)?;
             let login = CheckMenuItem::with_id(app, "autostart", "Start when I sign in", true, app.autolaunch().is_enabled().unwrap_or(false), None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit PhoneDeck", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit Keyside", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &login, &PredefinedMenuItem::separator(app)?, &quit])?;
             let login_item = login.clone();
             TrayIconBuilder::with_id("tray")
                 .icon(Image::from_bytes(include_bytes!("../icons/tray.png"))?)
                 .icon_as_template(true)
-                .tooltip("PhoneDeck")
+                .tooltip("Keyside")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -77,10 +77,10 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("PhoneDeck couldn't start");
+        .expect("Keyside couldn't start");
 
     app.run(|_app, event| {
-        // Closing the editor keeps PhoneDeck running in the tray. Quit comes from the tray menu.
+        // Closing the editor keeps Keyside running in the tray. Quit comes from the tray menu.
         if let RunEvent::ExitRequested { code: None, api, .. } = event {
             api.prevent_exit();
         }

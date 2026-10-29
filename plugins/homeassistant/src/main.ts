@@ -1,6 +1,6 @@
 // Home Assistant over its WebSocket API with a long-lived access token.
 
-import { definePlugin, setting, type Host, type Key, type KeyView } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
 import { clamp01, want } from "../../_lib/util.ts";
 

@@ -2359,6 +2359,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyside-companion"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "active-win-pos-rs",
+ "aes-gcm",
+ "anyhow",
+ "argon2",
+ "axum",
+ "base64 0.22.1",
+ "directories",
+ "ed25519-dalek",
+ "elgato-streamdeck",
+ "enigo",
+ "flate2",
+ "futures-util",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "if-addrs",
+ "image",
+ "keyring",
+ "libc",
+ "mdns-sd",
+ "midir",
+ "open",
+ "p256",
+ "parking_lot",
+ "rand 0.10.3",
+ "rcgen",
+ "reqwest",
+ "resvg",
+ "rodio",
+ "rosc",
+ "rust-embed",
+ "rustls",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite 0.30.0",
+ "tower-http 0.7.1",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "zip",
+]
+
+[[package]]
 name = "kurbo"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3168,60 +3222,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e57fef6bc5981e38c2ce2d63bfa546861309f875b8a75f092d1d54ae2d64f266"
 dependencies = [
  "siphasher",
-]
-
-[[package]]
-name = "phonedeck-companion"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "active-win-pos-rs",
- "aes-gcm",
- "anyhow",
- "argon2",
- "axum",
- "base64 0.22.1",
- "directories",
- "ed25519-dalek",
- "elgato-streamdeck",
- "enigo",
- "flate2",
- "futures-util",
- "hkdf 0.13.0",
- "hmac 0.13.0",
- "if-addrs",
- "image",
- "keyring",
- "libc",
- "mdns-sd",
- "midir",
- "open",
- "p256",
- "parking_lot",
- "rand 0.10.3",
- "rcgen",
- "reqwest",
- "resvg",
- "rodio",
- "rosc",
- "rust-embed",
- "rustls",
- "semver",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "subtle",
- "tempfile",
- "thiserror 2.0.21",
- "time",
- "tokio",
- "tokio-rustls",
- "tokio-tungstenite 0.30.0",
- "tower-http 0.7.1",
- "tracing",
- "tracing-subscriber",
- "url",
- "zip",
 ]
 
 [[package]]

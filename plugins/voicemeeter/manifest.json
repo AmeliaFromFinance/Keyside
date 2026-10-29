@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.voicemeeter",
+  "id": "dev.keyside.voicemeeter",
   "name": "Voicemeeter",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "vm",
   "description": "Mute, gain, routing and scripts for Voicemeeter, sent as VBAN text commands. Works over the network too.",
   "homepage": "https://vb-audio.com/Voicemeeter/vban.htm",

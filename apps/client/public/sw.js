@@ -1,5 +1,5 @@
 // Caches the app shell so the deck opens even while the PC is still waking up.
-const CACHE = "phonedeck-v1";
+const CACHE = "keyside-v1";
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icon.svg"])).then(() => self.skipWaiting()));

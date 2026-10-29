@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// npm create phonedeck-plugin <folder>
+// npm create keyside-plugin <folder>
 
 import { cpSync, existsSync, readFileSync, renameSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
 const target = process.argv[2];
 if (!target) {
-  console.error("Usage: npm create phonedeck-plugin <folder>");
+  console.error("Usage: npm create keyside-plugin <folder>");
   process.exit(1);
 }
 const dir = resolve(target);
@@ -36,4 +36,4 @@ Next:
   npm test
 
 Install it from the editor: Plugins > Install from file, after packing it with
-  phonedeck plugin pack .`);
+  keyside plugin pack .`);

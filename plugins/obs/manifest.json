@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.obs",
+  "id": "dev.keyside.obs",
   "name": "OBS Studio",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "obs",
   "description": "Scenes, audio, recording, streaming, replay buffer, sources and filters, with live state on every key.",
   "homepage": "https://obsproject.com",

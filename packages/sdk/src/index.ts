@@ -1,4 +1,4 @@
-// @phonedeck/sdk: write PhoneDeck plugins in TypeScript.
+// @keyside/sdk: write Keyside plugins in TypeScript.
 // Plugins run inside the companion's Deno sandbox and talk to it over stdin/stdout.
 
 export type Tone = "default" | "accent" | "danger" | "success" | "warning" | "info" | "muted";
@@ -110,8 +110,8 @@ export interface Host {
   /** Opens an https page in the default browser on the PC. */
   openBrowser(url: string): Promise<void>;
   /**
-   * Browser sign-in with a redirect back to PhoneDeck. Pass the provider's authorize URL;
-   * PhoneDeck adds redirect_uri and state, then returns the code once the person signs in.
+   * Browser sign-in with a redirect back to Keyside. Pass the provider's authorize URL;
+   * Keyside adds redirect_uri and state, then returns the code once the person signs in.
    */
   authorize(url: string): Promise<{ code: string; redirectUri: string }>;
   /** Sends one UDP datagram (needs the "udp" permission and the host in "net"). */
@@ -451,10 +451,10 @@ function quietConsole() {
 
 /**
  * Declares the plugin. Inside the companion it starts serving right away.
- * In tests (see @phonedeck/sdk/testing) it only returns the definition.
+ * In tests (see @keyside/sdk/testing) it only returns the definition.
  */
 export function definePlugin(def: PluginDefinition): PluginDefinition {
-  if (!(globalThis as any).__phonedeckTest && typeof Deno !== "undefined") {
+  if (!(globalThis as any).__keysideTest && typeof Deno !== "undefined") {
     quietConsole();
     queueMicrotask(() => {
       void new Runtime(def, stdioWire()).serve().then(() => Deno.exit(0));

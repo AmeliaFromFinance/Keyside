@@ -1,6 +1,6 @@
 // Warudo: sends {"action": name, "data": text} to blueprints with an On WebSocket Action node.
 
-import { definePlugin, setting, type Host } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host } from "@keyside/sdk";
 import { Reconnecting } from "../../_lib/socket.ts";
 
 let host: Host;

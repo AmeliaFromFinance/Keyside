@@ -13,7 +13,7 @@ use p256::{PublicKey, SecretKey, ecdh::diffie_hellman, elliptic_curve::sec1::ToS
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const PROTOCOL: &str = "phonedeck/1";
+pub const PROTOCOL: &str = "keyside/1";
 pub const MAX_FRAME: usize = 2 * 1024 * 1024;
 const MAX_COUNTER: u64 = 1 << 32;
 const DIR_C2S: u8 = 1;

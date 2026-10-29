@@ -1,6 +1,6 @@
 {
-  "name": "@phonedeck/plugin-warudo",
+  "name": "@keyside/plugin-warudo",
   "private": true,
   "type": "module",
-  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+  "dependencies": { "@keyside/sdk": "workspace:*" }
 }

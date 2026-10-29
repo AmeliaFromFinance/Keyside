@@ -1,9 +1,9 @@
 // One connection to a companion: the local editor socket, or a paired device over the
 // encrypted channel. Reconnects on its own and measures latency.
 
-import { ClientHandshake, importPsk, type Session, type DeviceInfo } from "@phonedeck/protocol/channel";
-import { fromB64u } from "@phonedeck/protocol";
-import type { ClientMsg, ServerMsg } from "@phonedeck/protocol";
+import { ClientHandshake, importPsk, type Session, type DeviceInfo } from "@keyside/protocol/channel";
+import { fromB64u } from "@keyside/protocol";
+import type { ClientMsg, ServerMsg } from "@keyside/protocol";
 import { companions, type PairParams, type StoredCompanion } from "./companions.ts";
 import { isNative } from "./native.ts";
 
@@ -186,7 +186,7 @@ export class Connection {
       try {
         await this.#deviceMessage(m);
       } catch (err) {
-        console.error("PhoneDeck: could not handle message", m?.t, err);
+        console.error("Keyside: could not handle message", m?.t, err);
         if (m?.t === "paired") this.#closed("storage", false);
       }
     };

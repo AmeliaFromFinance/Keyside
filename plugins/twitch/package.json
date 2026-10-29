@@ -1,6 +1,6 @@
 {
-  "name": "@phonedeck/plugin-twitch",
+  "name": "@keyside/plugin-twitch",
   "private": true,
   "type": "module",
-  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+  "dependencies": { "@keyside/sdk": "workspace:*" }
 }

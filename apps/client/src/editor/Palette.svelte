@@ -28,7 +28,7 @@
   });
 
   function drag(e: DragEvent, id: string) {
-    e.dataTransfer?.setData("application/x-phonedeck-action", id);
+    e.dataTransfer?.setData("application/x-keyside-action", id);
     e.dataTransfer!.effectAllowed = "copy";
     ed.armed = id;
   }

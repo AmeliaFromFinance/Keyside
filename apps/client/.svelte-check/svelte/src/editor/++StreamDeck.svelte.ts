@@ -47,7 +47,7 @@ function $$render() {
 
   // Reasons the companion gives for a plugin that can't run, so they get translated.
   mark("This plugin has no version for this system");
-  mark("Web-page plugins need Elgato's app and can't run in PhoneDeck");
+  mark("Web-page plugins need Elgato's app and can't run in Keyside");
   mark("Needs your permission to run unsandboxed");
   mark("The plugin runtime (Deno) is missing");
 
@@ -92,7 +92,7 @@ function $$render() {
     if (!file) return;
     error = "";
     trust = false;
-    const r = await fetch("/admin/upload/streamdeck", { method: "POST", headers: { "x-phonedeck": "1" }, body: file });
+    const r = await fetch("/admin/upload/streamdeck", { method: "POST", headers: { "x-keyside": "1" }, body: file });
     if (!r.ok) error = await r.text();
     else staged = await r.json();
   }
@@ -129,9 +129,9 @@ if(staged){
      { svelteHTML.createElement("p", { "class":`muted`,});t("By {author}", { author: staged.author || "?" });staged.description ? ` · ${staged.description}` : ""; }
      { svelteHTML.createElement("p", {});t("Actions"); staged.actions.join(", "); }
     if(staged.runtime === "html"){
-       { svelteHTML.createElement("p", { "class":`bad`,});t("This is a web page plugin. Those need Elgato's own app and can't run in PhoneDeck."); }
+       { svelteHTML.createElement("p", { "class":`bad`,});t("This is a web page plugin. Those need Elgato's own app and can't run in Keyside."); }
     } else if (staged.runtime === "native"){
-       { svelteHTML.createElement("p", { "class":`bad`,}); { const $$_nocI2C = __sveltets_2_ensureComponent(Icon); new $$_nocI2C({ target: __sveltets_2_any(), props: {    "name":`shield-off`,"size":18,}});}t("This plugin is a program, not a script. PhoneDeck can't sandbox it: it can do anything you can do on this PC."); }
+       { svelteHTML.createElement("p", { "class":`bad`,}); { const $$_nocI2C = __sveltets_2_ensureComponent(Icon); new $$_nocI2C({ target: __sveltets_2_any(), props: {    "name":`shield-off`,"size":18,}});}t("This plugin is a program, not a script. Keyside can't sandbox it: it can do anything you can do on this PC."); }
        { svelteHTML.createElement("label", { "class":`check`,}); { svelteHTML.createElement("input", {    "type":`checkbox`,"bind:checked":trust,});/*Ωignore_startΩ*/() => trust = __sveltets_2_any(null);/*Ωignore_endΩ*/}t("I trust where this plugin came from and want to run it anyway"); }
     }else{
        { svelteHTML.createElement("p", {}); { const $$_nocI2C = __sveltets_2_ensureComponent(Icon); new $$_nocI2C({ target: __sveltets_2_any(), props: {    "name":`shield-check`,"size":18,}});}t("Runs in the sandbox: it can't read your files, start programs or reach the internet unless you allow it."); }

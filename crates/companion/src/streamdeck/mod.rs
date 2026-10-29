@@ -42,7 +42,7 @@ pub struct Installed {
     pub uuid: String,
     pub manifest: SdManifest,
     pub enabled: bool,
-    /// Hosts a JavaScript plugin may reach besides PhoneDeck itself.
+    /// Hosts a JavaScript plugin may reach besides Keyside itself.
     #[serde(default)]
     pub net: Vec<String>,
     /// Any host at all. Shown with a warning in the editor.
@@ -63,7 +63,7 @@ impl Installed {
     pub fn blocked(&self, have_deno: bool) -> Option<&'static str> {
         match self.manifest.runtime() {
             None => Some("This plugin has no version for this system"),
-            Some(Runtime::Html) => Some("Web-page plugins need Elgato's app and can't run in PhoneDeck"),
+            Some(Runtime::Html) => Some("Web-page plugins need Elgato's app and can't run in Keyside"),
             Some(Runtime::Native) if !self.unsandboxed => Some("Needs your permission to run unsandboxed"),
             Some(Runtime::Node) if !have_deno => Some("The plugin runtime (Deno) is missing"),
             _ => None,
@@ -177,7 +177,7 @@ impl Hub {
         self.state.lock().installed.values().filter(|i| i.enabled).map(Installed::plugin_id).collect()
     }
 
-    /// Entries for the editor palette, in the same shape as PhoneDeck plugins.
+    /// Entries for the editor palette, in the same shape as Keyside plugins.
     pub fn catalog(&self) -> Vec<Value> {
         let st = self.state.lock();
         st.installed
@@ -650,7 +650,7 @@ fn valid_host(h: &str) -> bool {
 
 fn install(app: &App, pkg: manifest::SdPackage, unsandboxed: bool) -> Result<()> {
     match pkg.manifest.runtime() {
-        Some(Runtime::Html) => bail!("This is a web-page plugin. Those need Elgato's own app and can't run in PhoneDeck."),
+        Some(Runtime::Html) => bail!("This is a web-page plugin. Those need Elgato's own app and can't run in Keyside."),
         Some(Runtime::Native) if !unsandboxed => bail!("This plugin is a program for your system. Allow it to run unsandboxed to install it."),
         None => bail!("This plugin has no version for this system"),
         _ => {}

@@ -1,6 +1,6 @@
 ///<reference types="svelte" />
 ;
-import type { Profile } from "@phonedeck/protocol";
+import type { Profile } from "@keyside/protocol";
 import Icon from "../components/Icon.svelte";
 import { req } from "../lib/deck.svelte.ts";
 import { ed, change, profile } from "./state.svelte.ts";
@@ -100,7 +100,7 @@ if(error){ { svelteHTML.createElement("p", {   "class":`bad`,"role":`alert`,});e
 
  { svelteHTML.createElement("section", { "class":`card`,});
    { svelteHTML.createElement("h3", {});t("Import"); }
-   { svelteHTML.createElement("p", { "class":`muted`,});t("Paste a share code, or choose a layout file exported from PhoneDeck."); }
+   { svelteHTML.createElement("p", { "class":`muted`,});t("Paste a share code, or choose a layout file exported from Keyside."); }
    { svelteHTML.createElement("textarea", {       "class":`mono`,"rows":3,"bind:value":incoming,"placeholder":`PD1.…`,});/*Ωignore_startΩ*/() => incoming = __sveltets_2_any(null);/*Ωignore_endΩ*/ }
    { svelteHTML.createElement("div", { "class":`row`,});
      { svelteHTML.createElement("button", {     "class":`btn primary`,"disabled":!incoming.trim() || busy,"onclick":() => importText(incoming),});t("Import code"); }

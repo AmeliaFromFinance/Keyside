@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.hue",
+  "id": "dev.keyside.hue",
   "name": "Philips Hue",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "hue",
   "description": "Rooms, zones, lights, scenes, brightness and colour through your Hue Bridge on the local network.",
   "homepage": "https://www.philips-hue.com",

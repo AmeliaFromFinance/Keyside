@@ -1,5 +1,5 @@
 {
-  "name": "phonedeck",
+  "name": "keyside",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.0",
@@ -7,14 +7,14 @@
     "node": ">=22.6"
   },
   "scripts": {
-    "build": "pnpm build:plugins && pnpm --filter @phonedeck/client build",
+    "build": "pnpm build:plugins && pnpm --filter @keyside/client build",
     "build:plugins": "node scripts/build-plugins.ts",
     "build:site": "node scripts/build-site.ts",
     "test": "pnpm test:js && pnpm test:e2e && cargo test --workspace",
     "test:js": "node --test --test-force-exit --test-timeout=60000 packages/protocol/test/channel.test.ts packages/sdk/test/*.test.ts plugins/*/test/*.test.ts apps/client/test/*.test.ts",
     "test:e2e": "node --test --test-force-exit --test-timeout=120000 --test-concurrency=1 packages/protocol/test/e2e.test.ts packages/protocol/test/sandbox.test.ts packages/protocol/test/streamdeck.test.ts",
-    "check": "tsc -p tsconfig.json && pnpm --filter @phonedeck/client check",
-    "dev": "pnpm --filter @phonedeck/client dev"
+    "check": "tsc -p tsconfig.json && pnpm --filter @keyside/client check",
+    "dev": "pnpm --filter @keyside/client dev"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

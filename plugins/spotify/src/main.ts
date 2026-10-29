@@ -1,7 +1,7 @@
-// Spotify Web API. Signs in with PKCE through PhoneDeck's local redirect, so no client
+// Spotify Web API. Signs in with PKCE through Keyside's local redirect, so no client
 // secret is stored.
 
-import { definePlugin, setting, type Host, type Key, type KeyView } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { Session, fromResponse } from "../../_lib/session.ts";
 import { HttpError, b64, b64url, clamp01, errorText, http, sha256 } from "../../_lib/util.ts";
 

@@ -1,7 +1,7 @@
 // Test helpers: run a plugin definition in memory and inspect what it sends.
 // Import this module before your plugin module, so the plugin doesn't start on stdio.
 
-(globalThis as any).__phonedeckTest = true;
+(globalThis as any).__keysideTest = true;
 
 import { serve, type PluginDefinition, type Settings, type Wire } from "./index.ts";
 

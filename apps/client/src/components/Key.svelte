@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { KeyView } from "@phonedeck/protocol";
+  import type { KeyView } from "@keyside/protocol";
   import Icon from "./Icon.svelte";
   import { assetImage } from "../lib/deck.svelte.ts";
   import { clock, everySecond } from "../lib/format.ts";

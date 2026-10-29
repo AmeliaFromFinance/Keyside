@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.streamlabs",
+  "id": "dev.keyside.streamlabs",
   "name": "Streamlabs Desktop",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "slobs",
   "description": "Scenes, audio, recording, streaming and replays in Streamlabs Desktop, with live state on the keys.",
   "homepage": "https://streamlabs.com",

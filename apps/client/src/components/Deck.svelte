@@ -93,7 +93,7 @@
           <button class="back" onclick={() => nav("back")} aria-label={t("Back")}><Icon name="arrow-left" /></button>
         {/if}
         <div>
-          <h1>{page?.name ?? deck.profile?.name ?? "PhoneDeck"}</h1>
+          <h1>{page?.name ?? deck.profile?.name ?? "Keyside"}</h1>
           <p>{subtitle}</p>
         </div>
       </div>

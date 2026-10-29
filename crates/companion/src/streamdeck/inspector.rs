@@ -39,7 +39,7 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.context("starting the settings panel server")?;
     let port = listener.local_addr()?.port();
     let _ = app.streamdeck.inspector_port.set(port);
-    let router = Router::new().route("/__phonedeck/boot.js", get(boot)).route("/p/{uuid}/{*path}", get(file)).with_state(app.clone());
+    let router = Router::new().route("/__keyside/boot.js", get(boot)).route("/p/{uuid}/{*path}", get(file)).with_state(app.clone());
     let v6 = tokio::net::TcpListener::bind(("::1", port)).await.ok();
     let r2 = router.clone();
     tokio::spawn(async move {
@@ -134,7 +134,7 @@ async fn file(State(app): State<Arc<App>>, h: HeaderMap, Path((uuid, path)): Pat
 
 /// Adds the script that hands the panel its connection details.
 fn inject(html: &[u8]) -> Vec<u8> {
-    let tag = b"<script src=\"/__phonedeck/boot.js\"></script>";
+    let tag = b"<script src=\"/__keyside/boot.js\"></script>";
     let lower = html.to_ascii_lowercase();
     let at = lower.windows(7).rposition(|w| w == b"</body>").unwrap_or(html.len());
     let mut out = Vec::with_capacity(html.len() + tag.len());
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn injects_before_the_body_ends() {
         let out = String::from_utf8(inject(b"<html><body><p>x</p></BODY></html>")).unwrap();
-        assert!(out.contains("<p>x</p><script src=\"/__phonedeck/boot.js\"></script></BODY>"));
+        assert!(out.contains("<p>x</p><script src=\"/__keyside/boot.js\"></script></BODY>"));
         let bare = String::from_utf8(inject(b"<p>no body</p>")).unwrap();
         assert!(bare.ends_with("</script>"));
     }

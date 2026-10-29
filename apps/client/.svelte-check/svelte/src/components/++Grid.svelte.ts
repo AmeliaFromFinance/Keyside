@@ -1,7 +1,7 @@
 ///<reference types="svelte" />
 ;
 import type { Snippet } from "svelte";
-import type { KeyView } from "@phonedeck/protocol";
+import type { KeyView } from "@keyside/protocol";
 import Key from "./Key.svelte";
 
 ;type $$ComponentProps =  {

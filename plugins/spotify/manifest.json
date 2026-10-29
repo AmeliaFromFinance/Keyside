@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.spotify",
+  "id": "dev.keyside.spotify",
   "name": "Spotify",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "spotify",
   "description": "Playback controls and a now-playing key with album art. Controlling playback needs Spotify Premium.",
   "homepage": "https://developer.spotify.com/dashboard",

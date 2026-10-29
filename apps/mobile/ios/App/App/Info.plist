@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>PhoneDeck</string>
+        <string>Keyside</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -65,9 +65,9 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>PhoneDeck uses the camera to scan the pairing code shown on your PC.</string>
+	<string>Keyside uses the camera to scan the pairing code shown on your PC.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>PhoneDeck connects to the PhoneDeck app on your PC over your local network.</string>
+	<string>Keyside connects to the Keyside app on your PC over your local network.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

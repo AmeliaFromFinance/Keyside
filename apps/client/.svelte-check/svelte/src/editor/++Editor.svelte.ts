@@ -126,7 +126,7 @@ import { ago, everySecond } from "../lib/format.ts";
     const blob = new Blob([JSON.stringify($state.snapshot(ed.layout), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "phonedeck-layout.json";
+    a.download = "keyside-layout.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Profile } from "@phonedeck/protocol";
+  import type { Profile } from "@keyside/protocol";
   import Icon from "../components/Icon.svelte";
   import { req } from "../lib/deck.svelte.ts";
   import { ed, change, profile } from "./state.svelte.ts";
@@ -90,7 +90,7 @@
 
 <section class="card">
   <h3>{t("Import")}</h3>
-  <p class="muted">{t("Paste a share code, or choose a layout file exported from PhoneDeck.")}</p>
+  <p class="muted">{t("Paste a share code, or choose a layout file exported from Keyside.")}</p>
   <textarea class="mono" rows="3" bind:value={incoming} placeholder="PD1.…"></textarea>
   <div class="row">
     <button class="btn primary" disabled={!incoming.trim() || busy} onclick={() => importText(incoming)}>{t("Import code")}</button>

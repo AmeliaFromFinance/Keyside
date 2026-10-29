@@ -12,7 +12,7 @@ export interface StoredCompanion {
   lastUsed: number;
 }
 
-const DB = "phonedeck";
+const DB = "keyside";
 const STORE = "companions";
 
 function open(): Promise<IDBDatabase> {
@@ -68,5 +68,5 @@ export function parsePairLink(text: string): PairParams | null {
   const pid = q.get("i");
   const code = q.get("k");
   if (!hosts.length || !(port > 0 && port < 65536) || !valid(cid, 22) || !valid(pid, 11) || !valid(code, 22)) return null;
-  return { hosts, port, cid: cid!, pid: pid!, code: code!, name: (q.get("n") ?? "PhoneDeck").slice(0, 40) };
+  return { hosts, port, cid: cid!, pid: pid!, code: code!, name: (q.get("n") ?? "Keyside").slice(0, 40) };
 }

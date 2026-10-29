@@ -70,7 +70,7 @@ struct Meta {
 fn generate(ips: &[IpAddr], hostname: &str) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut params = CertificateParams::default();
     let mut dn = DistinguishedName::new();
-    dn.push(DnType::CommonName, "PhoneDeck companion");
+    dn.push(DnType::CommonName, "Keyside companion");
     params.distinguished_name = dn;
     params.subject_alt_names = ips.iter().map(|ip| SanType::IpAddress(*ip)).collect();
     params.subject_alt_names.push(SanType::DnsName("localhost".try_into()?));
@@ -87,7 +87,7 @@ fn generate(ips: &[IpAddr], hostname: &str) -> Result<(Vec<u8>, Vec<u8>)> {
 
 fn sanitize_host(h: &str) -> String {
     let s: String = h.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(63).collect();
-    if s.is_empty() { "phonedeck".into() } else { s.to_ascii_lowercase() }
+    if s.is_empty() { "keyside".into() } else { s.to_ascii_lowercase() }
 }
 
 fn unix_now() -> u64 {

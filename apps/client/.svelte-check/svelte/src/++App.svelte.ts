@@ -99,8 +99,8 @@ if(view === "loading"){
    { svelteHTML.createElement("div", { "class":`center`,}); { svelteHTML.createElement("p", {});t("Loading…"); } }
 } else if (view === "signin"){
    { svelteHTML.createElement("div", { "class":`center`,});
-     { svelteHTML.createElement("h1", {});t("Open the editor from PhoneDeck"); }
-     { svelteHTML.createElement("p", {});t("For your security the editor only opens from the PhoneDeck app or the phonedeck open command on this PC."); }
+     { svelteHTML.createElement("h1", {});t("Open the editor from Keyside"); }
+     { svelteHTML.createElement("p", {});t("For your security the editor only opens from the Keyside app or the keyside open command on this PC."); }
    }
 } else if (view === "pair"){
   if(notice){ { svelteHTML.createElement("p", {   "class":`notice`,"role":`alert`,});t(notice); }}

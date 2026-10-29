@@ -1,4 +1,4 @@
-// Downloads the Deno build PhoneDeck ships as its plugin runtime and checks it against the
+// Downloads the Deno build Keyside ships as its plugin runtime and checks it against the
 // pinned hash in deno.json. Usage: node scripts/fetch-deno.ts <target triple> <out file>
 
 import { createHash } from "node:crypto";

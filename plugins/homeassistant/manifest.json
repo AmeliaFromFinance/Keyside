@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.homeassistant",
+  "id": "dev.keyside.homeassistant",
   "name": "Home Assistant",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "ha",
   "description": "Toggle devices, run scenes and scripts, call any service and show live sensor values.",
   "homepage": "https://www.home-assistant.io",

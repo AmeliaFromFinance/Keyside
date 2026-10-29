@@ -1,4 +1,4 @@
-package dev.phonedeck.app;
+package dev.keyside.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -67,7 +67,7 @@ fn session(app: &App, h: &HeaderMap) -> bool {
 /// Uploads and other state changes also need a custom header, which plain HTML forms can't send.
 fn csrf_ok(app: &App, h: &HeaderMap) -> bool {
     let port = app.settings.read().admin_port;
-    origin_ok(h, port) && h.get("x-phonedeck").is_some() && session(app, h)
+    origin_ok(h, port) && h.get("x-keyside").is_some() && session(app, h)
 }
 
 async fn login(State(app): State<Arc<App>>, headers: HeaderMap, Json(body): Json<Value>) -> Response {
@@ -93,7 +93,7 @@ async fn login(State(app): State<Arc<App>>, headers: HeaderMap, Json(body): Json
             f.1 = Some(Instant::now() + Duration::from_secs(60));
             f.0 = 0;
         }
-        return (StatusCode::UNAUTHORIZED, "Sign-in link is not valid. Open the editor from the PhoneDeck app.").into_response();
+        return (StatusCode::UNAUTHORIZED, "Sign-in link is not valid. Open the editor from the Keyside app.").into_response();
     }
     *app.login_fails.lock() = (0, None);
     let sid = crate::ids::random_b64(32);
@@ -167,9 +167,9 @@ async fn oauth_callback(State(app): State<Arc<App>>, axum::extract::Query(q): ax
     let ok = result.is_ok();
     let delivered = !state.is_empty() && app.plugins.oauth_finish(state, result);
     let (title, body) = match (delivered, ok) {
-        (true, true) => ("Signed in", "You can close this tab and go back to PhoneDeck."),
+        (true, true) => ("Signed in", "You can close this tab and go back to Keyside."),
         (true, false) => ("Sign-in cancelled", "Nothing was changed. You can close this tab."),
-        (false, _) => ("Link expired", "This sign-in link was already used or has expired. Start again from PhoneDeck."),
+        (false, _) => ("Link expired", "This sign-in link was already used or has expired. Start again from Keyside."),
     };
     let html = format!(
         "<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width\"><title>{title}</title><body style=\"font:16px system-ui;background:#121118;color:#edebf2;display:grid;place-items:center;height:90vh\"><div><h1 style=\"font-size:1.4rem\">{title}</h1><p>{body}</p></div>"

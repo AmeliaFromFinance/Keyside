@@ -44,7 +44,7 @@ function $$render() {
     error = "";
     try {
       await req("settings.set", $state.snapshot(s));
-      msg = t("Saved. Restart PhoneDeck for network changes to apply.");
+      msg = t("Saved. Restart Keyside for network changes to apply.");
     } catch (e: any) {
       error = e.message;
     }
@@ -68,7 +68,7 @@ if(info){
      { svelteHTML.createElement("p", {});  { svelteHTML.createElement("span", { "class":`mono`,});info.version; } }
      { svelteHTML.createElement("p", {});t("Phones connect to");    for(let a of __sveltets_2_ensureArray(info.addresses)){a; { svelteHTML.createElement("span", { "class":`mono addr`,});a; info.lanPort; }} { svelteHTML.createElement("span", { "class":`bad`,});t("no network found"); } }
      { svelteHTML.createElement("p", { "class":`muted`,});t("Certificate");  { svelteHTML.createElement("span", { "class":`mono`,});info.fingerprint; } }
-    if(!info.deno){ { svelteHTML.createElement("p", { "class":`bad`,}); { const $$_nocI2C = __sveltets_2_ensureComponent(Icon); new $$_nocI2C({ target: __sveltets_2_any(), props: {    "name":`triangle-alert`,"size":18,}});}t("The plugin runtime is missing, so plugins can't run. Reinstall PhoneDeck."); }}
+    if(!info.deno){ { svelteHTML.createElement("p", { "class":`bad`,}); { const $$_nocI2C = __sveltets_2_ensureComponent(Icon); new $$_nocI2C({ target: __sveltets_2_any(), props: {    "name":`triangle-alert`,"size":18,}});}t("The plugin runtime is missing, so plugins can't run. Reinstall Keyside."); }}
     if(tailscale.length){
        { svelteHTML.createElement("p", { "class":`ok`,}); { const $$_nocI2C = __sveltets_2_ensureComponent(Icon); new $$_nocI2C({ target: __sveltets_2_any(), props: {    "name":`globe`,"size":18,}});}t("Tailscale is on. Paired phones on your tailnet can reach this PC from anywhere."); }
     }else{

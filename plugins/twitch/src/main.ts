@@ -1,7 +1,7 @@
 // Twitch through Helix and EventSub. Signs in with the device code flow, so no client
 // secret or redirect server is needed.
 
-import { definePlugin, setting, type Host, type Key, type KeyView, type Step } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView, type Step } from "@keyside/sdk";
 import { Reconnecting } from "../../_lib/socket.ts";
 import { Session, fromResponse, pollDeviceCode } from "../../_lib/session.ts";
 import { HttpError, errorText, firstTime, http, want } from "../../_lib/util.ts";

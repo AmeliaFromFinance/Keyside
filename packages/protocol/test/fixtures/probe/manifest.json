@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.test-probe",
+  "id": "dev.keyside.test-probe",
   "name": "Sandbox probe",
   "version": "1.0.0",
-  "author": "PhoneDeck tests",
+  "author": "Keyside tests",
   "prefix": "probe",
   "host": "^1.0",
   "entry": "main.js",

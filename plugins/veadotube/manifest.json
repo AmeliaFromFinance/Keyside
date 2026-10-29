@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.veadotube",
+  "id": "dev.keyside.veadotube",
   "name": "veadotube",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "veado",
   "description": "Switch, push and pop avatar states in veadotube mini or veadotube, with state thumbnails on the keys.",
   "homepage": "https://veado.tube",

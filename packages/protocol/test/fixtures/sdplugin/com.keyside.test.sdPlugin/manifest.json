@@ -1,0 +1,12 @@
+{
+  "Name": "Test counter",
+  "Author": "Keyside",
+  "Version": "1.0.0",
+  "UUID": "com.keyside.test",
+  "CodePath": "bin/plugin.js",
+  "Nodejs": { "Version": "20" },
+  "SDKVersion": 2,
+  "Actions": [
+    { "UUID": "com.keyside.test.count", "Name": "Count", "States": [{ "Image": "key" }, { "Image": "key" }], "PropertyInspectorPath": "pi.html" }
+  ]
+}

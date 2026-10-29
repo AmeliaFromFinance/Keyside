@@ -1,5 +1,5 @@
 {
-  "protocol": "phonedeck/1",
+  "protocol": "keyside/1",
   "cases": [
     {
       "mode": "pair",
@@ -32,16 +32,16 @@
       "server_nonce": "Wpj88KN9h38Sos4ZSifONA",
       "hello_e": "BDxZHk924VhNo4ggvpQh1TLBwwvA1b08t6AoBdgEh4UlQHuxGc0Q_UfoyHkqGxjCQTNozE5_0h0vuiY5yDERLVw",
       "challenge_e": "BJ811gZgqvpl_9tc38854UdNX6AJ8IcXEPr_6y6k1G70qggznUhGK7Y_rEV2WMQE3CnNqCcTkwYZE-kx_ZqbXmc",
-      "challenge_mac": "EVWyoZkJ9YlvwJQBowiPUE1tiL90M_cxSxbaB9aPeF4",
-      "confirm_mac": "GD_U98GoUMeW1vfXzYBYeUQAjLaLbfObeoDeWVVXA8I",
-      "sas": "299715",
+      "challenge_mac": "x_RVG0j85VQ15UsEab0j6KCiCbJ1e5IJqy-_tkXrAo0",
+      "confirm_mac": "7qQbmQtWBfc-OkT_OuocYSCKPeDxXQhfv7lWxUhnrGc",
+      "sas": "646917",
       "first_c2s": {
         "plain": "{\"t\":\"ping\",\"ts\":1}",
-        "frame": "AAAAAAAAAAAG8FuWsrhKR569za6OmunGG6tSmWfz4UHRewBVwUYN4dm9qA"
+        "frame": "AAAAAAAAAAC0zrXNDaFrlveBoOXqG05NFncBHI7E8F9YDsfFG20hFK1zGw"
       },
       "first_s2c": {
         "plain": "{\"t\":\"pong\",\"ts\":1}",
-        "frame": "AAAAAAAAAAAduzhDm3wwGPj8bvjHGcAeY0KV-OP3qrIBbrf4uZ32LhaIcw"
+        "frame": "AAAAAAAAAABYvuuP6bLOlXx26I0YxAFFWzZJMwbrIkxpQBIcD5ro2d4KSQ"
       }
     },
     {
@@ -75,16 +75,16 @@
       "server_nonce": "IkbBfCQLyCeHHlHQl64VUg",
       "hello_e": "BGarQpFtjNE5KzZiw732MNyA0aM11x34A_MmqR6y7bAejxDVzq4ugb7oRRPP-q-6OO5wdT6cYb3mFUHUvIRUTgs",
       "challenge_e": "BL7Q_2oTYvPuHy34I43MNo-DrVNTijHxFFzj3UrHpvCfRdnt-kaF_CEx1757cvHaU_DdgUpyobgdzhCSU3wy44o",
-      "challenge_mac": "Uf204n4x-mglWQ1W77vAlVb2HKPMtRQ3c2OOpAIrPEs",
-      "confirm_mac": "T7a-Oiv2KZ0Ov_Eh2ZosvkrVzp-ACnL71dhylQB_lsk",
-      "sas": "987129",
+      "challenge_mac": "QV9EFsPs1W1gAupKWRZcE4jlioJ0FcxpWA9d8z2TfeE",
+      "confirm_mac": "Kt9C0E0x8gcMBz85U7TbsDbQafAlBvpoGRACxlZcANY",
+      "sas": "995092",
       "first_c2s": {
         "plain": "{\"t\":\"ping\",\"ts\":1}",
-        "frame": "AAAAAAAAAAA_6dH3R-3g91PfZfL9Qgstrqjxt96NlwWuYcPc4_mbvqmZZw"
+        "frame": "AAAAAAAAAADwhakdAu4TBWPJVwfwaP68dOH2hdEk1mP6tYtW8T6tidDJgg"
       },
       "first_s2c": {
         "plain": "{\"t\":\"pong\",\"ts\":1}",
-        "frame": "AAAAAAAAAAC0G3P_0kkzwoy9GGtCPQFIYfHbAXbejjilaqkA6YhEXwZb-A"
+        "frame": "AAAAAAAAAABl6CG_gj3-sHBLQhew8ZjW-8kcgKcNiIB4mwNmO-CB2JdEtw"
       }
     }
   ]

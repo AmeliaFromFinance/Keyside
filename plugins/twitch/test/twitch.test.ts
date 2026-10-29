@@ -1,4 +1,4 @@
-import { createTestHost } from "@phonedeck/sdk/testing";
+import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import plugin, { endpoints } from "../src/main.ts";

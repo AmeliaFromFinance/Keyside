@@ -1,5 +1,5 @@
 // Runs the real companion and pairs a fake phone with it.
-// Needs a built binary: cargo build -p phonedeck-companion (or set PHONEDECK_BIN).
+// Needs a built binary: cargo build -p keyside-companion (or set KEYSIDE_BIN).
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ import { ClientHandshake, importPsk, type Session } from "../src/channel.ts";
 import { fromB64u } from "../src/bytes.ts";
 
 const root = new URL("../../../", import.meta.url).pathname;
-const bin = process.env.PHONEDECK_BIN ?? join(root, "target/debug/phonedeck");
+const bin = process.env.KEYSIDE_BIN ?? join(root, "target/debug/keyside");
 const ADMIN = 17442;
 const LAN = 17443;
 let child: ChildProcess;
@@ -23,9 +23,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 before(async () => {
   assert.ok(existsSync(bin), `companion binary missing at ${bin}`);
-  dir = mkdtempSync(join(tmpdir(), "phonedeck-e2e-"));
+  dir = mkdtempSync(join(tmpdir(), "keyside-e2e-"));
   writeFileSync(join(dir, "settings.json"), JSON.stringify({ adminPort: ADMIN, lanPort: LAN, mdns: false, followFocus: false }));
-  child = spawn(bin, ["--data-dir", dir], { env: { ...process.env, PHONEDECK_NO_KEYCHAIN: "1", PHONEDECK_LOG: "warn" }, stdio: ["ignore", "inherit", "inherit"] });
+  child = spawn(bin, ["--data-dir", dir], { env: { ...process.env, KEYSIDE_NO_KEYCHAIN: "1", KEYSIDE_LOG: "warn" }, stdio: ["ignore", "inherit", "inherit"] });
   for (let i = 0; i < 100; i++) {
     try {
       const r = await fetch(`http://127.0.0.1:${ADMIN}/admin/status`);
@@ -185,7 +185,7 @@ test("editor endpoints refuse other origins and hosts", async () => {
     request({ host: "127.0.0.1", port: ADMIN, path: "/admin/status", headers: { host: `evil.example:${ADMIN}` } }, (r) => res(r.statusCode ?? 0)).on("error", rej).end(),
   );
   assert.equal(rebinding, 421, "DNS rebinding guard");
-  const noCookie = await fetch(`http://127.0.0.1:${ADMIN}/admin/upload/asset`, { method: "POST", headers: { origin: `http://127.0.0.1:${ADMIN}`, "x-phonedeck": "1" }, body: "x" });
+  const noCookie = await fetch(`http://127.0.0.1:${ADMIN}/admin/upload/asset`, { method: "POST", headers: { origin: `http://127.0.0.1:${ADMIN}`, "x-keyside": "1" }, body: "x" });
   assert.equal(noCookie.status, 403);
   const api = await fetch(`http://127.0.0.1:${ADMIN}/api/v1/variables`);
   assert.equal(api.status, 401);

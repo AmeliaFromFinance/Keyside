@@ -1,6 +1,6 @@
 # Privacy
 
-PhoneDeck has no account, no cloud service and no telemetry. Nothing is sent to the PhoneDeck project.
+Keyside has no account, no cloud service and no telemetry. Nothing is sent to the Keyside project.
 
 ## What stays on your PC
 
@@ -8,9 +8,9 @@ The companion keeps everything in one folder:
 
 | System | Folder |
 | --- | --- |
-| Windows | `%APPDATA%\phonedeck\PhoneDeck\data` |
-| macOS | `~/Library/Application Support/dev.phonedeck.PhoneDeck` |
-| Linux | `~/.local/share/phonedeck` |
+| Windows | `%APPDATA%\keyside\Keyside\data` |
+| macOS | `~/Library/Application Support/dev.keyside.Keyside` |
+| Linux | `~/.local/share/keyside` |
 
 It holds your layouts, settings, uploaded images and sounds, the list of paired devices, API tokens (stored hashed), and plugin settings.
 
@@ -22,7 +22,7 @@ The phone stores the PCs it's paired with: name, addresses, and a device key it 
 
 ## Network
 
-PhoneDeck only talks to:
+Keyside only talks to:
 
 - **Your own devices** on your network (or your Tailscale network if you set that up).
 - **The apps and services your plugins connect to**, using the details you enter. For example the Twitch plugin talks to Twitch, the OBS plugin talks to OBS. Each plugin can only reach the hosts listed in its permissions.
@@ -39,7 +39,7 @@ The phone app uses the camera only to scan the pairing QR code. Images aren't sa
 ## Removing your data
 
 - **A phone:** choose *Forget this PC* on the phone, and *Revoke* in the editor.
-- **Everything:** uninstall PhoneDeck and delete the folder above. Plugin secrets are removed from the keychain when you remove the plugin.
+- **Everything:** uninstall Keyside and delete the folder above. Plugin secrets are removed from the keychain when you remove the plugin.
 
 ## Questions
 

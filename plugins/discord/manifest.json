@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.discord",
+  "id": "dev.keyside.discord",
   "name": "Discord",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "discord",
   "description": "Mute, deafen and voice channel controls for the Discord desktop app, with the current state on the keys.",
   "homepage": "https://discord.com/developers/applications",
@@ -18,7 +18,7 @@
         "type": "string",
         "title": "Application ID",
         "maxLength": 32,
-        "description": "Create an application at discord.com/developers, add http://127.0.0.1 under OAuth2 > Redirects and paste its Application ID and Client Secret here. Discord then asks you to allow PhoneDeck once."
+        "description": "Create an application at discord.com/developers, add http://127.0.0.1 under OAuth2 > Redirects and paste its Application ID and Client Secret here. Discord then asks you to allow Keyside once."
       },
       "clientSecret": { "type": "string", "format": "secret", "title": "Client secret" },
       "session": { "type": "string", "format": "secret", "x-hidden": true }

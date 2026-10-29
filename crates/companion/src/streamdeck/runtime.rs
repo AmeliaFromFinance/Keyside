@@ -19,7 +19,7 @@ use crate::model::Tone;
 use crate::state::ConnectionView;
 use crate::store;
 
-pub const DEVICE: &str = "phonedeck";
+pub const DEVICE: &str = "keyside";
 /// The Stream Deck app version plugins are told they run in.
 const APP_VERSION: &str = "6.8.0";
 const MAX_MESSAGE: usize = 4 * 1024 * 1024;
@@ -159,7 +159,7 @@ fn on_plugin_ready(app: &Arc<App>, uuid: &str, tx: &mpsc::Sender<String>) {
 }
 
 fn device_info() -> Value {
-    json!({ "name": "PhoneDeck", "type": 0, "size": { "columns": 8, "rows": 4 } })
+    json!({ "name": "Keyside", "type": 0, "size": { "columns": 8, "rows": 4 } })
 }
 
 pub fn info(app: &App, inst: &Installed) -> Value {
@@ -178,7 +178,7 @@ pub fn info(app: &App, inst: &Installed) -> Value {
             "buttonPressedBackgroundColor": "#303030FF", "buttonPressedBorderColor": "#646464FF", "buttonPressedTextColor": "#969696FF",
             "disabledColor": "#007AFF59", "highlightColor": "#007AFFFF", "mouseDownColor": "#2EA8FFFF"
         },
-        "devices": [{ "id": DEVICE, "name": "PhoneDeck", "type": 0, "size": { "columns": 8, "rows": 4 } }],
+        "devices": [{ "id": DEVICE, "name": "Keyside", "type": 0, "size": { "columns": 8, "rows": 4 } }],
     })
 }
 

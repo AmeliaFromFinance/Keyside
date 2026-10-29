@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.warudo",
+  "id": "dev.keyside.warudo",
   "name": "Warudo",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "warudo",
   "description": "Triggers Warudo blueprints that start with an On WebSocket Action node.",
   "homepage": "https://warudo.app",

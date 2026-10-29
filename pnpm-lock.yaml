@@ -35,7 +35,7 @@ importers:
       '@fontsource/jetbrains-mono':
         specifier: ^5.3.0
         version: 5.3.0
-      '@phonedeck/protocol':
+      '@keyside/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       jsqr:
@@ -109,91 +109,91 @@ importers:
 
   plugins/discord:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/homeassistant:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/hue:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/keylight:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/obs:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/spotify:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/streamerbot:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/streamlabs:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/twitch:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/veadotube:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/vnyan:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/voicemeeter:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/vtubestudio:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/warudo:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 
   plugins/youtube:
     dependencies:
-      '@phonedeck/sdk':
+      '@keyside/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
 

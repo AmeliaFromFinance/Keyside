@@ -58,5 +58,5 @@ for (const [i, mode] of (["pair", "resume"] as const).entries()) {
   });
 }
 
-writeFileSync(out, JSON.stringify({ protocol: "phonedeck/1", cases }, null, 2) + "\n");
+writeFileSync(out, JSON.stringify({ protocol: "keyside/1", cases }, null, 2) + "\n");
 console.log(`wrote ${cases.length} cases`);

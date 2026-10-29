@@ -1,5 +1,5 @@
 // Installs a Stream Deck plugin into a real companion and drives it like the Elgato app would.
-// Needs Deno on PATH (or PHONEDECK_DENO) and a built companion.
+// Needs Deno on PATH (or KEYSIDE_DENO) and a built companion.
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -10,20 +10,20 @@ import { join, relative } from "node:path";
 import { zip } from "./fixtures/zip.ts";
 
 const root = new URL("../../../", import.meta.url).pathname;
-const bin = process.env.PHONEDECK_BIN ?? join(root, "target/debug/phonedeck");
+const bin = process.env.KEYSIDE_BIN ?? join(root, "target/debug/keyside");
 const ADMIN = 17472;
-const hasDeno = !!process.env.PHONEDECK_DENO || (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").some((d) => existsSync(join(d, process.platform === "win32" ? "deno.exe" : "deno")));
+const hasDeno = !!process.env.KEYSIDE_DENO || (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").some((d) => existsSync(join(d, process.platform === "win32" ? "deno.exe" : "deno")));
 const origin = `http://127.0.0.1:${ADMIN}`;
 let child: ChildProcess;
 let dir: string;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 before(() => {
-  dir = mkdtempSync(join(tmpdir(), "phonedeck-sd-"));
+  dir = mkdtempSync(join(tmpdir(), "keyside-sd-"));
   mkdirSync(join(dir, "data"));
   writeFileSync(join(dir, "data", "settings.json"), JSON.stringify({ adminPort: ADMIN, lanPort: ADMIN + 1, mdns: false, followFocus: false, lanEnabled: false }));
   if (!existsSync(bin) || !hasDeno) return;
-  child = spawn(bin, ["--data-dir", join(dir, "data")], { env: { ...process.env, PHONEDECK_NO_KEYCHAIN: "1", PHONEDECK_LOG: "warn" }, stdio: ["ignore", "inherit", "inherit"] });
+  child = spawn(bin, ["--data-dir", join(dir, "data")], { env: { ...process.env, KEYSIDE_NO_KEYCHAIN: "1", KEYSIDE_LOG: "warn" }, stdio: ["ignore", "inherit", "inherit"] });
 });
 
 after(() => child?.kill());
@@ -89,16 +89,16 @@ async function until<T>(fn: () => T | undefined | null | false, what: string, ms
 
 test("runs an unmodified Stream Deck plugin in the sandbox", { skip: (!existsSync(bin) && "companion not built") || (!hasDeno && "Deno not installed") }, async () => {
   const s = await session();
-  const up = await fetch(`${origin}/admin/upload/streamdeck`, { method: "POST", headers: { cookie: s.cookie, origin, "x-phonedeck": "1" }, body: Buffer.from(pluginZip()) });
+  const up = await fetch(`${origin}/admin/upload/streamdeck`, { method: "POST", headers: { cookie: s.cookie, origin, "x-keyside": "1" }, body: Buffer.from(pluginZip()) });
   assert.equal(up.status, 200, await up.clone().text());
   const staged = await up.json();
-  assert.equal(staged.uuid, "com.phonedeck.test");
+  assert.equal(staged.uuid, "com.keyside.test");
   assert.equal(staged.runtime, "node");
   await s.req("streamdeck.install", { token: staged.token });
 
   const layout = await s.req("layout.get");
   const profile = layout.profiles[0];
-  profile.pages.push({ id: "sd", name: "SD", cols: 2, rows: 1, keys: [{ id: "c", x: 0, y: 0, kind: "button", label: "Count", actions: [{ type: "sd.com.phonedeck.test/com.phonedeck.test.count", settings: {} }] }] });
+  profile.pages.push({ id: "sd", name: "SD", cols: 2, rows: 1, keys: [{ id: "c", x: 0, y: 0, kind: "button", label: "Count", actions: [{ type: "sd.com.keyside.test/com.keyside.test.count", settings: {} }] }] });
   await s.req("layout.save", { layout, baseRev: layout.rev });
   s.ws.send(JSON.stringify({ t: "nav", to: "page", page: "sd" }));
 
@@ -129,7 +129,7 @@ test("runs an unmodified Stream Deck plugin in the sandbox", { skip: (!existsSyn
   const page = await fetch(pi.url);
   assert.equal(page.status, 200);
   assert.match(page.headers.get("content-security-policy") ?? "", new RegExp(`frame-ancestors http://127.0.0.1:${ADMIN}`));
-  assert.match(await page.text(), /__phonedeck\/boot\.js/);
+  assert.match(await page.text(), /__keyside\/boot\.js/);
 
   const params = JSON.parse(decodeURIComponent(url.hash.slice(1)));
   const foreign = new WebSocket(`ws://127.0.0.1:${params.port}`, { headers: { origin: "https://evil.example" } } as never);

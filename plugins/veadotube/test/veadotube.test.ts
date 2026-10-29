@@ -1,4 +1,4 @@
-import { createTestHost } from "@phonedeck/sdk/testing";
+import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import plugin from "../src/main.ts";
@@ -29,7 +29,7 @@ test("finds the state node, shows the current state and switches", async () => {
     { id: "b", action: "state", settings: { state: "happy", op: "set" } },
   ]);
   await eventually(() => h.view("a")?.badge === "ON");
-  assert.equal(name, "/?n=PhoneDeck");
+  assert.equal(name, "/?n=Keyside");
   await eventually(() => String(h.view("b")?.image).startsWith("data:image/png;base64,"));
   await h.press("b", "state", { state: "happy", op: "set" });
   await eventually(() => h.view("b")?.badge === "ON");

@@ -16,7 +16,7 @@ pub const MAX_FILES: usize = 500;
 pub const MAX_TOTAL: u64 = 50 * 1024 * 1024;
 pub const MAX_FILE: u64 = 20 * 1024 * 1024;
 const SIG_FILE: &str = "SIGNATURE";
-const SIG_CONTEXT: &[u8] = b"phonedeck-plugin-v1\n";
+const SIG_CONTEXT: &[u8] = b"keyside-plugin-v1\n";
 
 #[derive(Debug, Clone)]
 pub struct Package {
@@ -120,7 +120,7 @@ impl Package {
         Self::build(files, sha256)
     }
 
-    /// Reads an unpacked plugin folder. Used for bundled plugins and `phonedeck plugin dev`.
+    /// Reads an unpacked plugin folder. Used for bundled plugins and `keyside plugin dev`.
     pub fn from_dir(dir: &Path) -> Result<Self> {
         let mut files = Vec::new();
         let mut total = 0u64;

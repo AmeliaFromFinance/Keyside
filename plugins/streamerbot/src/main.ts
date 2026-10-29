@@ -1,9 +1,9 @@
 // Streamer.bot over its WebSocket server.
 //
 // Globals show up as {sb.<name>}. A Streamer.bot action can also push a value with the
-// "WebSocket Server Broadcast" sub-action: {"phonedeck":{"var":"hype","value":3}} sets {sb.hype}.
+// "WebSocket Server Broadcast" sub-action: {"keyside":{"var":"hype","value":3}} sets {sb.hype}.
 
-import { definePlugin, setting, type Host, type Key } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
 import { b64, randomId, sha256 } from "../../_lib/util.ts";
 
@@ -84,7 +84,7 @@ const text = (v: unknown) => (typeof v === "string" ? v : "");
 
 function onEvent(source: string, type: string, d: any) {
   if (source === "General" && type === "Custom") {
-    const p = d?.phonedeck ?? d?.data?.phonedeck;
+    const p = d?.keyside ?? d?.data?.keyside;
     if (p && typeof p.var === "string") setGlobal(p.var, p.value);
     return;
   }

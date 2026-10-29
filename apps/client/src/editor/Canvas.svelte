@@ -1,7 +1,7 @@
 <script lang="ts">
   import Grid from "../components/Grid.svelte";
   import Icon from "../components/Icon.svelte";
-  import type { FormFactor, KeyKind, KeyView } from "@phonedeck/protocol";
+  import type { FormFactor, KeyKind, KeyView } from "@keyside/protocol";
   import { ed, page, profile, change, addKey, addPage, moveKey, placements, previewView, actionDef } from "./state.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
   import { deck } from "../lib/deck.svelte.ts";
@@ -75,8 +75,8 @@
 
   function drop(e: DragEvent, x: number, y: number) {
     e.preventDefault();
-    const action = e.dataTransfer?.getData("application/x-phonedeck-action");
-    const key = e.dataTransfer?.getData("application/x-phonedeck-key");
+    const action = e.dataTransfer?.getData("application/x-keyside-action");
+    const key = e.dataTransfer?.getData("application/x-keyside-key");
     if (key) {
       ed.moving = key;
       place_(x, y, null);
@@ -115,7 +115,7 @@
 
   function keydrag(e: DragEvent) {
     const id = (e.target as HTMLElement)?.closest?.("[data-key]")?.getAttribute("data-key");
-    if (id) e.dataTransfer?.setData("application/x-phonedeck-key", id);
+    if (id) e.dataTransfer?.setData("application/x-keyside-key", id);
   }
 </script>
 

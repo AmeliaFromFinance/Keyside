@@ -77,7 +77,7 @@ pub async fn serve(uri: Uri, frame: Option<String>) -> Response {
 }
 
 fn missing() -> Response {
-    let mut r = (StatusCode::SERVICE_UNAVAILABLE, "The PhoneDeck web client is not built. Run `pnpm build` in apps/client.").into_response();
+    let mut r = (StatusCode::SERVICE_UNAVAILABLE, "The Keyside web client is not built. Run `pnpm build` in apps/client.").into_response();
     secure_headers(r.headers_mut(), None);
     r
 }

@@ -130,7 +130,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             if raw.to_string().len() > 4 * 1024 * 1024 {
                 return Err(OpError::invalid("layout file is too large"));
             }
-            let p: crate::model::Profile = serde_json::from_value(raw).map_err(|e| OpError::invalid(format!("not a PhoneDeck layout: {e}")))?;
+            let p: crate::model::Profile = serde_json::from_value(raw).map_err(|e| OpError::invalid(format!("not a Keyside layout: {e}")))?;
             Ok(serde_json::to_value(crate::share::import_profile(p).map_err(OpError::failed)?).unwrap_or(Value::Null))
         }
         "gallery.list" => {

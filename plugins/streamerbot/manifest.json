@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.streamerbot",
+  "id": "dev.keyside.streamerbot",
   "name": "Streamer.bot",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "sb",
   "description": "Run Streamer.bot actions, show its global variables and mirror chat and alerts from the platforms it is connected to.",
   "homepage": "https://streamer.bot",

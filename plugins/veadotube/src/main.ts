@@ -1,6 +1,6 @@
 // veadotube over its WebSocket API ("nodes" channel, stateEvents node).
 
-import { definePlugin, setting, type Host, type Key } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key } from "@keyside/sdk";
 import { Reconnecting } from "../../_lib/socket.ts";
 
 let host: Host;
@@ -30,7 +30,7 @@ function onMessage(raw: string) {
     const n = m.entries.find((e: any) => e.type === "stateEvents");
     if (n && n.id !== node) {
       node = String(n.id);
-      toNode({ event: "listen", token: "phonedeck" });
+      toNode({ event: "listen", token: "keyside" });
       toNode({ event: "list" });
       toNode({ event: "peek" });
     }
@@ -80,14 +80,14 @@ function connect() {
     () => {
       const h = String(setting(host.connection, "host", "127.0.0.1")).trim();
       const port = Number(host.connection.port ?? 0);
-      return h && port ? `ws://${h.includes(":") && !h.startsWith("[") ? `[${h}]` : h}:${port}?n=PhoneDeck` : null;
+      return h && port ? `ws://${h.includes(":") && !h.startsWith("[") ? `[${h}]` : h}:${port}?n=Keyside` : null;
     },
     {
       open() {
         ready = true;
         sock.healthy();
         host.status("connected");
-        send({ event: "listen", token: "phonedeck" });
+        send({ event: "listen", token: "keyside" });
         send({ event: "list" });
       },
       message: onMessage,

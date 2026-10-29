@@ -1,6 +1,6 @@
 {
-  "appId": "dev.phonedeck.app",
-  "appName": "PhoneDeck",
+  "appId": "dev.keyside.app",
+  "appName": "Keyside",
   "webDir": "../client/dist",
   "server": {
     "androidScheme": "http",

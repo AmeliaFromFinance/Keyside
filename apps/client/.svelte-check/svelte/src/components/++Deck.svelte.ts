@@ -106,7 +106,7 @@ async () => {
            { svelteHTML.createElement("button", {     "class":`back`,"onclick":() => nav("back"),"aria-label":t("Back"),}); { const $$_nocI4C = __sveltets_2_ensureComponent(Icon); new $$_nocI4C({ target: __sveltets_2_any(), props: {  "name":`arrow-left`,}});} }
         }
          { svelteHTML.createElement("div", {});
-           { svelteHTML.createElement("h1", {});page?.name ?? deck.profile?.name ?? "PhoneDeck"; }
+           { svelteHTML.createElement("h1", {});page?.name ?? deck.profile?.name ?? "Keyside"; }
            { svelteHTML.createElement("p", {});subtitle; }
          }
        }

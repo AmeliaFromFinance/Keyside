@@ -40,7 +40,7 @@
 
   // Reasons the companion gives for a plugin that can't run, so they get translated.
   mark("This plugin has no version for this system");
-  mark("Web-page plugins need Elgato's app and can't run in PhoneDeck");
+  mark("Web-page plugins need Elgato's app and can't run in Keyside");
   mark("Needs your permission to run unsandboxed");
   mark("The plugin runtime (Deno) is missing");
 
@@ -85,7 +85,7 @@
     if (!file) return;
     error = "";
     trust = false;
-    const r = await fetch("/admin/upload/streamdeck", { method: "POST", headers: { "x-phonedeck": "1" }, body: file });
+    const r = await fetch("/admin/upload/streamdeck", { method: "POST", headers: { "x-keyside": "1" }, body: file });
     if (!r.ok) error = await r.text();
     else staged = await r.json();
   }
@@ -121,9 +121,9 @@
     <p class="muted">{t("By {author}", { author: staged.author || "?" })}{staged.description ? ` · ${staged.description}` : ""}</p>
     <p>{t("Actions")}: {staged.actions.join(", ")}</p>
     {#if staged.runtime === "html"}
-      <p class="bad">{t("This is a web page plugin. Those need Elgato's own app and can't run in PhoneDeck.")}</p>
+      <p class="bad">{t("This is a web page plugin. Those need Elgato's own app and can't run in Keyside.")}</p>
     {:else if staged.runtime === "native"}
-      <p class="bad"><Icon name="shield-off" size={18} />{t("This plugin is a program, not a script. PhoneDeck can't sandbox it: it can do anything you can do on this PC.")}</p>
+      <p class="bad"><Icon name="shield-off" size={18} />{t("This plugin is a program, not a script. Keyside can't sandbox it: it can do anything you can do on this PC.")}</p>
       <label class="check"><input type="checkbox" bind:checked={trust} />{t("I trust where this plugin came from and want to run it anyway")}</label>
     {:else}
       <p><Icon name="shield-check" size={18} />{t("Runs in the sandbox: it can't read your files, start programs or reach the internet unless you allow it.")}</p>

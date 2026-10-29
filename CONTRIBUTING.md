@@ -4,7 +4,7 @@ Thanks for helping out. Bug reports, plugins, translations and fixes are all wel
 
 ## Before you start
 
-- For a bug, open an issue with steps to reproduce, your OS and PhoneDeck version.
+- For a bug, open an issue with steps to reproduce, your OS and Keyside version.
 - For a bigger change, open an issue first so we can agree on the approach.
 - Security problems go through [SECURITY.md](SECURITY.md), not issues.
 

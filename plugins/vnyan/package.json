@@ -1,6 +1,6 @@
 {
-  "name": "@phonedeck/plugin-vnyan",
+  "name": "@keyside/plugin-vnyan",
   "private": true,
   "type": "module",
-  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+  "dependencies": { "@keyside/sdk": "workspace:*" }
 }

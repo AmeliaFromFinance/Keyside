@@ -1,4 +1,4 @@
-import { createTestHost } from "@phonedeck/sdk/testing";
+import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -47,7 +47,7 @@ test("runs actions by name and shows their state", async () => {
   assert.deepEqual(sent.action, { id: "g1", name: "Hydrate" });
   assert.deepEqual(sent.args, { size: "big" });
 
-  sb.broadcast({ event: { source: "General", type: "Custom" }, data: { phonedeck: { var: "hype", value: 3 } } });
+  sb.broadcast({ event: { source: "General", type: "Custom" }, data: { keyside: { var: "hype", value: 3 } } });
   sb.broadcast({ event: { source: "Twitch", type: "ChatMessage" }, data: { message: { displayName: "Fern", message: "hi!", color: "#ff0000" } } });
   await eventually(() => h.variable("hype") === 3);
   await eventually(() => h.sent.some((s) => s.method === "feed.push" && s.params.item.text === "hi!"));

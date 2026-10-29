@@ -1,5 +1,5 @@
 // Starts the companion with a probe plugin that tries to escape the Deno sandbox.
-// Needs Deno on PATH (or PHONEDECK_DENO) and a built companion.
+// Needs Deno on PATH (or KEYSIDE_DENO) and a built companion.
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -9,23 +9,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = new URL("../../../", import.meta.url).pathname;
-const bin = process.env.PHONEDECK_BIN ?? join(root, "target/debug/phonedeck");
+const bin = process.env.KEYSIDE_BIN ?? join(root, "target/debug/keyside");
 const ADMIN = 17462;
-const hasDeno = !!process.env.PHONEDECK_DENO || (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").some((d) => existsSync(join(d, process.platform === "win32" ? "deno.exe" : "deno")));
+const hasDeno = !!process.env.KEYSIDE_DENO || (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").some((d) => existsSync(join(d, process.platform === "win32" ? "deno.exe" : "deno")));
 let child: ChildProcess;
 let dir: string;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 before(async () => {
-  dir = mkdtempSync(join(tmpdir(), "phonedeck-sandbox-"));
+  dir = mkdtempSync(join(tmpdir(), "keyside-sandbox-"));
   const plugins = join(dir, "bundled");
   cpSync(new URL("./fixtures/probe", import.meta.url).pathname, join(plugins, "probe"), { recursive: true });
   mkdirSync(join(dir, "data"));
   writeFileSync(join(dir, "data", "settings.json"), JSON.stringify({ adminPort: ADMIN, lanPort: ADMIN + 1, mdns: false, followFocus: false, lanEnabled: false }));
   if (!existsSync(bin) || !hasDeno) return;
   child = spawn(bin, ["--data-dir", join(dir, "data"), "--plugins", plugins], {
-    env: { ...process.env, PHONEDECK_NO_KEYCHAIN: "1", PHONEDECK_LOG: "warn" },
+    env: { ...process.env, KEYSIDE_NO_KEYCHAIN: "1", KEYSIDE_LOG: "warn" },
     stdio: ["ignore", "inherit", "inherit"],
   });
 });

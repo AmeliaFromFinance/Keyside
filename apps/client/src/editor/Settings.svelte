@@ -38,7 +38,7 @@
     error = "";
     try {
       await req("settings.set", $state.snapshot(s));
-      msg = t("Saved. Restart PhoneDeck for network changes to apply.");
+      msg = t("Saved. Restart Keyside for network changes to apply.");
     } catch (e: any) {
       error = e.message;
     }
@@ -58,10 +58,10 @@
 {#if info}
   <section class="card">
     <h3>{t("This PC")}</h3>
-    <p>PhoneDeck <span class="mono">{info.version}</span></p>
+    <p>Keyside <span class="mono">{info.version}</span></p>
     <p>{t("Phones connect to")} {#each info.addresses as a (a)}<span class="mono addr">{a}:{info.lanPort}</span>{:else}<span class="bad">{t("no network found")}</span>{/each}</p>
     <p class="muted">{t("Certificate")} <span class="mono">{info.fingerprint}</span></p>
-    {#if !info.deno}<p class="bad"><Icon name="triangle-alert" size={18} />{t("The plugin runtime is missing, so plugins can't run. Reinstall PhoneDeck.")}</p>{/if}
+    {#if !info.deno}<p class="bad"><Icon name="triangle-alert" size={18} />{t("The plugin runtime is missing, so plugins can't run. Reinstall Keyside.")}</p>{/if}
     {#if tailscale.length}
       <p class="ok"><Icon name="globe" size={18} />{t("Tailscale is on. Paired phones on your tailnet can reach this PC from anywhere.")}</p>
     {:else}

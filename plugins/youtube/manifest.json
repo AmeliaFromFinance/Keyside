@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.youtube",
+  "id": "dev.keyside.youtube",
   "name": "YouTube Live",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "youtube",
   "description": "Live chat, Super Chats and viewer count from your YouTube stream, and sending chat messages.",
   "homepage": "https://console.cloud.google.com/apis/credentials",

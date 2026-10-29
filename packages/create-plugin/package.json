@@ -1,9 +1,9 @@
 {
-  "name": "create-phonedeck-plugin",
+  "name": "create-keyside-plugin",
   "version": "1.0.0",
-  "description": "Scaffold a PhoneDeck plugin: npm create phonedeck-plugin my-plugin",
+  "description": "Scaffold a Keyside plugin: npm create keyside-plugin my-plugin",
   "license": "MIT",
   "type": "module",
-  "bin": { "create-phonedeck-plugin": "./index.mjs" },
+  "bin": { "create-keyside-plugin": "./index.mjs" },
   "files": ["index.mjs", "template"]
 }

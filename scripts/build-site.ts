@@ -8,7 +8,7 @@ import { Marked } from "marked";
 const root = new URL("../", import.meta.url).pathname;
 const site = join(root, "site");
 const out = join(site, "dist");
-const repo = "https://github.com/AmeliaFromFinance/phonedeck";
+const repo = "https://github.com/AmeliaFromFinance/keyside";
 
 const pages: Array<{ src: string; slug: string; title: string }> = [
   { src: "docs/plugins.md", slug: "plugins", title: "Plugin setup" },

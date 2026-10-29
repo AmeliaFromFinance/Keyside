@@ -1,11 +1,11 @@
 # Writing plugins
 
-A plugin is a TypeScript file that runs in PhoneDeck's sandbox. It adds actions to the palette, reacts to key presses and can change how its keys look.
+A plugin is a TypeScript file that runs in Keyside's sandbox. It adds actions to the palette, reacts to key presses and can change how its keys look.
 
 ## Start a plugin
 
 ```sh
-npm create phonedeck-plugin my-plugin
+npm create keyside-plugin my-plugin
 cd my-plugin
 npm install
 npm run build     # bundles src/main.ts into main.js
@@ -17,7 +17,7 @@ You get:
 ```
 manifest.json     what the plugin is and what it may do
 src/main.ts       the code
-test/main.test.ts tests that run without PhoneDeck
+test/main.test.ts tests that run without Keyside
 ```
 
 ## The manifest
@@ -74,7 +74,7 @@ Wildcards aren't allowed. People see this list before installing, and again if a
 ## The code
 
 ```ts
-import { definePlugin, setting, type Host } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host } from "@keyside/sdk";
 
 let host: Host;
 let count = 0;
@@ -140,19 +140,19 @@ Updates are batched, so calling `set` often is fine.
 | `host.toast(text, tone?)` | Short message on every device |
 | `host.saveConnection(values)` | Saves values like tokens into the connection settings |
 | `host.openBrowser(url)` | Opens an https page on the PC |
-| `host.authorize(url)` | Browser sign-in with a redirect back to PhoneDeck. Returns the code and redirect URI |
+| `host.authorize(url)` | Browser sign-in with a redirect back to Keyside. Returns the code and redirect URI |
 | `host.udp(host, port, bytes)` | Sends a UDP datagram |
-| `host.log.info(...)` | Writes to the PhoneDeck log |
+| `host.log.info(...)` | Writes to the Keyside log |
 | `host.dataDir` | A folder only this plugin can read and write |
 
-`console.log` goes to the log too, since the plugin's output is reserved for talking to PhoneDeck.
+`console.log` goes to the log too, since the plugin's output is reserved for talking to Keyside.
 
 ## Testing
 
-`@phonedeck/sdk/testing` runs your plugin in memory:
+`@keyside/sdk/testing` runs your plugin in memory:
 
 ```ts
-import { createTestHost } from "@phonedeck/sdk/testing";
+import { createTestHost } from "@keyside/sdk/testing";
 import plugin from "../src/main.ts";
 
 const h = createTestHost(plugin);
@@ -168,8 +168,8 @@ Import the testing module before your plugin. For network plugins, start a fake 
 ## Share it
 
 ```sh
-phonedeck plugin keygen my-key.json      # once; keep this file private
-phonedeck plugin pack . --key my-key.json
+keyside plugin keygen my-key.json      # once; keep this file private
+keyside plugin pack . --key my-key.json
 ```
 
 That writes a signed `.pdp` file. Anyone can install it with **Plugins > Install from file**. Signed updates must use the same key.

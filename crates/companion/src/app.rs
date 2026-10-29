@@ -73,9 +73,9 @@ impl App {
         let plugins = Host::open(paths.root())?;
         let streamdeck = crate::streamdeck::Hub::open(paths.root())?;
         let tokens = Tokens::load(paths.file("tokens.json"))?;
-        // reqwest uses the process-wide TLS provider; PhoneDeck uses ring everywhere.
+        // reqwest uses the process-wide TLS provider; Keyside uses ring everywhere.
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let http = reqwest::Client::builder().user_agent(concat!("PhoneDeck/", env!("CARGO_PKG_VERSION"))).redirect(reqwest::redirect::Policy::limited(5)).build()?;
+        let http = reqwest::Client::builder().user_agent(concat!("Keyside/", env!("CARGO_PKG_VERSION"))).redirect(reqwest::redirect::Policy::limited(5)).build()?;
         let (nav, _) = broadcast::channel(64);
         let app = Arc::new(Self {
             paths,

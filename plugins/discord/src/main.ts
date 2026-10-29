@@ -1,7 +1,7 @@
 // Discord desktop RPC. The companion opens Discord's local IPC socket for us and relays
 // frames; this plugin handles sign-in and commands.
 
-import { definePlugin, setting, type Host, type Key, type KeyView } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { Session, fromResponse } from "../../_lib/session.ts";
 import { clamp01, errorText, http, randomId, want } from "../../_lib/util.ts";
 import { Waiters } from "../../_lib/socket.ts";
@@ -94,7 +94,7 @@ async function connect(gen: number) {
     await frame(OP.Handshake, { v: 1, client_id: id });
     if (!(await got)) throw new Error("Discord didn't answer. Check the Application ID.");
     if (!session.load(id)) {
-      host.status("connecting", "Allow PhoneDeck in the Discord window");
+      host.status("connecting", "Allow Keyside in the Discord window");
       const { code } = await command("AUTHORIZE", { client_id: id, scopes: SCOPES }, undefined, 120_000);
       const t = await http(endpoints.token, { form: { client_id: id, client_secret: secret, grant_type: "authorization_code", code, redirect_uri: REDIRECT } });
       await session.save(fromResponse(t, id));

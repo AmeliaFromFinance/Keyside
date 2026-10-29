@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.vnyan",
+  "id": "dev.keyside.vnyan",
   "name": "VNyan",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "vnyan",
   "description": "Triggers VNyan node graphs through its WebSocket Command node.",
   "homepage": "https://suvidriel.itch.io/vnyan",

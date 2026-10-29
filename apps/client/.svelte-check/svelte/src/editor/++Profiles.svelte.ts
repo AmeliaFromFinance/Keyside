@@ -42,7 +42,7 @@ function $$render() {
 ;
 async () => {
 
- { svelteHTML.createElement("p", { "class":`muted`,});t("Each layout has its own pages. PhoneDeck can switch layouts when an app comes to the front on your PC."); }
+ { svelteHTML.createElement("p", { "class":`muted`,});t("Each layout has its own pages. Keyside can switch layouts when an app comes to the front on your PC."); }
    for(let p of __sveltets_2_ensureArray(ed.layout?.profiles ?? [])){p.id;
    { svelteHTML.createElement("div", { "class":`prof`,});
      { svelteHTML.createElement("label", { "class":`field`,}); { svelteHTML.createElement("span", {});t("Name"); } { svelteHTML.createElement("input", {      "value":p.name,"maxlength":40,"oninput":(e) => change(() => (p.name = e.currentTarget.value)),});} }

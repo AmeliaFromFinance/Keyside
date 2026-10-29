@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.twitch",
+  "id": "dev.keyside.twitch",
   "name": "Twitch",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "twitch",
   "description": "Chat and alerts on your deck, plus markers, clips, ads, chat modes, title, shoutouts and raids.",
   "homepage": "https://dev.twitch.tv/console/apps",

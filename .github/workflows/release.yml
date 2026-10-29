@@ -47,7 +47,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:plugins
-      - run: pnpm --filter @phonedeck/client build
+      - run: pnpm --filter @keyside/client build
       - run: node scripts/stage-plugins.ts apps/desktop/src-tauri/resources/plugins
       - name: Plugin runtime
         shell: bash
@@ -62,7 +62,7 @@ jobs:
           tauriScript: pnpm tauri
           args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
-          releaseName: PhoneDeck ${{ github.ref_name }}
+          releaseName: Keyside ${{ github.ref_name }}
           releaseDraft: true
           prerelease: false
 
@@ -84,8 +84,8 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @phonedeck/client build
-      - run: pnpm --filter @phonedeck/mobile exec cap sync android
+      - run: pnpm --filter @keyside/client build
+      - run: pnpm --filter @keyside/mobile exec cap sync android
       - name: Build APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease
@@ -94,11 +94,11 @@ jobs:
         run: |
           echo "$ANDROID_KEYSTORE" | base64 -d > release.keystore
           tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$tools/zipalign" -p 4 apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk PhoneDeck.apk
-          "$tools/apksigner" sign --ks release.keystore --ks-pass env:ANDROID_KEYSTORE_PASSWORD PhoneDeck.apk
+          "$tools/zipalign" -p 4 apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk Keyside.apk
+          "$tools/apksigner" sign --ks release.keystore --ks-pass env:ANDROID_KEYSTORE_PASSWORD Keyside.apk
           rm release.keystore
       - uses: softprops/action-gh-release@v2
         if: env.ANDROID_KEYSTORE != ''
         with:
           draft: true
-          files: PhoneDeck.apk
+          files: Keyside.apk

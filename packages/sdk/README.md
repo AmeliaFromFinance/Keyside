@@ -1,13 +1,13 @@
-# @phonedeck/sdk
+# @keyside/sdk
 
-Write [PhoneDeck](https://github.com/AmeliaFromFinance/phonedeck) plugins in TypeScript.
+Write [Keyside](https://github.com/AmeliaFromFinance/keyside) plugins in TypeScript.
 
 ```sh
-npm create phonedeck-plugin my-plugin
+npm create keyside-plugin my-plugin
 ```
 
 ```ts
-import { definePlugin } from "@phonedeck/sdk";
+import { definePlugin } from "@keyside/sdk";
 
 export default definePlugin({
   actions: {
@@ -20,12 +20,12 @@ export default definePlugin({
 });
 ```
 
-Test without PhoneDeck:
+Test without Keyside:
 
 ```ts
-import { createTestHost } from "@phonedeck/sdk/testing";
+import { createTestHost } from "@keyside/sdk/testing";
 ```
 
-Full guide: [docs/plugin-guide.md](https://github.com/AmeliaFromFinance/phonedeck/blob/main/docs/plugin-guide.md)
+Full guide: [docs/plugin-guide.md](https://github.com/AmeliaFromFinance/keyside/blob/main/docs/plugin-guide.md)
 
 MIT licensed.

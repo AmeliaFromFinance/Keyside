@@ -1,6 +1,6 @@
 // Streamlabs Desktop remote control API: JSON-RPC 2.0 over the raw WebSocket of its SockJS server.
 
-import { definePlugin, setting, type Host, type Key, type KeyView, type Pill } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView, type Pill } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
 import { clamp01, want } from "../../_lib/util.ts";
 

@@ -1,6 +1,6 @@
 {
-  "name": "@phonedeck/plugin-obs",
+  "name": "@keyside/plugin-obs",
   "private": true,
   "type": "module",
-  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+  "dependencies": { "@keyside/sdk": "workspace:*" }
 }

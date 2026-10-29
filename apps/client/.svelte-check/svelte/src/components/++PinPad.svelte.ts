@@ -49,7 +49,7 @@ async () => {
     } else if (deck.lockReason === "wrong-pin"){
       t("Wrong PIN, try again.");
     }else{
-      t("This device needs its PIN to open {name}.", { name: deck.companion?.name ?? "PhoneDeck" });
+      t("This device needs its PIN to open {name}.", { name: deck.companion?.name ?? "Keyside" });
     }
    }
    { svelteHTML.createElement("div", {   "class":`dots`,"aria-label":t("{n} digits entered", { n: pin.length }),});

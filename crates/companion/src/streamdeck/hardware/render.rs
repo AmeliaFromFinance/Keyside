@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn writes_a_preview() {
-        if let Ok(dir) = std::env::var("PHONEDECK_RENDER_PREVIEW") {
+        if let Ok(dir) = std::env::var("KEYSIDE_RENDER_PREVIEW") {
             let mut v = view();
             key(&v, 96, 96).save(format!("{dir}/key-accent.png")).unwrap();
             v.tone = None;

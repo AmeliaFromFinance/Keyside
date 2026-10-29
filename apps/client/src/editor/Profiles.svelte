@@ -35,7 +35,7 @@
   }
 </script>
 
-<p class="muted">{t("Each layout has its own pages. PhoneDeck can switch layouts when an app comes to the front on your PC.")}</p>
+<p class="muted">{t("Each layout has its own pages. Keyside can switch layouts when an app comes to the front on your PC.")}</p>
 {#each ed.layout?.profiles ?? [] as p (p.id)}
   <div class="prof">
     <label class="field"><span>{t("Name")}</span><input value={p.name} maxlength="40" oninput={(e) => change(() => (p.name = e.currentTarget.value))} /></label>

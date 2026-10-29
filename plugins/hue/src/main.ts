@@ -1,7 +1,7 @@
 // Philips Hue Bridge, local API v1. The bridge hands out a username after its link button
 // is pressed; it's kept in the keychain.
 
-import { definePlugin, setting, type Host, type Key, type KeyView } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { clamp01, errorText, http, sleep, want } from "../../_lib/util.ts";
 
 const POLL_EVERY = 3000;
@@ -40,7 +40,7 @@ async function pair(gen: number) {
   host.toast("Press the button on your Hue Bridge");
   const end = Date.now() + PAIR_FOR;
   while (Date.now() < end && gen === generation) {
-    const r = await http(`${endpoints.base(bridge())}/api`, { json: { devicetype: "phonedeck#desktop" }, timeout: 4000 }).catch(() => null);
+    const r = await http(`${endpoints.base(bridge())}/api`, { json: { devicetype: "keyside#desktop" }, timeout: 4000 }).catch(() => null);
     const name = Array.isArray(r) ? r[0]?.success?.username : undefined;
     if (name) {
       user = String(name);

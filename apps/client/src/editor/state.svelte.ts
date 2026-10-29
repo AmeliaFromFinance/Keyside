@@ -1,6 +1,6 @@
 // Editor state: a draft of the layout that only reaches devices on "Push to phones".
 
-import type { Action, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@phonedeck/protocol";
+import type { Action, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
 import { req, listen, deck } from "../lib/deck.svelte.ts";
 
 export interface FieldSchema {
@@ -75,7 +75,7 @@ let past: string[] = [];
 let future: string[] = [];
 
 function draftKey() {
-  return `phonedeck.draft.${deck.companion?.id ?? "local"}`;
+  return `keyside.draft.${deck.companion?.id ?? "local"}`;
 }
 
 export async function load(keepDraft = true) {

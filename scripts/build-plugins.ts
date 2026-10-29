@@ -19,7 +19,7 @@ for (const name of names) {
     target: "es2022",
     conditions: ["deno", "browser", "import"],
     legalComments: "inline",
-    banner: { js: `// ${name} plugin for PhoneDeck. Built file, edit src/ instead.` },
+    banner: { js: `// ${name} plugin for Keyside. Built file, edit src/ instead.` },
     logLevel: "warning",
   });
   console.log(`built ${name}`);

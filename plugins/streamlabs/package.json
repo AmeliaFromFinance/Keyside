@@ -1,6 +1,6 @@
 {
-  "name": "@phonedeck/plugin-streamlabs",
+  "name": "@keyside/plugin-streamlabs",
   "private": true,
   "type": "module",
-  "dependencies": { "@phonedeck/sdk": "workspace:*" }
+  "dependencies": { "@keyside/sdk": "workspace:*" }
 }

@@ -41,7 +41,7 @@ Optional `"profile"`; the active layout is used otherwise. Select a key in the e
 
 ```http
 POST /actions/run
-{ "action": { "type": "dev.phonedeck.obs/scene", "settings": { "scene": "BRB" } } }
+{ "action": { "type": "dev.keyside.obs/scene", "settings": { "scene": "BRB" } } }
 ```
 
 Actions that start programs can't be run from the API.
@@ -98,7 +98,7 @@ Errors come back as `{ "error": "message" }` with the usual status codes: `401` 
 
 ```sh
 curl -X POST http://127.0.0.1:7442/api/v1/keys/press \
-  -H "Authorization: Bearer $PHONEDECK_TOKEN" \
+  -H "Authorization: Bearer $KEYSIDE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"page":"scenes","key":"brb"}'
 ```

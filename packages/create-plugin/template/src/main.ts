@@ -1,4 +1,4 @@
-import { definePlugin, setting } from "@phonedeck/sdk";
+import { definePlugin, setting } from "@keyside/sdk";
 
 let presses = 0;
 

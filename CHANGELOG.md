@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to PhoneDeck. Versions follow [semantic versioning](https://semver.org).
+All notable changes to Keyside. Versions follow [semantic versioning](https://semver.org).
 
 ## [0.1.0] - Unreleased
 

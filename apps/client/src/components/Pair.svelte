@@ -47,7 +47,7 @@
   function use(text: string) {
     scanning = false;
     const p = parsePairLink(text.trim());
-    if (!p) problem = mark("That is not a PhoneDeck pairing code.");
+    if (!p) problem = mark("That is not a Keyside pairing code.");
     else pending = p;
   }
 
@@ -85,7 +85,7 @@
   {:else}
     <h1>{t("Pair with your PC")}</h1>
     <ol class="steps">
-      <li>{t("Open PhoneDeck on your PC.")}</li>
+      <li>{t("Open Keyside on your PC.")}</li>
       <li>{t("Choose Pair a phone.")}</li>
       <li>{t("Scan the code it shows.")}</li>
     </ol>

@@ -1,8 +1,8 @@
 {
-  "id": "dev.phonedeck.keylight",
+  "id": "dev.keyside.keylight",
   "name": "Elgato Key Light",
   "version": "1.0.0",
-  "author": "PhoneDeck",
+  "author": "Keyside",
   "prefix": "keylight",
   "description": "Power, brightness and colour temperature for Elgato Key Light, Key Light Air, Ring Light and Light Strip.",
   "homepage": "https://www.elgato.com",

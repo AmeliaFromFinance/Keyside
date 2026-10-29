@@ -1,4 +1,4 @@
-//! PhoneDeck companion.
+//! Keyside companion.
 
 pub mod actions;
 pub mod app;

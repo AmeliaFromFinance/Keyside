@@ -8,7 +8,7 @@ use parking_lot::Mutex;
 
 use crate::store;
 
-const SERVICE: &str = "PhoneDeck";
+const SERVICE: &str = "Keyside";
 
 pub struct Secrets {
     keychain: bool,
@@ -18,7 +18,7 @@ pub struct Secrets {
 
 impl Secrets {
     pub fn open(file: PathBuf) -> Self {
-        let keychain = std::env::var_os("PHONEDECK_NO_KEYCHAIN").is_none() && probe();
+        let keychain = std::env::var_os("KEYSIDE_NO_KEYCHAIN").is_none() && probe();
         if !keychain {
             tracing::info!("no system keychain found; plugin secrets are kept in {}", file.display());
         }

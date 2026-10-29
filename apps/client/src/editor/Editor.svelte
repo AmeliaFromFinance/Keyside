@@ -105,7 +105,7 @@
     const blob = new Blob([JSON.stringify($state.snapshot(ed.layout), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "phonedeck-layout.json";
+    a.download = "keyside-layout.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
@@ -149,7 +149,7 @@
     <div class="brand">
       <button class="btn icon ghost burger" aria-label={t("Button palette")} onclick={() => (paletteOpen = !paletteOpen)}><Icon name="layout-grid" /></button>
       <Icon name="layout-grid" size={30} />
-      <b>PhoneDeck</b><span class="sub">{t("Editor")}</span>
+      <b>Keyside</b><span class="sub">{t("Editor")}</span>
     </div>
     <label class="layout">
       <span>{t("Layout")}</span>

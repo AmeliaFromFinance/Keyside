@@ -2,7 +2,7 @@
 // The API has a daily quota, so chat is only read while a broadcast is live, and no faster
 // than every 15 seconds.
 
-import { definePlugin, setting, type Host } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host } from "@keyside/sdk";
 import { Session, fromResponse, pollDeviceCode } from "../../_lib/session.ts";
 import { HttpError, errorText, firstTime, http } from "../../_lib/util.ts";
 
@@ -131,7 +131,7 @@ async function readChat(gen: number) {
     const r = await api("GET", `/liveChat/messages?part=snippet,authorDetails&maxResults=200&liveChatId=${encodeURIComponent(b.chat)}${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`);
     page = r.nextPageToken;
     wait = Math.max(CHAT_MIN, Number(r.pollingIntervalMillis ?? 0));
-    // The first page is chat history from before PhoneDeck connected.
+    // The first page is chat history from before Keyside connected.
     if (!firstPage) for (const m of r.items ?? []) onMessage(m);
     firstPage = false;
   } catch (e) {

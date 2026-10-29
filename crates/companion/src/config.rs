@@ -8,7 +8,7 @@ use crate::{ids, store};
 
 pub const DEFAULT_ADMIN_PORT: u16 = 7442;
 pub const DEFAULT_LAN_PORT: u16 = 7443;
-pub const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/AmeliaFromFinance/phonedeck/main/registry/index.json";
+pub const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/AmeliaFromFinance/keyside/main/registry/index.json";
 
 #[derive(Debug, Clone)]
 pub struct Paths {
@@ -19,7 +19,7 @@ impl Paths {
     pub fn new(override_dir: Option<PathBuf>) -> Result<Self> {
         let root = match override_dir {
             Some(d) => d,
-            None => directories::ProjectDirs::from("dev", "phonedeck", "PhoneDeck").context("no home directory")?.data_dir().to_path_buf(),
+            None => directories::ProjectDirs::from("dev", "keyside", "Keyside").context("no home directory")?.data_dir().to_path_buf(),
         };
         store::private_dir(&root)?;
         Ok(Self { root })
@@ -95,7 +95,7 @@ impl Settings {
 pub struct Identity {
     /// Companion id, part of every handshake transcript.
     pub cid: String,
-    /// Token the desktop app and `phonedeck open` use to sign in to the local editor.
+    /// Token the desktop app and `keyside open` use to sign in to the local editor.
     pub admin_token: String,
 }
 
@@ -118,8 +118,8 @@ impl Identity {
 
 pub fn hostname() -> String {
     let raw =
-        std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).ok().or_else(|| std::fs::read_to_string("/etc/hostname").ok()).unwrap_or_else(|| "PhoneDeck".into());
-    clean_name(&raw, 40).unwrap_or_else(|| "PhoneDeck".into())
+        std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).ok().or_else(|| std::fs::read_to_string("/etc/hostname").ok()).unwrap_or_else(|| "Keyside".into());
+    clean_name(&raw, 40).unwrap_or_else(|| "Keyside".into())
 }
 
 /// Trims, drops control characters and caps length. None when nothing usable is left.

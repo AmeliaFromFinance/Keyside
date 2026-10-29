@@ -1,7 +1,7 @@
 {
-  "name": "@phonedeck/sdk",
+  "name": "@keyside/sdk",
   "version": "1.0.0",
-  "description": "Write PhoneDeck plugins in TypeScript.",
+  "description": "Write Keyside plugins in TypeScript.",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -9,6 +9,6 @@
     "./testing": "./src/testing.ts"
   },
   "files": ["src", "README.md", "LICENSE"],
-  "keywords": ["phonedeck", "stream deck", "plugin", "obs", "streaming"],
-  "repository": { "type": "git", "url": "git+https://github.com/AmeliaFromFinance/phonedeck.git", "directory": "packages/sdk" }
+  "keywords": ["keyside", "stream deck", "plugin", "obs", "streaming"],
+  "repository": { "type": "git", "url": "git+https://github.com/AmeliaFromFinance/keyside.git", "directory": "packages/sdk" }
 }

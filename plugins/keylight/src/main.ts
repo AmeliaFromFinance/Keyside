@@ -1,6 +1,6 @@
 // Elgato lights over their local HTTP API on port 9123.
 
-import { definePlugin, type Host, type Key, type KeyView } from "@phonedeck/sdk";
+import { definePlugin, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { clamp01, errorText, http, want } from "../../_lib/util.ts";
 
 const POLL_EVERY = 5000;

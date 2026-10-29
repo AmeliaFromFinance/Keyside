@@ -44,7 +44,7 @@ pub struct Step {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Source {
-    /// Shipped with PhoneDeck.
+    /// Shipped with Keyside.
     Bundled,
     /// Downloaded from the plugin registry, signature checked.
     Registry,
@@ -169,7 +169,7 @@ impl Host {
         let installed: BTreeMap<String, Installed> = store::read_json(&host.index)?.unwrap_or_default();
         host.state.lock().installed = installed.into_iter().filter(|(_, i)| manifest::validate(&i.manifest).is_ok()).collect();
         if host.deno.is_none() {
-            tracing::warn!("Deno runtime not found; plugins can't run. Set PHONEDECK_DENO or install Deno.");
+            tracing::warn!("Deno runtime not found; plugins can't run. Set KEYSIDE_DENO or install Deno.");
         }
         Ok(host)
     }

@@ -87,10 +87,10 @@ pub fn command(s: &Sandbox) -> Command {
     c
 }
 
-/// Finds the Deno binary: PHONEDECK_DENO, next to this program, the app resources, then PATH.
+/// Finds the Deno binary: KEYSIDE_DENO, next to this program, the app resources, then PATH.
 pub fn find_deno() -> Option<PathBuf> {
     let name = if cfg!(windows) { "deno.exe" } else { "deno" };
-    if let Ok(p) = std::env::var("PHONEDECK_DENO") {
+    if let Ok(p) = std::env::var("KEYSIDE_DENO") {
         let p = PathBuf::from(p);
         if p.is_file() {
             return Some(p);
@@ -104,7 +104,7 @@ pub fn find_deno() -> Option<PathBuf> {
                 return Some(c);
             }
         }
-        let triple = format!("deno-{}", env!("PHONEDECK_TARGET"));
+        let triple = format!("deno-{}", env!("KEYSIDE_TARGET"));
         let sidecar = dir.join(if cfg!(windows) { format!("{triple}.exe") } else { triple });
         if sidecar.is_file() {
             return Some(sidecar);

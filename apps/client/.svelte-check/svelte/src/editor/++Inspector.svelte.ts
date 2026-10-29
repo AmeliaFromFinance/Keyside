@@ -1,6 +1,6 @@
 ///<reference types="svelte" />
 ;
-import type { Action, Key, KeyColor, KeyKind, Tone } from "@phonedeck/protocol";
+import type { Action, Key, KeyColor, KeyKind, Tone } from "@keyside/protocol";
 import Icon from "../components/Icon.svelte";
 import Sheet from "../components/Sheet.svelte";
 import IconPicker from "./IconPicker.svelte";

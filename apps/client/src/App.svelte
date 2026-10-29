@@ -88,8 +88,8 @@
   <div class="center"><p>{t("Loading…")}</p></div>
 {:else if view === "signin"}
   <div class="center">
-    <h1>{t("Open the editor from PhoneDeck")}</h1>
-    <p>{t("For your security the editor only opens from the PhoneDeck app or the phonedeck open command on this PC.")}</p>
+    <h1>{t("Open the editor from Keyside")}</h1>
+    <p>{t("For your security the editor only opens from the Keyside app or the keyside open command on this PC.")}</p>
   </div>
 {:else if view === "pair"}
   {#if notice}<p class="notice" role="alert">{t(notice)}</p>{/if}

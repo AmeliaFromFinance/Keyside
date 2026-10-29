@@ -57,7 +57,7 @@ import { t, mark } from "../lib/i18n.svelte.ts";
   function use(text: string) {
     scanning = false;
     const p = parsePairLink(text.trim());
-    if (!p) problem = mark("That is not a PhoneDeck pairing code.");
+    if (!p) problem = mark("That is not a Keyside pairing code.");
     else pending = p;
   }
 
@@ -96,7 +96,7 @@ async () => {
   }else{
      { svelteHTML.createElement("h1", {});t("Pair with your PC"); }
      { svelteHTML.createElement("ol", { "class":`steps`,});
-       { svelteHTML.createElement("li", {});t("Open PhoneDeck on your PC."); }
+       { svelteHTML.createElement("li", {});t("Open Keyside on your PC."); }
        { svelteHTML.createElement("li", {});t("Choose Pair a phone."); }
        { svelteHTML.createElement("li", {});t("Scan the code it shows."); }
      }

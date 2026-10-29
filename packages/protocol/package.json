@@ -1,7 +1,7 @@
 {
-  "name": "@phonedeck/protocol",
+  "name": "@keyside/protocol",
   "version": "1.0.0",
-  "description": "PhoneDeck wire protocol: secure channel and message types.",
+  "description": "Keyside wire protocol: secure channel and message types.",
   "license": "MIT",
   "type": "module",
   "exports": { ".": "./src/index.ts", "./channel": "./src/channel.ts" },

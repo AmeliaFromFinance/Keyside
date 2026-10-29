@@ -1,6 +1,6 @@
 // VNyan: each key sends a plain-text command that its WebSocket Command nodes listen for.
 
-import { definePlugin, setting, type Host } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host } from "@keyside/sdk";
 import { Reconnecting } from "../../_lib/socket.ts";
 
 let host: Host;

@@ -1,9 +1,9 @@
 {
-  "name": "@phonedeck/mobile",
+  "name": "@keyside/mobile",
   "private": true,
   "type": "module",
   "scripts": {
-    "sync": "pnpm --filter @phonedeck/client build && cap sync",
+    "sync": "pnpm --filter @keyside/client build && cap sync",
     "android": "pnpm sync && cap open android",
     "ios": "pnpm sync && cap open ios"
   },

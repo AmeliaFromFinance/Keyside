@@ -1,6 +1,6 @@
 // OBS Studio over obs-websocket 5 (built into OBS 28 and later).
 
-import { definePlugin, setting, type Host, type Key, type KeyView, type Pill, type Step } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView, type Pill, type Step } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
 import { b64, clamp01, randomId, sha256, want } from "../../_lib/util.ts";
 

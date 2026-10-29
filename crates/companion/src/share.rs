@@ -53,7 +53,7 @@ pub fn export(profile: &Profile, pages: Option<&[String]>) -> Result<String> {
 pub fn import(code: &str) -> Result<Profile> {
     let code = code.trim();
     if code.len() > MAX_CODE || !code.starts_with(PREFIX) {
-        bail!("this is not a PhoneDeck share code");
+        bail!("this is not a Keyside share code");
     }
     let raw = unb64(&code[PREFIX.len()..], None).map_err(|_| anyhow::anyhow!("share code is damaged"))?;
     let mut json = Vec::new();
@@ -63,7 +63,7 @@ pub fn import(code: &str) -> Result<Profile> {
     }
     let shared: Shared = serde_json::from_slice(&json).context("share code is damaged")?;
     if shared.v != 1 {
-        bail!("this share code needs a newer PhoneDeck");
+        bail!("this share code needs a newer Keyside");
     }
     import_profile(shared.profile)
 }

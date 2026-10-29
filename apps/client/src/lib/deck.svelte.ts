@@ -1,6 +1,6 @@
 // Live deck state shared by the deck view and the editor.
 
-import type { ConnectionView, KeyView, PageView, StatusPill, Tone, FormFactor } from "@phonedeck/protocol";
+import type { ConnectionView, KeyView, PageView, StatusPill, Tone, FormFactor } from "@keyside/protocol";
 import { Connection, type ConnState, type Target } from "./connection.ts";
 import type { StoredCompanion } from "./companions.ts";
 

@@ -71,7 +71,7 @@ export type KeyColor = "default" | "teal" | "violet" | "green" | "amber" | "red"
 export interface Widget {
   /** Text with {variable} placeholders. */
   text?: string;
-  /** Feed to show, e.g. "dev.phonedeck.twitch/chat". */
+  /** Feed to show, e.g. "dev.keyside.twitch/chat". */
   feed?: string;
   /** Lines kept from the feed. */
   lines?: number;

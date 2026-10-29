@@ -1,7 +1,7 @@
 // Voicemeeter over VBAN-TEXT (UDP). VBAN text can't read state back, so toggles follow what
-// PhoneDeck last sent.
+// Keyside last sent.
 
-import { definePlugin, setting, type Host, type Key, type KeyView } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { clamp01, want } from "../../_lib/util.ts";
 
 const MIN_DB = -60;

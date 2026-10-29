@@ -87,7 +87,7 @@
     const file = (e.currentTarget as HTMLInputElement).files?.[0];
     if (!file) return;
     error = "";
-    const r = await fetch("/admin/upload/plugin", { method: "POST", headers: { "x-phonedeck": "1" }, body: file });
+    const r = await fetch("/admin/upload/plugin", { method: "POST", headers: { "x-keyside": "1" }, body: file });
     if (!r.ok) error = await r.text();
     else staged = await r.json();
   }

@@ -6,6 +6,6 @@
     "build": "esbuild src/main.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=main.js",
     "test": "node --test test/*.test.ts"
   },
-  "dependencies": { "@phonedeck/sdk": "^1.0.0" },
+  "dependencies": { "@keyside/sdk": "^1.0.0" },
   "devDependencies": { "esbuild": "^0.28.2" }
 }

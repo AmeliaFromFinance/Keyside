@@ -1,11 +1,11 @@
 // VTube Studio public API. The first connection asks for access inside VTube Studio;
 // the token it grants is kept in the keychain.
 
-import { definePlugin, setting, type Host, type Key } from "@phonedeck/sdk";
+import { definePlugin, setting, type Host, type Key } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
 import { errorText, randomId, want } from "../../_lib/util.ts";
 
-const PLUGIN = { pluginName: "PhoneDeck", pluginDeveloper: "PhoneDeck" };
+const PLUGIN = { pluginName: "Keyside", pluginDeveloper: "Keyside" };
 const EXPRESSIONS_EVERY = 4000;
 const DENIED = 50;
 
@@ -55,7 +55,7 @@ async function authenticate() {
     if (r.authenticated) return;
     token = "";
   }
-  throw new Error("VTube Studio didn't accept PhoneDeck");
+  throw new Error("VTube Studio didn't accept Keyside");
 }
 
 async function refreshModel() {

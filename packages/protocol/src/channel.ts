@@ -5,7 +5,7 @@
 
 import { concat, fromB64u, fromUtf8, lp, randomBytes, toB64u, u64be, utf8, type Bytes } from "./bytes.ts";
 
-export const PROTOCOL = "phonedeck/1";
+export const PROTOCOL = "keyside/1";
 export const MAX_FRAME = 2 * 1024 * 1024;
 const MAX_COUNTER = 2n ** 32n;
 const DIR_C2S = 1;

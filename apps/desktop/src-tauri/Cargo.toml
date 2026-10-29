@@ -1,6 +1,6 @@
 [package]
-name = "phonedeck-desktop"
-description = "PhoneDeck for Windows, macOS and Linux: runs the companion and keeps it in the tray."
+name = "keyside-desktop"
+description = "Keyside for Windows, macOS and Linux: runs the companion and keeps it in the tray."
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ publish = false
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-phonedeck = { package = "phonedeck-companion", path = "../../../crates/companion" }
+keyside = { package = "keyside-companion", path = "../../../crates/companion" }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"

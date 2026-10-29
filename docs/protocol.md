@@ -38,10 +38,10 @@ All handshake messages are JSON text frames.
 
 ```
 lp(x)      = u16 big-endian length || x
-transcript = lp("phonedeck/1") || lp(mode) || lp(cid) || lp(id) || lp(e_device) || lp(n_device) || lp(e_companion) || lp(n_companion)
+transcript = lp("keyside/1") || lp(mode) || lp(cid) || lp(id) || lp(e_device) || lp(n_device) || lp(e_companion) || lp(n_companion)
 TH         = SHA-256(transcript)
 shared     = ECDH(P-256)
-okm        = HKDF-SHA256(salt = PSK, ikm = shared, info = lp("phonedeck/1 keys") || TH, length = 128)
+okm        = HKDF-SHA256(salt = PSK, ikm = shared, info = lp("keyside/1 keys") || TH, length = 128)
 c2s, s2c, macS, macC = okm split into four 32-byte keys
 ```
 
