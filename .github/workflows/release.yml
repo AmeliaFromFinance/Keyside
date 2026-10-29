@@ -3,12 +3,19 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Creates the tag on the chosen commit, for when tags can't be pushed.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version tag, like v0.1.0
+        required: true
 
 permissions:
   contents: write
 
 env:
   CARGO_TERM_COLOR: always
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   desktop:
@@ -54,6 +61,21 @@ jobs:
         run: |
           ext=""; [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
           node scripts/fetch-deno.ts ${{ matrix.target }} "apps/desktop/src-tauri/binaries/deno-${{ matrix.target }}$ext"
+      - name: Release notes
+        shell: bash
+        run: |
+          v="${TAG#v}"
+          {
+            echo "NOTES<<EOF"
+            awk -v v="$v" '/^## \[/{on = index($0, "[" v "]") > 0; next} on' CHANGELOG.md
+            echo
+            echo "### Installing"
+            echo
+            echo "- **Windows:** the installer isn't code-signed yet. If SmartScreen warns, choose *More info* then *Run anyway*."
+            echo "- **macOS:** the app isn't notarized yet. Open it once with right-click then *Open*."
+            echo "- **Linux:** use the AppImage, or the .deb or .rpm package."
+            echo "EOF"
+          } >> "$GITHUB_ENV"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,8 +83,9 @@ jobs:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           args: --target ${{ matrix.target }}
-          tagName: ${{ github.ref_name }}
-          releaseName: Keyside ${{ github.ref_name }}
+          tagName: ${{ env.TAG }}
+          releaseName: Keyside ${{ env.TAG }}
+          releaseBody: ${{ env.NOTES }}
           releaseDraft: true
           prerelease: false
 
@@ -101,4 +124,5 @@ jobs:
         if: env.ANDROID_KEYSTORE != ''
         with:
           draft: true
+          tag_name: ${{ env.TAG }}
           files: Keyside.apk
