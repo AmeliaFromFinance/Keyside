@@ -35,6 +35,7 @@ pub struct App {
     pub devices: Mutex<Devices>,
     pub assets: Assets,
     pub plugins: Host,
+    pub streamdeck: crate::streamdeck::Hub,
     pub registry: Registry,
     pub tokens: Mutex<Tokens>,
     pub input: Input,
@@ -70,6 +71,7 @@ impl App {
         let devices = Devices::load(paths.file("devices.json"))?;
         let assets = Assets::open(paths.dir("assets")?)?;
         let plugins = Host::open(paths.root())?;
+        let streamdeck = crate::streamdeck::Hub::open(paths.root())?;
         let tokens = Tokens::load(paths.file("tokens.json"))?;
         let http = reqwest::Client::builder()
             .user_agent(concat!("PhoneDeck/", env!("CARGO_PKG_VERSION")))
@@ -84,6 +86,7 @@ impl App {
             devices: Mutex::new(devices),
             assets,
             plugins,
+            streamdeck,
             registry: Registry::default(),
             tokens: Mutex::new(tokens),
             input: Input::start(),

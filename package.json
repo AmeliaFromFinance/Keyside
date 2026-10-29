@@ -11,7 +11,7 @@
     "build:plugins": "node scripts/build-plugins.ts",
     "test": "pnpm test:js && pnpm test:e2e && cargo test --workspace",
     "test:js": "node --test packages/protocol/test/channel.test.ts packages/sdk/test/*.test.ts plugins/*/test/*.test.ts",
-    "test:e2e": "node --test --test-concurrency=1 packages/protocol/test/e2e.test.ts packages/protocol/test/sandbox.test.ts",
+    "test:e2e": "node --test --test-concurrency=1 packages/protocol/test/e2e.test.ts packages/protocol/test/sandbox.test.ts packages/protocol/test/streamdeck.test.ts",
     "check": "tsc -p tsconfig.json --noEmit",
     "dev": "pnpm --filter @phonedeck/client dev"
   },

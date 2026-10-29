@@ -1,0 +1,12 @@
+<!doctype html>
+<html><body><p>Count settings</p>
+<script>
+  function connectElgatoStreamDeckSocket(port, uuid, event, info, actionInfo) {
+    const ws = new WebSocket("ws://127.0.0.1:" + port);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ event, uuid }));
+      ws.send(JSON.stringify({ event: "sendToPlugin", context: JSON.parse(actionInfo).context, payload: { hello: "world" } }));
+    };
+  }
+</script>
+</body></html>

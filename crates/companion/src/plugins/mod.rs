@@ -182,6 +182,10 @@ impl Host {
         self.app.get()?.upgrade()
     }
 
+    pub(crate) fn app_handle(&self) -> Option<Arc<App>> {
+        self.app()
+    }
+
     fn save(&self, st: &State) -> Result<()> {
         store::write_json(&self.index, &st.installed)
     }
@@ -469,7 +473,8 @@ impl Host {
 
     pub fn refresh_engine(&self) {
         if let Some(app) = self.app() {
-            let ids: HashSet<String> = self.state.lock().installed.iter().filter(|(_, i)| i.enabled).map(|(k, _)| k.clone()).collect();
+            let mut ids: HashSet<String> = self.state.lock().installed.iter().filter(|(_, i)| i.enabled).map(|(k, _)| k.clone()).collect();
+            ids.extend(app.streamdeck.enabled_ids());
             let mut e = app.engine.lock();
             e.set_installed(ids);
             e.notify(crate::state::Change::Plugins);
@@ -548,6 +553,10 @@ impl Host {
     }
 
     pub async fn run(&self, plugin: &str, steps: Vec<Step>, phase: &str, device: &str) -> Result<(), String> {
+        if let Some(uuid) = plugin.strip_prefix(crate::streamdeck::PREFIX) {
+            let app = self.app().ok_or("shutting down")?;
+            return crate::streamdeck::run(&app, uuid, steps, phase).await;
+        }
         let peer = self.peer(plugin).ok_or_else(|| format!("{} is not running", self.get(plugin).map(|i| i.manifest.name).unwrap_or_else(|| plugin.into())))?;
         let steps = self.clean_steps(plugin, steps)?;
         peer.request("run", json!({ "steps": steps, "phase": phase, "device": device }), RUN_TIMEOUT).await.map(|_| ())
@@ -593,6 +602,7 @@ impl Host {
     /// Sends each running plugin the keys that use it. Called after layout changes.
     pub async fn sync_all(&self) {
         let Some(app) = self.app() else { return };
+        crate::streamdeck::sync(&app).await;
         let ids: Vec<String> = self.state.lock().running.keys().cloned().collect();
         for id in ids {
             sync_one(&app, &id).await;
@@ -786,7 +796,7 @@ fn text_ok(s: &Option<String>, max: usize) -> bool {
     s.as_deref().is_none_or(|s| s.chars().count() <= max && !s.chars().any(char::is_control))
 }
 
-fn valid_image(url: &str) -> bool {
+pub(crate) fn valid_image(url: &str) -> bool {
     let types = ["data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,", "data:image/gif;base64,", "data:image/svg+xml;base64,"];
     url.len() <= MAX_IMAGE_URL
         && types.iter().any(|t| url.starts_with(t))

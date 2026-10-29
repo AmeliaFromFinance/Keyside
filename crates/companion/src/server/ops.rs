@@ -82,7 +82,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             let midi: Vec<String> = Vec::new();
             Ok(json!({
                 "core": core,
-                "plugins": app.plugins.catalog(),
+                "plugins": app.plugins.catalog().into_iter().filter_map(|p| serde_json::to_value(p).ok()).chain(app.streamdeck.catalog()).collect::<Vec<_>>(),
                 "assets": app.assets.list(),
                 "midi": midi,
                 "variables": all_variables(app),
@@ -459,6 +459,7 @@ async fn save_layout(app: &Arc<App>, who: &Who, a: &Value) -> R {
         if !who.admin {
             check_editor_changes(e.layout(), &new)?;
         }
+        crate::streamdeck::keep_settings(e.layout(), &mut new);
         let rev = e.replace_layout(new).map_err(OpError::failed)?;
         if !who.admin {
             e.toast(format!("Layout changed by {}", who.name), Tone::Default);

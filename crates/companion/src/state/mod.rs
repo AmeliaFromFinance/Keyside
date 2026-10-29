@@ -314,6 +314,35 @@ impl Engine {
         self.toggles.get(path).copied().unwrap_or(false)
     }
 
+    /// Replaces the settings of one action, when its type starts with `prefix`. For settings
+    /// owned by Stream Deck plugins: saved right away, without a new layout revision, so
+    /// editors with unsaved changes don't run into a conflict.
+    pub fn set_action_settings(&mut self, instance: &str, prefix: &str, settings: serde_json::Map<String, Value>) -> bool {
+        let Some((key_path, n)) = instance.rsplit_once('/') else { return false };
+        let Ok(n) = n.parse::<usize>() else { return false };
+        let mut parts = key_path.splitn(3, '/');
+        let (Some(p), Some(pg), Some(k)) = (parts.next(), parts.next(), parts.next()) else { return false };
+        let Some(action) = self
+            .layout
+            .profiles
+            .iter_mut()
+            .find(|x| x.id == p)
+            .and_then(|x| x.pages.iter_mut().find(|x| x.id == pg))
+            .and_then(|x| x.keys.iter_mut().find(|x| x.id == k))
+            .and_then(|x| x.actions.get_mut(n))
+        else {
+            return false;
+        };
+        if !action.kind.starts_with(prefix) {
+            return false;
+        }
+        action.settings = settings;
+        if let Err(e) = store::write_json(&self.paths.file("layout.json"), &self.layout) {
+            tracing::warn!("could not save plugin settings: {e:#}");
+        }
+        true
+    }
+
     /// Every placed action of one plugin, so the plugin can draw its keys.
     pub fn instances_for(&self, plugin: &str) -> Vec<Instance> {
         let mut out = Vec::new();
