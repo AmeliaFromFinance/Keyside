@@ -70,6 +70,7 @@ pub fn parse_media(s: &str) -> Result<Media, String> {
         "play" | "play-pause" => Media::PlayPause,
         "next" => Media::Next,
         "prev" | "previous" => Media::Prev,
+        "stop" if cfg!(target_os = "macos") => return Err("Macs have no media stop key. Use play or pause instead.".into()),
         "stop" => Media::Stop,
         "volume-up" => Media::VolumeUp,
         "volume-down" => Media::VolumeDown,
@@ -208,7 +209,11 @@ mod imp {
             Media::PlayPause => Key::MediaPlayPause,
             Media::Next => Key::MediaNextTrack,
             Media::Prev => Key::MediaPrevTrack,
+            #[cfg(not(target_os = "macos"))]
             Media::Stop => Key::MediaStop,
+            // Never sent on macOS: parse_media refuses "stop" there.
+            #[cfg(target_os = "macos")]
+            Media::Stop => Key::MediaPlayPause,
             Media::VolumeUp => Key::VolumeUp,
             Media::VolumeDown => Key::VolumeDown,
             Media::Mute => Key::VolumeMute,
