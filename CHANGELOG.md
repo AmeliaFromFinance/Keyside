@@ -14,6 +14,9 @@ First release.
 - Now playing key with track and cover from any player (Linux and Windows), and media.* variables.
 - Per-app mute and volume on Linux.
 - OBS screenshots, split recordings, audio monitoring and a stream health key.
+- Twitch polls, predictions, channel point rewards and shield mode.
+- Discord noise suppression, echo cancellation and automatic gain control.
+- Home Assistant thermostats, light colour temperature, media players with covers and camera snapshots.
 - Plugins for OBS Studio, Streamlabs Desktop, Streamer.bot, Twitch, YouTube Live, VTube Studio, VNyan, Warudo, veadotube, Discord, Spotify, Voicemeeter, Elgato Key Light, Philips Hue and Home Assistant.
 - Discord keys also work with Equibop on Linux.
 - Sandboxed plugin runtime with a TypeScript SDK and test harness.

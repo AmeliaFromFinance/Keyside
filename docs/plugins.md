@@ -39,7 +39,11 @@ Twitch needs an app registration of your own. It's free and takes a minute.
 3. Paste the **Client ID** into Keyside and save.
 4. Keyside shows a code. Open [twitch.tv/activate](https://www.twitch.tv/activate) and enter it.
 
-Some events (subs, cheers, ads) need Affiliate or Partner status.
+Some events (subs, cheers, ads) need Affiliate or Partner status. So do polls, predictions and channel point rewards.
+
+Twitch only lets an app change channel point rewards it created. A **Channel point reward** key creates its reward the first time you turn it on, then switches it on and off. Rewards you made on Twitch itself can't be changed from Keyside.
+
+If you signed in before polls and predictions were added, Keyside asks you to sign in once more so Twitch can allow them.
 
 ## YouTube Live
 
@@ -122,3 +126,5 @@ Enter each light's IP address, found in Elgato Control Center under the light's 
 1. In Home Assistant, open your profile, then **Security > Long-lived access tokens > Create token**.
 2. Enter the address (`homeassistant.local` or an IP), port `8123` and the token. Tick **Use HTTPS** if you reach Home Assistant over HTTPS.
 3. To show sensors anywhere, list them under **Entities as variables**, one per line. Use them as `{ha.sensor.living_room_temperature}`.
+
+Camera keys show a small snapshot and refresh every 10 seconds unless you pick another interval. Press one for a fresh snapshot.

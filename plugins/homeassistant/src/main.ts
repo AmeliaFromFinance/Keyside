@@ -2,7 +2,10 @@
 
 import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
-import { clamp01, want } from "../../_lib/util.ts";
+import { b64, clamp01, want } from "../../_lib/util.ts";
+
+/** Overridden in tests: where images are fetched from. Empty means the configured address. */
+export const endpoints = { http: "" };
 
 const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 const ON = new Set(["on", "open", "opening", "unlocked", "playing", "home", "heat", "cool", "auto", "active"]);
@@ -10,13 +13,27 @@ const DOMAINS: Record<string, string[]> = {
   toggle: ["light", "switch", "fan", "input_boolean", "lock", "cover", "media_player", "automation", "siren", "humidifier", "climate"],
   activate: ["scene", "script", "button", "input_button", "automation"],
   brightness: ["light"],
+  "color-temp": ["light"],
+  temperature: ["climate"],
+  media: ["media_player"],
+  "media-volume": ["media_player"],
+  camera: ["camera"],
 };
+const MEDIA_OPS: Record<string, string> = {
+  "play-pause": "media_play_pause",
+  next: "media_next_track",
+  previous: "media_previous_track",
+  "volume-up": "volume_up",
+  "volume-down": "volume_down",
+};
+const MAX_IMAGE = 300_000;
 
 interface Entity {
   state: string;
   name: string;
   unit: string;
   brightness: number | null;
+  attrs: Record<string, any>;
 }
 
 let host: Host;
@@ -39,6 +56,7 @@ function toEntity(s: any): Entity {
     name: String(s?.attributes?.friendly_name ?? ""),
     unit: String(s?.attributes?.unit_of_measurement ?? ""),
     brightness: typeof s?.attributes?.brightness === "number" ? s.attributes.brightness : null,
+    attrs: s?.attributes && typeof s.attributes === "object" ? s.attributes : {},
   };
 }
 
@@ -79,6 +97,7 @@ function onMessage(raw: string) {
         else states.delete(d.entity_id);
         publish(d.entity_id);
         renderFor(d.entity_id);
+        void loadArt(d.entity_id);
       }
       break;
     }
@@ -95,6 +114,60 @@ async function onReady() {
   host.status("connected", `${states.size} entities`);
   for (const id of watched()) publish(id);
   render();
+  for (const k of host.keys("media")) void loadArt(String(k.settings.entity ?? ""));
+  void snapshots();
+}
+
+// Covers for media players and snapshots for cameras, as data URLs.
+const art = new Map<string, { from: string; image: string }>();
+const lastShot = new Map<string, number>();
+
+function httpBase(): string {
+  if (endpoints.http) return endpoints.http;
+  const h = String(setting(host.connection, "host", "homeassistant.local")).trim();
+  const scheme = setting(host.connection, "secure", false) ? "https" : "http";
+  return `${scheme}://${h.includes(":") && !h.startsWith("[") ? `[${h}]` : h}:${Number(setting(host.connection, "port", 8123))}`;
+}
+
+/** Fetches an image from Home Assistant. Paths only, so it can't be pointed elsewhere. */
+async function image(path: string): Promise<string | null> {
+  if (!path.startsWith("/api/")) return null;
+  const r = await fetch(`${httpBase()}${path}`, { headers: { authorization: `Bearer ${String(host.connection.token ?? "")}` } }).catch(() => null);
+  if (!r?.ok) return null;
+  const type = (r.headers.get("content-type") ?? "").split(";")[0].trim();
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(type)) return null;
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  return bytes.length && bytes.length <= MAX_IMAGE ? `data:${type};base64,${b64(bytes)}` : null;
+}
+
+async function loadArt(id: string) {
+  if (!id.startsWith("media_player.") || !host.keys("media").some((k) => k.settings.entity === id)) return;
+  const pic = String(states.get(id)?.attrs.entity_picture ?? "");
+  if (art.get(id)?.from === pic) return;
+  if (!pic) {
+    art.delete(id);
+    return renderFor(id);
+  }
+  const img = await image(pic);
+  if (img) art.set(id, { from: pic, image: img });
+  else art.delete(id);
+  renderFor(id);
+}
+
+/** Refreshes camera snapshots as often as each key asks, small enough for a key. */
+async function snapshots() {
+  if (!ready) return;
+  const now = Date.now();
+  for (const k of host.keys("camera")) {
+    const id = String(k.settings.entity ?? "");
+    if (!id.startsWith("camera.")) continue;
+    const every = Math.max(2, Number(k.settings.seconds ?? 10)) * 1000;
+    if (now - (lastShot.get(id) ?? 0) < every) continue;
+    lastShot.set(id, now);
+    const img = await image(`/api/camera_proxy/${id}?width=320`);
+    if (img) art.set(id, { from: "snapshot", image: img });
+    renderFor(id);
+  }
 }
 
 function view(k: Key): KeyView | null {
@@ -109,6 +182,40 @@ function view(k: Key): KeyView | null {
       return ON.has(e.state) ? { tone: "accent", badge: "ON", badgeTone: "accent" } : null;
     case "brightness":
       return { value: e.state === "on" ? clamp01((e.brightness ?? 255) / 255) : 0, meta: e.state === "on" ? `${Math.round(((e.brightness ?? 255) / 255) * 100)}%` : "Off" };
+    case "color-temp": {
+      const [lo, hi] = [Number(e.attrs.min_color_temp_kelvin ?? 2000), Number(e.attrs.max_color_temp_kelvin ?? 6500)];
+      const k = Number(e.attrs.color_temp_kelvin);
+      if (e.state !== "on" || !Number.isFinite(k)) return { value: 0, meta: e.state === "on" ? "Colour" : "Off" };
+      return { value: clamp01((k - lo) / (hi - lo || 1)), meta: `${Math.round(k)} K` };
+    }
+    case "temperature": {
+      const [lo, hi] = [Number(e.attrs.min_temp ?? 7), Number(e.attrs.max_temp ?? 35)];
+      const target = Number(e.attrs.temperature);
+      const now = e.attrs.current_temperature;
+      return {
+        value: Number.isFinite(target) ? clamp01((target - lo) / (hi - lo || 1)) : 0,
+        meta: Number.isFinite(target) ? `${target}°` : e.state,
+        sub: typeof now === "number" ? `Now ${now}°` : undefined,
+      };
+    }
+    case "media": {
+      const a = e.attrs;
+      const cover = k.settings.cover !== false ? art.get(id)?.image : undefined;
+      if (e.state === "off" || e.state === "standby") return { sub: "Off", tone: "muted" };
+      const title = String(a.media_title ?? "");
+      const v: KeyView = { image: cover, sub: String(a.media_artist ?? a.app_name ?? e.state).slice(0, 64) };
+      if (title) v.label = title.slice(0, 64);
+      if (e.state === "playing") Object.assign(v, { tone: "accent" });
+      else if (e.state === "paused") Object.assign(v, { badge: "PAUSED", badgeTone: "muted" });
+      if (a.is_volume_muted) Object.assign(v, { badge: "MUTED", badgeTone: "danger" });
+      return v;
+    }
+    case "media-volume": {
+      const vol = Number(e.attrs.volume_level);
+      return Number.isFinite(vol) ? { value: clamp01(vol), meta: `${Math.round(vol * 100)}%` } : { value: 0, meta: e.state };
+    }
+    case "camera":
+      return { image: art.get(id)?.image, sub: art.has(id) ? undefined : "Loading" };
     case "state":
       return { sub: (e.unit ? `${e.state} ${e.unit}` : e.state).slice(0, 64) };
     default:
@@ -133,9 +240,13 @@ function renderFor(id: string) {
   }
 }
 
+let shotTimer: ReturnType<typeof setInterval> | null = null;
+
 function connect() {
   sock?.stop();
   ready = false;
+  art.clear();
+  lastShot.clear();
   sock = new Reconnecting(
     () => {
       const h = String(setting(host.connection, "host", "homeassistant.local")).trim();
@@ -189,13 +300,23 @@ const options = (action: string) => () => {
     .map(([id, e]) => ({ value: id, label: e.name ? `${e.name} (${id})` : id }));
 };
 
+/** A slider value (0 to 1) as a number between an entity's limits, on its step. */
+function between(e: Entity | undefined, value: number, lo: string, hi: string, dflt: [number, number], step: number): number {
+  const [a, b] = [Number(e?.attrs[lo] ?? dflt[0]), Number(e?.attrs[hi] ?? dflt[1])];
+  return Math.round((a + clamp01(value) * (b - a)) / step) * step;
+}
+
 export default definePlugin({
   start(h) {
     host = h;
     connect();
+    shotTimer = setInterval(() => void snapshots(), 1000);
   },
   connectionChanged: connect,
-  stop: () => sock?.stop(),
+  stop: () => {
+    if (shotTimer) clearInterval(shotTimer);
+    sock?.stop();
+  },
   actions: {
     toggle: {
       async press({ settings }) {
@@ -223,6 +344,50 @@ export default definePlugin({
       },
       options: options("brightness"),
       appear: render,
+    },
+    "color-temp": {
+      async slide({ settings, value }) {
+        const id = entity(settings, "color-temp");
+        await service("light.turn_on", id, { color_temp_kelvin: between(states.get(id), value, "min_color_temp_kelvin", "max_color_temp_kelvin", [2000, 6500], 50) });
+      },
+      options: options("color-temp"),
+      appear: render,
+    },
+    temperature: {
+      async slide({ settings, value }) {
+        const id = entity(settings, "temperature");
+        const step = Number(states.get(id)?.attrs.target_temp_step ?? 0.5) || 0.5;
+        await service("climate.set_temperature", id, { temperature: between(states.get(id), value, "min_temp", "max_temp", [7, 35], step) });
+      },
+      options: options("temperature"),
+      appear: render,
+    },
+    media: {
+      async press({ settings }) {
+        const id = entity(settings, "media");
+        const op = String(settings.op ?? "play-pause");
+        if (op === "mute") return service("media_player.volume_mute", id, { is_volume_muted: !states.get(id)?.attrs.is_volume_muted });
+        if (!MEDIA_OPS[op]) throw new Error("Unknown media control");
+        await service(`media_player.${MEDIA_OPS[op]}`, id);
+      },
+      options: options("media"),
+      appear: (k) => (render(), void loadArt(String(k.settings.entity ?? ""))),
+    },
+    "media-volume": {
+      async slide({ settings, value }) {
+        await service("media_player.volume_set", entity(settings, "media-volume"), { volume_level: Math.round(clamp01(value) * 100) / 100 });
+      },
+      options: options("media-volume"),
+      appear: render,
+    },
+    camera: {
+      // Pressing takes a new snapshot straight away.
+      press({ settings }) {
+        lastShot.delete(entity(settings, "camera"));
+        return snapshots();
+      },
+      options: options("camera"),
+      appear: (k) => (lastShot.delete(String(k.settings.entity ?? "")), render()),
     },
     state: { options: options("state"), appear: render },
     service: {

@@ -21,7 +21,11 @@ let open = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const waiting = new Waiters<any>();
 let readyWait: ((data: any) => void) | null = null;
-const voice = { mute: false, deaf: false, ptt: false, input: 1, output: 1, channel: "" };
+const voice = { mute: false, deaf: false, ptt: false, input: 1, output: 1, channel: "", noise: false, echo: false, agc: false };
+
+/** Voice processing switches, and their names in Discord's voice settings. */
+const PROCESSING = { noise: "noise_suppression", echo: "echo_cancellation", agc: "automatic_gain_control" } as const;
+type Processing = keyof typeof PROCESSING;
 
 const cfg = () => ({ id: String(setting(host.connection, "clientId", "")).trim(), secret: String(setting(host.connection, "clientSecret", "")).trim() });
 const equibop = () => String(setting(host.connection, "app", "discord")) === "equibop";
@@ -98,6 +102,7 @@ function applyVoice(d: any) {
   voice.mute = !!d.mute;
   voice.deaf = !!d.deaf;
   if (typeof d.mode?.type === "string") voice.ptt = d.mode.type === "PUSH_TO_TALK";
+  for (const [k, field] of Object.entries(PROCESSING)) if (typeof d[field] === "boolean") voice[k as Processing] = d[field];
   if (typeof d.input?.volume === "number") voice.input = d.input.volume / 100;
   if (typeof d.output?.volume === "number") voice.output = d.output.volume / 200;
   render();
@@ -166,7 +171,7 @@ async function connect(gen: number) {
   render();
 }
 
-const discordOnly = new Set(["join", "leave", "input-volume", "output-volume"]);
+const discordOnly = new Set(["join", "leave", "input-volume", "output-volume", "processing"]);
 
 function view(k: Key): KeyView | null {
   if (!ready) return { disabled: true };
@@ -176,6 +181,8 @@ function view(k: Key): KeyView | null {
       return voice.mute || voice.deaf ? { tone: "danger", badge: "MUTED", badgeTone: "danger", icon: "mic-off" } : { badge: "ON", badgeTone: "success" };
     case "deafen":
       return voice.deaf ? { tone: "danger", badge: "DEAF", badgeTone: "danger", icon: "volume-x" } : null;
+    case "processing":
+      return voice[processingOf(k.settings)] ? { tone: "accent", badge: "ON", badgeTone: "accent" } : { badge: "OFF", badgeTone: "muted" };
     case "voice-mode":
       return voice.ptt ? { tone: "accent", badge: "PTT", badgeTone: "accent" } : { badge: "VOICE", badgeTone: "success" };
     case "join":
@@ -229,6 +236,11 @@ function setMute(on: boolean) {
   return equibop() ? equibopSet("mute", on) : set({ mute: on });
 }
 
+function processingOf(s: Record<string, unknown>): Processing {
+  const w = String(s.which ?? "noise");
+  return w in PROCESSING ? (w as Processing) : "noise";
+}
+
 function onlyDiscord() {
   if (equibop()) throw new Error("Equibop can't do this. It works with the Discord app.");
   connected();
@@ -268,6 +280,14 @@ export default definePlugin({
       press({ settings }) {
         const ptt = want(settings.mode ?? "toggle", voice.ptt);
         return equibop() ? equibopSet("ptt", ptt) : set({ mode: { type: ptt ? "PUSH_TO_TALK" : "VOICE_ACTIVITY" } });
+      },
+      appear: render,
+    },
+    processing: {
+      press({ settings }) {
+        onlyDiscord();
+        const which = processingOf(settings);
+        return set({ [PROCESSING[which]]: want(settings.mode ?? "toggle", voice[which]) });
       },
       appear: render,
     },

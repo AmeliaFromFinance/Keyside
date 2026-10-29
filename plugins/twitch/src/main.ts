@@ -13,7 +13,7 @@ export const endpoints = {
   eventsub: "wss://eventsub.wss.twitch.tv/ws",
 };
 
-const SCOPES = [
+export const SCOPES = [
   "user:read:chat",
   "user:write:chat",
   "channel:manage:broadcast",
@@ -29,6 +29,10 @@ const SCOPES = [
   "channel:read:subscriptions",
   "channel:manage:raids",
   "bits:read",
+  "channel:manage:polls",
+  "channel:manage:predictions",
+  "channel:manage:redemptions",
+  "moderator:manage:shield_mode",
 ].join(" ");
 
 const POLL_EVERY = 60_000;
@@ -58,6 +62,18 @@ const live = { on: false, viewers: 0 };
 let chat: ChatSettings = {};
 const channel = { title: "", category: "" };
 const ads = { until: 0, length: 0, next: 0, snoozes: 0 };
+let shield = false;
+
+interface Choice {
+  id: string;
+  title: string;
+  votes: number;
+}
+/** The poll or prediction that's running, or just ended. */
+let poll: { id: string; title: string; ends: number; choices: Choice[]; done: boolean } | null = null;
+let prediction: { id: string; title: string; ends: number; state: "active" | "locked" | "done"; outcomes: Choice[] } | null = null;
+/** Channel point rewards Keyside created, by title. Twitch only lets an app change its own rewards. */
+const rewards = new Map<string, { id: string; enabled: boolean; paused: boolean }>();
 
 const clientId = () => String(setting(host.connection, "clientId", "")).trim();
 
@@ -106,14 +122,19 @@ async function start(gen: number) {
     if (gen === generation) void begin();
   };
   try {
-    if (!session.load(client)) await signIn(gen);
+    if (session.load(client) && !session.covers(SCOPES)) {
+      // Keyside asks for more than this sign-in allows (polls, predictions, rewards, shield mode).
+      await session.clear();
+      host.toast("Twitch needs a new sign-in for polls, predictions and rewards");
+    }
+    if (!session.signedIn) await signIn(gen);
     if (gen !== generation) return;
     const u = (await api("GET", "/users")).data?.[0];
     if (!u) throw new Error("Twitch didn't return your account");
     me = { id: u.id, login: u.login, name: u.display_name };
     host.status("connected", me.name);
-    await Promise.all([poll(), loadChannel(), loadChat()]);
-    pollTimer = setInterval(() => void poll(), POLL_EVERY);
+    await Promise.all([refresh(), loadChannel(), loadChat(), loadExtras()]);
+    pollTimer = setInterval(() => void refresh(), POLL_EVERY);
     connectEvents(gen);
     render();
   } catch (e) {
@@ -130,6 +151,8 @@ function begin() {
 function stopAll() {
   if (pollTimer) clearInterval(pollTimer);
   if (adTimer) clearInterval(adTimer);
+  if (voteTimer) clearInterval(voteTimer);
+  voteTimer = null;
   if (watchdog) clearTimeout(watchdog);
   pollTimer = adTimer = watchdog = null;
   events?.stop();
@@ -137,7 +160,7 @@ function stopAll() {
   me = null;
 }
 
-async function poll() {
+async function refresh() {
   if (!me) return;
   const [stream, followers, schedule] = await Promise.all([
     api("GET", `/streams${q({ user_id: me.id })}`).catch(() => null),
@@ -168,6 +191,30 @@ async function loadChannel() {
   channel.category = c.game_name ?? "";
   host.setVar("title", channel.title);
   host.setVar("category", channel.category);
+}
+
+const choices = (list: any[] | undefined): Choice[] => (list ?? []).map((c) => ({ id: String(c.id), title: String(c.title ?? ""), votes: Number(c.votes ?? c.channel_points ?? 0) }));
+
+/** Shield mode, the running poll and prediction, and Keyside's rewards. Some need Affiliate. */
+async function loadExtras() {
+  if (!me) return;
+  const [sh, po, pr, rw] = await Promise.all([
+    api("GET", `/moderation/shield_mode${q({ broadcaster_id: me.id, moderator_id: me.id })}`).catch(() => null),
+    api("GET", `/polls${q({ broadcaster_id: me.id, first: 1 })}`).catch(() => null),
+    api("GET", `/predictions${q({ broadcaster_id: me.id, first: 1 })}`).catch(() => null),
+    api("GET", `/channel_points/custom_rewards${q({ broadcaster_id: me.id, only_manageable_rewards: "true" })}`).catch(() => null),
+  ]);
+  shield = !!sh?.data?.[0]?.is_active;
+  const p = po?.data?.[0];
+  poll = p && p.status === "ACTIVE" ? { id: p.id, title: p.title, ends: Date.parse(p.started_at) + Number(p.duration) * 1000, choices: choices(p.choices), done: false } : null;
+  const d = pr?.data?.[0];
+  prediction =
+    d && (d.status === "ACTIVE" || d.status === "LOCKED")
+      ? { id: d.id, title: d.title, ends: Date.parse(d.created_at) + Number(d.prediction_window) * 1000, state: d.status === "ACTIVE" ? "active" : "locked", outcomes: choices(d.outcomes) }
+      : null;
+  rewards.clear();
+  for (const r of rw?.data ?? []) rewards.set(String(r.title).toLowerCase(), { id: r.id, enabled: !!r.is_enabled, paused: !!r.is_paused });
+  if (poll || prediction) tickVotes();
 }
 
 async function loadChat() {
@@ -203,9 +250,48 @@ function view(k: Key): KeyView | null {
     }
     case "title":
       return s.title && s.title === channel.title ? { tone: "accent" } : null;
+    case "shield":
+      return shield ? { tone: "danger", badge: "SHIELD", badgeTone: "danger", icon: "shield-alert" } : null;
+    case "poll": {
+      if (!poll) return String(s.op ?? "start") === "end" ? { disabled: true, sub: "No poll running" } : null;
+      const top = leader(poll.choices);
+      return { tone: "accent", badge: poll.done ? "ENDED" : "POLL", badgeTone: poll.done ? "muted" : "accent", sub: top ? `${top.title} ${top.votes}` : poll.title, meta: poll.done ? undefined : mmss(poll.ends - Date.now()) };
+    }
+    case "prediction": {
+      const op = String(s.op ?? "start");
+      if (!prediction) return op === "start" ? null : { disabled: true, sub: "No prediction" };
+      const top = leader(prediction.outcomes);
+      const badge = prediction.state === "active" ? "OPEN" : prediction.state === "locked" ? "LOCKED" : "ENDED";
+      return { tone: prediction.state === "done" ? undefined : "accent", badge, badgeTone: prediction.state === "active" ? "accent" : "muted", sub: top ? `${top.title} ${top.votes}` : prediction.title, meta: prediction.state === "active" ? mmss(prediction.ends - Date.now()) : undefined };
+    }
+    case "reward": {
+      const r = rewards.get(String(s.title ?? "").trim().toLowerCase());
+      if (!r) return { sub: "Not created yet" };
+      return r.enabled && !r.paused ? { tone: "accent", badge: "ON", badgeTone: "accent" } : { badge: r.paused ? "PAUSED" : "OFF", badgeTone: "muted" };
+    }
     default:
       return null;
   }
+}
+
+const leader = (list: Choice[]) => (list.length ? list.reduce((a, b) => (b.votes > a.votes ? b : a)) : null);
+
+/** Keeps poll and prediction countdowns moving while one runs. */
+let voteTimer: ReturnType<typeof setInterval> | null = null;
+function tickVotes() {
+  if (voteTimer) return;
+  voteTimer = setInterval(() => {
+    const running = (poll && !poll.done) || prediction?.state === "active";
+    for (const k of [...host.keys("poll"), ...host.keys("prediction")]) {
+      const v = view(k);
+      if (v) k.set(v);
+      else k.clear();
+    }
+    if (!running && voteTimer) {
+      clearInterval(voteTimer);
+      voteTimer = null;
+    }
+  }, 1000);
 }
 
 function render() {
@@ -263,6 +349,29 @@ function onEvent(type: string, e: any) {
       host.setVar("title", channel.title);
       host.setVar("category", channel.category);
       break;
+    case "channel.shield_mode.begin":
+    case "channel.shield_mode.end":
+      shield = type.endsWith("begin");
+      break;
+    case "channel.poll.begin":
+    case "channel.poll.progress":
+    case "channel.poll.end":
+      poll = { id: e.id, title: e.title, ends: Date.parse(e.ends_at ?? e.ended_at ?? "") || Date.now(), choices: choices(e.choices), done: type.endsWith("end") };
+      tickVotes();
+      break;
+    case "channel.prediction.begin":
+    case "channel.prediction.progress":
+    case "channel.prediction.lock":
+    case "channel.prediction.end":
+      prediction = {
+        id: e.id,
+        title: e.title,
+        ends: Date.parse(e.locks_at ?? "") || Date.now(),
+        state: type.endsWith("lock") ? "locked" : type.endsWith("end") ? "done" : "active",
+        outcomes: choices(e.outcomes),
+      };
+      tickVotes();
+      break;
     case "channel.ad_break.begin":
       ads.length = Number(e.duration_seconds ?? 0);
       ads.until = Date.parse(e.started_at ?? "") + ads.length * 1000 || Date.now() + ads.length * 1000;
@@ -280,7 +389,7 @@ function tickAds() {
     if (Date.now() > ads.until) {
       clearInterval(adTimer!);
       adTimer = null;
-      void poll();
+      void refresh();
     }
     for (const k of host.keys("ad")) {
       const v = view(k);
@@ -305,6 +414,15 @@ function subscriptions(user: string): Array<[string, string, Record<string, stri
     ["stream.offline", "1", b],
     ["channel.update", "2", b],
     ["channel.ad_break.begin", "1", b],
+    ["channel.shield_mode.begin", "1", { ...b, moderator_user_id: user }],
+    ["channel.shield_mode.end", "1", { ...b, moderator_user_id: user }],
+    ["channel.poll.begin", "1", b],
+    ["channel.poll.progress", "1", b],
+    ["channel.poll.end", "1", b],
+    ["channel.prediction.begin", "1", b],
+    ["channel.prediction.progress", "1", b],
+    ["channel.prediction.lock", "1", b],
+    ["channel.prediction.end", "1", b],
   ];
 }
 
@@ -353,6 +471,30 @@ async function subscribe(sessionId: string, user: string) {
   const failed = results.filter((r) => r.status === "rejected").length;
   if (failed) host.log.warn(`${failed} Twitch event subscriptions were refused (some need Affiliate or Partner)`);
 }
+
+function text(v: unknown, max: number, what: string): string {
+  const t = String(v ?? "").trim();
+  if (!t) throw new Error(`Set ${what} on this key first`);
+  if (t.length > max) throw new Error(`Keep it to ${max} characters: "${t.slice(0, 20)}…"`);
+  return t;
+}
+
+/** One entry per line, within Twitch's limits. */
+function lines(v: unknown, min: number, max: number, len: number, what: string): string[] {
+  const list = String(v ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (list.length < min || list.length > max) throw new Error(`Twitch needs ${min} to ${max} ${what}, one per line`);
+  const long = list.find((l) => l.length > len);
+  if (long) throw new Error(`"${long}" is longer than ${len} characters`);
+  return list;
+}
+
+const clampInt = (v: unknown, lo: number, hi: number, dflt: number) => {
+  const n = Math.round(Number(v ?? dflt));
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+};
 
 async function userId(login: string): Promise<string> {
   const name = login.trim().replace(/^@/, "").toLowerCase();
@@ -447,6 +589,94 @@ const handlers: Record<string, (s: Record<string, unknown>) => Promise<unknown>>
     const to = await userId(String(s.user ?? ""));
     await api("POST", `/raids${q({ from_broadcaster_id: u.id, to_broadcaster_id: to })}`);
     host.toast("Raid ready. It starts after 90 seconds or when you confirm on Twitch.");
+  },
+  async shield(s) {
+    const u = signedIn();
+    const on = want(s.op ?? "toggle", shield);
+    const r = (await api("PUT", `/moderation/shield_mode${q({ broadcaster_id: u.id, moderator_id: u.id })}`, { is_active: on })).data?.[0];
+    shield = r ? !!r.is_active : on;
+    render();
+  },
+  async poll(s) {
+    const u = signedIn();
+    if (String(s.op ?? "start") === "end") {
+      if (!poll || poll.done) throw new Error("No poll is running");
+      await api("PATCH", "/polls", { broadcaster_id: u.id, id: poll.id, status: "TERMINATED" });
+      return;
+    }
+    if (poll && !poll.done) throw new Error("A poll is already running");
+    const options = lines(s.choices, 2, 5, 25, "choices");
+    const r = (
+      await api("POST", "/polls", {
+        broadcaster_id: u.id,
+        title: text(s.question, 60, "a question"),
+        choices: options.map((title) => ({ title })),
+        duration: clampInt(s.seconds, 15, 1800, 120),
+      })
+    ).data?.[0];
+    if (r) poll = { id: r.id, title: r.title, ends: Date.parse(r.started_at) + Number(r.duration) * 1000, choices: choices(r.choices), done: false };
+    tickVotes();
+    render();
+  },
+  async prediction(s) {
+    const u = signedIn();
+    const op = String(s.op ?? "start");
+    if (op === "start") {
+      if (prediction && prediction.state !== "done") throw new Error("A prediction is already running");
+      const outcomes = lines(s.outcomes, 2, 10, 25, "outcomes");
+      const r = (
+        await api("POST", "/predictions", {
+          broadcaster_id: u.id,
+          title: text(s.question, 45, "a question"),
+          outcomes: outcomes.map((title) => ({ title })),
+          prediction_window: clampInt(s.seconds, 30, 1800, 120),
+        })
+      ).data?.[0];
+      if (r) prediction = { id: r.id, title: r.title, ends: Date.parse(r.created_at) + Number(r.prediction_window) * 1000, state: "active", outcomes: choices(r.outcomes) };
+      tickVotes();
+      render();
+      return;
+    }
+    if (!prediction || prediction.state === "done") throw new Error("No prediction is running");
+    const body: Record<string, unknown> = { broadcaster_id: u.id, id: prediction.id };
+    if (op === "lock") body.status = "LOCKED";
+    else if (op === "cancel") body.status = "CANCELED";
+    else {
+      // "resolve": the winner is an outcome's name or its number.
+      const pick = String(s.winner ?? "").trim();
+      const n = Number(pick);
+      const win = prediction.outcomes.find((o, i) => o.title.toLowerCase() === pick.toLowerCase() || (Number.isInteger(n) && n === i + 1));
+      if (!win) throw new Error("Set the winning outcome on this key: its name or number");
+      body.status = "RESOLVED";
+      body.winning_outcome_id = win.id;
+    }
+    await api("PATCH", "/predictions", body);
+  },
+  async reward(s) {
+    const u = signedIn();
+    const title = text(s.title, 45, "a reward name");
+    const r = rewards.get(title.toLowerCase());
+    const mode = String(s.mode ?? "enable");
+    const on = want(s.op ?? "toggle", r ? (mode === "pause" ? !r.paused : r.enabled) : false);
+    if (!r) {
+      if (!on) return;
+      // Twitch only lets an app change rewards it made, so Keyside makes its own.
+      const made = (
+        await api("POST", `/channel_points/custom_rewards${q({ broadcaster_id: u.id })}`, {
+          title,
+          cost: clampInt(s.cost, 1, 1_000_000, 500),
+          prompt: String(s.prompt ?? "").slice(0, 200) || undefined,
+          is_enabled: true,
+        })
+      ).data?.[0];
+      if (made) rewards.set(title.toLowerCase(), { id: made.id, enabled: !!made.is_enabled, paused: !!made.is_paused });
+      host.toast(`Created the "${title}" reward`, "success");
+    } else {
+      const body = mode === "pause" ? { is_paused: !on } : { is_enabled: on };
+      const done = (await api("PATCH", `/channel_points/custom_rewards${q({ broadcaster_id: u.id, id: r.id })}`, body)).data?.[0];
+      if (done) rewards.set(title.toLowerCase(), { id: r.id, enabled: !!done.is_enabled, paused: !!done.is_paused });
+    }
+    render();
   },
   async "clear-chat"() {
     const u = signedIn();

@@ -56,6 +56,12 @@ export class Session {
     return !!this.#tokens;
   }
 
+  /** True when the saved sign-in covers every scope in `scopes` (space separated). */
+  covers(scopes: string): boolean {
+    const have = new Set((this.#tokens?.scope ?? "").split(/\s+/));
+    return scopes.split(/\s+/).every((x) => have.has(x));
+  }
+
   async save(t: Tokens) {
     this.#tokens = t;
     await this.#host.saveConnection({ [this.#field]: JSON.stringify(t) });

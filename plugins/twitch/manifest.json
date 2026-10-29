@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.twitch",
   "name": "Twitch",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "twitch",
   "description": "Chat and alerts on your deck, plus markers, clips, ads, chat modes, title, shoutouts and raids.",
@@ -88,7 +88,66 @@
         }
       }
     },
-    { "id": "clear-chat", "name": "Clear chat", "icon": "trash-2" }
+    { "id": "clear-chat", "name": "Clear chat", "icon": "trash-2" },
+    {
+      "id": "shield",
+      "name": "Shield mode",
+      "icon": "shield",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": { "op": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" } }
+      }
+    },
+    {
+      "id": "poll",
+      "name": "Poll",
+      "icon": "chart-bar",
+      "description": "Starts or ends a poll. Shows the leading answer while it runs.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "op": { "type": "string", "title": "On press", "enum": ["start", "end"], "enumNames": ["Start the poll", "End the running poll"], "default": "start" },
+          "question": { "type": "string", "title": "Question", "maxLength": 60 },
+          "choices": { "type": "string", "title": "Answers, one per line (2 to 5)", "format": "textarea", "maxLength": 200 },
+          "seconds": { "type": "integer", "title": "Seconds", "minimum": 15, "maximum": 1800, "default": 120 }
+        }
+      }
+    },
+    {
+      "id": "prediction",
+      "name": "Prediction",
+      "icon": "trophy",
+      "description": "Starts, locks, resolves or cancels a prediction.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "op": { "type": "string", "title": "On press", "enum": ["start", "lock", "resolve", "cancel"], "enumNames": ["Start", "Lock", "Pick the winner", "Cancel and refund"], "default": "start" },
+          "question": { "type": "string", "title": "Question", "maxLength": 45 },
+          "outcomes": { "type": "string", "title": "Outcomes, one per line (2 to 10)", "format": "textarea", "maxLength": 300 },
+          "seconds": { "type": "integer", "title": "Seconds to predict", "minimum": 30, "maximum": 1800, "default": 120 },
+          "winner": { "type": "string", "title": "Winner (name or number)", "maxLength": 25 }
+        }
+      }
+    },
+    {
+      "id": "reward",
+      "name": "Channel point reward",
+      "icon": "coins",
+      "kind": "toggle",
+      "description": "Turns a reward on or off. Twitch only lets apps change rewards they made, so Keyside makes it the first time.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "title": "Reward name", "maxLength": 45 },
+          "cost": { "type": "integer", "title": "Cost in points", "minimum": 1, "maximum": 1000000, "default": 500 },
+          "prompt": { "type": "string", "title": "Description", "maxLength": 200 },
+          "mode": { "type": "string", "title": "Off means", "enum": ["enable", "pause"], "enumNames": ["Hidden", "Shown but paused"], "default": "enable" },
+          "op": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        },
+        "required": ["title"]
+      }
+    }
   ],
   "variables": [
     { "name": "live", "title": "Live", "type": "boolean" },

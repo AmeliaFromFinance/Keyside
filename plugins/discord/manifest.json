@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.discord",
   "name": "Discord",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Keyside",
   "prefix": "discord",
   "description": "Mute, deafen, voice mode and voice channel controls for the Discord desktop app, with the current state on the keys. Also works with Equibop on Linux.",
@@ -71,6 +71,19 @@
       "icon": "radio",
       "kind": "toggle",
       "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Push to talk", "Voice activity"], "default": "toggle" } } }
+    },
+    {
+      "id": "processing",
+      "name": "Voice processing",
+      "icon": "audio-lines",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "which": { "type": "string", "title": "Setting", "enum": ["noise", "echo", "agc"], "enumNames": ["Noise suppression", "Echo cancellation", "Automatic gain control"], "default": "noise" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        }
+      }
     },
     {
       "id": "join",

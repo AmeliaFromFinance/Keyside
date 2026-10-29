@@ -1,10 +1,10 @@
 {
   "id": "dev.keyside.homeassistant",
   "name": "Home Assistant",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "ha",
-  "description": "Toggle devices, run scenes and scripts, call any service and show live sensor values.",
+  "description": "Toggle devices, run scenes and scripts, set lights and thermostats, control media players, see cameras, call any service and show live sensor values.",
   "homepage": "https://www.home-assistant.io",
   "license": "GPL-3.0-or-later",
   "host": "^1.0",
@@ -49,6 +49,64 @@
       "icon": "sun",
       "kind": "slider",
       "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Light", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "color-temp",
+      "name": "Light colour temperature",
+      "icon": "thermometer",
+      "kind": "slider",
+      "description": "From warm to cool, within what the light supports.",
+      "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Light", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "temperature",
+      "name": "Thermostat",
+      "icon": "thermometer",
+      "kind": "slider",
+      "description": "Sets the target temperature. Shows the current one too.",
+      "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Thermostat", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "media",
+      "name": "Media player",
+      "icon": "disc-3",
+      "description": "Shows what's playing with its cover, and plays, pauses or skips.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "entity": { "type": "string", "title": "Media player", "x-options": "dynamic" },
+          "op": {
+            "type": "string",
+            "title": "On press",
+            "enum": ["play-pause", "next", "previous", "volume-up", "volume-down", "mute"],
+            "enumNames": ["Play or pause", "Next", "Previous", "Volume up", "Volume down", "Mute or unmute"],
+            "default": "play-pause"
+          },
+          "cover": { "type": "boolean", "title": "Show the cover", "default": true }
+        },
+        "required": ["entity"]
+      }
+    },
+    {
+      "id": "media-volume",
+      "name": "Media player volume",
+      "icon": "volume-2",
+      "kind": "slider",
+      "settings": { "type": "object", "properties": { "entity": { "type": "string", "title": "Media player", "x-options": "dynamic" } }, "required": ["entity"] }
+    },
+    {
+      "id": "camera",
+      "name": "Camera",
+      "icon": "cctv",
+      "description": "Shows a snapshot on the key. Press for a fresh one.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "entity": { "type": "string", "title": "Camera", "x-options": "dynamic" },
+          "seconds": { "type": "integer", "title": "Refresh every (seconds)", "minimum": 2, "maximum": 3600, "default": 10 }
+        },
+        "required": ["entity"]
+      }
     },
     {
       "id": "state",

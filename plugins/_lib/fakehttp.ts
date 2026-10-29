@@ -11,7 +11,7 @@ export interface Hit {
   body: any;
 }
 
-export async function fakeHttp(route: (h: Hit) => { status?: number; json?: unknown } | undefined) {
+export async function fakeHttp(route: (h: Hit) => { status?: number; json?: unknown; bytes?: Uint8Array; type?: string } | undefined) {
   const hits: Hit[] = [];
   const server = createServer(async (req, res) => {
     let raw = "";
@@ -23,8 +23,8 @@ export async function fakeHttp(route: (h: Hit) => { status?: number; json?: unkn
     const hit = { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, headers: req.headers, body };
     hits.push(hit);
     const r = route(hit) ?? { status: 404, json: { message: "not found" } };
-    res.writeHead(r.status ?? 200, { "content-type": "application/json" });
-    res.end(r.json === undefined ? "" : JSON.stringify(r.json));
+    res.writeHead(r.status ?? 200, { "content-type": r.type ?? "application/json" });
+    res.end(r.bytes ?? (r.json === undefined ? "" : JSON.stringify(r.json)));
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
   return {

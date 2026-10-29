@@ -55,7 +55,7 @@ test("switches push to talk through Discord", async () => {
   const sets: any[] = [];
   let h: Harness;
   const reply = (payload: object) => setTimeout(() => void h.emit("ipc.message", { bridge: "discord", data: { op: 1, payload } }), 1);
-  const voice: any = { mute: false, deaf: false, mode: { type: "VOICE_ACTIVITY" } };
+  const voice: any = { mute: false, deaf: false, mode: { type: "VOICE_ACTIVITY" }, noise_suppression: true, echo_cancellation: true, automatic_gain_control: false };
   h = createTestHost(plugin, {
     connection: { clientId: "123", clientSecret: "shh" },
     respond(s) {
@@ -71,8 +71,15 @@ test("switches push to talk through Discord", async () => {
     },
   });
   await h.start();
-  await h.sync([{ id: "p", action: "voice-mode" }]);
+  await h.sync([
+    { id: "p", action: "voice-mode" },
+    { id: "n", action: "processing", settings: { which: "noise" } },
+  ]);
   await eventually(() => h.view("p")?.badge === "VOICE");
+  await eventually(() => h.view("n")?.badge === "ON");
+  await h.press("n", "processing", { which: "noise", mode: "toggle" });
+  assert.deepEqual(sets.at(-1), { noise_suppression: false });
+  await eventually(() => h.view("n")?.badge === "OFF");
   await h.press("p", "voice-mode", { mode: "toggle" });
   assert.deepEqual(sets.at(-1), { mode: { type: "PUSH_TO_TALK" } });
   await eventually(() => h.view("p")?.badge === "PTT");

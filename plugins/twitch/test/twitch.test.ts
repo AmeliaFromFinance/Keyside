@@ -1,12 +1,12 @@
 import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import plugin, { endpoints } from "../src/main.ts";
+import plugin, { SCOPES, endpoints } from "../src/main.ts";
 import { fakeServer, eventually } from "../../_lib/fake.ts";
 import { fakeHttp } from "../../_lib/fakehttp.ts";
 
 async function fakeTwitch() {
-  const state = { token: "good", refreshed: 0, devicePolls: 0 };
+  const state = { token: "good", refreshed: 0, devicePolls: 0, rewards: [] as object[] };
   const id = await fakeHttp((h) => {
     if (h.path === "/device") return { json: { device_code: "dev", user_code: "WXYZ-1234", verification_uri: "https://www.twitch.tv/activate", interval: 1, expires_in: 60 } };
     if (h.path === "/token" && h.body.grant_type === "refresh_token") {
@@ -34,6 +34,27 @@ async function fakeTwitch() {
         return { json: { data: [{ emote_mode: false, slow_mode: false }] } };
       case "PATCH /chat/settings":
         return { json: { data: [{ emote_mode: true }] } };
+      case "PUT /moderation/shield_mode":
+        return { json: { data: [{ is_active: h.body.is_active }] } };
+      case "GET /polls":
+      case "GET /predictions":
+        return { json: { data: [] } };
+      case "POST /polls":
+        return { json: { data: [{ id: "p1", title: h.body.title, duration: h.body.duration, started_at: new Date().toISOString(), choices: h.body.choices.map((c: any, i: number) => ({ id: `c${i}`, title: c.title, votes: 0 })) }] } };
+      case "POST /predictions":
+        return { json: { data: [{ id: "d1", title: h.body.title, prediction_window: h.body.prediction_window, created_at: new Date().toISOString(), outcomes: h.body.outcomes.map((o: any, i: number) => ({ id: `o${i}`, title: o.title })) }] } };
+      case "GET /channel_points/custom_rewards":
+        return { json: { data: state.rewards } };
+      case "POST /channel_points/custom_rewards": {
+        const r = { id: "r1", title: h.body.title, cost: h.body.cost, is_enabled: true, is_paused: false };
+        state.rewards.push(r);
+        return { json: { data: [r] } };
+      }
+      case "PATCH /channel_points/custom_rewards": {
+        const r: any = state.rewards[0];
+        Object.assign(r, h.body);
+        return { json: { data: [r] } };
+      }
       default:
         return { json: { data: [{}] } };
     }
@@ -43,7 +64,7 @@ async function fakeTwitch() {
   return { state, id, api, es, close: () => Promise.all([id.close(), api.close(), es.close()]) };
 }
 
-const session = (access: string) => JSON.stringify({ access, refresh: "r1", expires: Date.now() + 3_600_000, client: "abc" });
+const session = (access: string, scope = SCOPES) => JSON.stringify({ access, refresh: "r1", expires: Date.now() + 3_600_000, client: "abc", scope });
 
 test("loads the channel, subscribes to events and runs actions", async () => {
   const tw = await fakeTwitch();
@@ -107,4 +128,52 @@ test("asks for a client id first", async () => {
   assert.match(String(h.status()?.detail), /Client ID/);
   await assert.rejects(h.press("x", "clip"), /signed in/);
   await h.stop();
+});
+
+test("shield mode, polls, predictions and Keyside's own rewards", async () => {
+  const tw = await fakeTwitch();
+  const h = createTestHost(plugin, { connection: { clientId: "abc", session: session("good") }, prefix: "twitch" });
+  await h.start();
+  await h.sync([
+    { id: "s", action: "shield" },
+    { id: "p", action: "poll" },
+    { id: "d", action: "prediction", settings: { op: "resolve", winner: "2" } },
+    { id: "r", action: "reward", settings: { title: "Hydrate" } },
+  ]);
+  await eventually(() => h.status()?.state === "connected");
+
+  await h.press("s", "shield", { op: "toggle" });
+  assert.equal(tw.api.hits.find((x) => x.method === "PUT")?.body.is_active, true);
+  await eventually(() => h.view("s")?.badge === "SHIELD");
+
+  await assert.rejects(h.press("p", "poll", { question: "Best snack?", choices: "Chips" }), /2 to 5 choices/);
+  await h.press("p", "poll", { question: "Best snack?", choices: "Chips\nGrapes\n", seconds: 60 });
+  assert.deepEqual(tw.api.hits.find((x) => x.method === "POST" && x.path === "/polls")?.body.choices, [{ title: "Chips" }, { title: "Grapes" }]);
+  tw.es.broadcast({ metadata: { message_type: "notification", subscription_type: "channel.poll.progress" }, payload: { event: { id: "p1", title: "Best snack?", ends_at: new Date(Date.now() + 60_000).toISOString(), choices: [{ id: "c0", title: "Chips", votes: 2 }, { id: "c1", title: "Grapes", votes: 5 }] } } });
+  await eventually(() => h.view("p")?.sub === "Grapes 5");
+  await assert.rejects(h.press("p", "poll", { question: "Again?", choices: "a\nb" }), /already running/);
+
+  await assert.rejects(h.press("d", "prediction", { op: "resolve", winner: "2" }), /No prediction/);
+  await h.press("d", "prediction", { op: "start", question: "Win this round?", outcomes: "Yes\nNo" });
+  await h.press("d", "prediction", { op: "resolve", winner: "2" });
+  const resolve = tw.api.hits.find((x) => x.method === "PATCH" && x.path === "/predictions")!;
+  assert.deepEqual([resolve.body.status, resolve.body.winning_outcome_id], ["RESOLVED", "o1"]);
+
+  await h.press("r", "reward", { title: "Hydrate", cost: 100 });
+  assert.equal(tw.api.hits.find((x) => x.method === "POST" && x.path === "/channel_points/custom_rewards")?.body.cost, 100);
+  await eventually(() => h.view("r")?.badge === "ON");
+  await h.press("r", "reward", { title: "Hydrate" });
+  assert.deepEqual(tw.api.hits.find((x) => x.method === "PATCH" && x.path === "/channel_points/custom_rewards")?.body, { is_enabled: false });
+  await eventually(() => h.view("r")?.badge === "OFF");
+  await h.stop();
+  await tw.close();
+});
+
+test("asks to sign in again when the saved sign-in lacks newer permissions", async () => {
+  const tw = await fakeTwitch();
+  const h = createTestHost(plugin, { connection: { clientId: "abc", session: session("good", "user:read:chat") } });
+  await h.start();
+  await eventually(() => /WXYZ-1234/.test(String(h.status()?.detail)));
+  await h.stop();
+  await tw.close();
 });

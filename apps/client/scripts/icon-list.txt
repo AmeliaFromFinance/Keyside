@@ -15,3 +15,5 @@ variable braces code terminal square-terminal bug wrench hammer cpu memory-stick
 scan qr-code expand shrink grid-3x3 square-dashed mouse vibrate cast airplay rss podcast newspaper book book-open graduation-cap briefcase building store
 search trash-2 grip-vertical file-up file-down save list-plus arrow-up-down
 headphone-off
+shield-alert
+cctv

@@ -48,17 +48,17 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | OBS Studio | Scenes (with live thumbnails), mute, volume, record and pause, chapters, split files, stream, replay buffer, virtual camera, studio mode, transitions, sources, filters, audio monitoring, media, text, screenshots, stream health, scene collections, profiles, hotkeys |
 | Streamlabs Desktop | Scenes, mute, volume, record, stream, replay buffer |
 | Streamer.bot | Run actions and custom triggers, globals as variables, chat and alerts |
-| Twitch | Chat and alerts, markers, clips, ads, chat modes, title and category, shoutouts, raids |
+| Twitch | Chat and alerts, markers, clips, ads, chat modes, title and category, shoutouts, raids, polls, predictions, channel point rewards, shield mode |
 | YouTube Live | Chat, Super Chats, members, viewer count, send messages |
 | VTube Studio | Hotkeys, expressions, model switching |
 | VNyan, Warudo | Trigger node graphs and blueprints |
 | veadotube | Avatar states with thumbnails |
-| Discord | Mute, deafen, push to talk, voice channels, mic and speaker volume. Equibop on Linux too |
+| Discord | Mute, deafen, push to talk, noise suppression, echo cancellation, voice channels, mic and speaker volume. Equibop on Linux too |
 | Spotify | Now playing with album art, playback, volume, like, playlists |
 | Voicemeeter | Mute, gain, routing and scripts over VBAN |
 | Elgato Key Light | Power, brightness, colour temperature, presets |
 | Philips Hue | Rooms, zones, lights, scenes, brightness, colour |
-| Home Assistant | Toggle devices, scenes, scripts, any service, live sensor values |
+| Home Assistant | Toggle devices, scenes, scripts, light brightness and colour, thermostats, media players with covers, camera snapshots, any service, live sensor values |
 
 Built in: hotkeys, typing text, media keys, now playing with cover art (Linux and Windows), open links and apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.
 
