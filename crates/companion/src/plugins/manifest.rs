@@ -28,6 +28,9 @@ pub enum Field {
         format: Option<String>,
         #[serde(default, rename = "x-options", skip_serializing_if = "Option::is_none")]
         options: Option<String>,
+        /// Kept by the plugin (for example a sign-in session) and not shown in the editor.
+        #[serde(default, rename = "x-hidden", skip_serializing_if = "std::ops::Not::not")]
+        hidden: bool,
     },
     Number {
         #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -16,7 +16,6 @@ pub struct Sandbox<'a> {
     /// Deno's compile cache for this plugin.
     pub cache: &'a Path,
     pub net: &'a [String],
-    pub udp: bool,
     pub extra_args: &'a [String],
 }
 
@@ -51,9 +50,6 @@ pub fn args(s: &Sandbox) -> Vec<String> {
         a.push("--deny-net".into());
     } else {
         a.push(format!("--allow-net={}", s.net.join(",")));
-    }
-    if s.udp {
-        a.push("--unstable-net".into());
     }
     a.push(s.entry.display().to_string());
     a.extend(s.extra_args.iter().cloned());
@@ -125,7 +121,7 @@ mod tests {
     fn locks_everything_down_by_default() {
         let p = PathBuf::from("/pkg");
         let d = PathBuf::from("/data");
-        let s = Sandbox { deno: Path::new("deno"), package: &p, entry: &p.join("main.js"), data: &d, cache: &d, net: &[], udp: false, extra_args: &[] };
+        let s = Sandbox { deno: Path::new("deno"), package: &p, entry: &p.join("main.js"), data: &d, cache: &d, net: &[], extra_args: &[] };
         let a = args(&s);
         for flag in ["--deny-net", "--deny-run", "--deny-ffi", "--deny-env", "--deny-import", "--no-remote", "--no-npm", "--no-prompt"] {
             assert!(a.iter().any(|x| x == flag), "missing {flag}");
@@ -139,9 +135,9 @@ mod tests {
     fn grants_only_listed_hosts() {
         let p = PathBuf::from("/pkg");
         let net = vec!["127.0.0.1:4455".to_string(), "api.twitch.tv".to_string()];
-        let s = Sandbox { deno: Path::new("deno"), package: &p, entry: &p.join("main.js"), data: &p, cache: &p, net: &net, udp: true, extra_args: &[] };
+        let s = Sandbox { deno: Path::new("deno"), package: &p, entry: &p.join("main.js"), data: &p, cache: &p, net: &net, extra_args: &[] };
         let a = args(&s);
         assert!(a.iter().any(|x| x == "--allow-net=127.0.0.1:4455,api.twitch.tv"));
-        assert!(a.iter().any(|x| x == "--unstable-net"));
+        assert!(!a.iter().any(|x| x.starts_with("--unstable")), "raw sockets stay off; UDP goes through the host");
     }
 }

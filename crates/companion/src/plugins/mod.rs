@@ -99,7 +99,16 @@ pub struct Host {
     pub secrets: secrets::Secrets,
     state: Mutex<State>,
     pub staged: Mutex<HashMap<String, (package::Package, Instant)>>,
+    /// Browser sign-ins waiting for their redirect, by OAuth state.
+    oauth: Mutex<HashMap<String, OAuthWait>>,
 }
+
+struct OAuthWait {
+    plugin: String,
+    tx: tokio::sync::oneshot::Sender<Result<String, String>>,
+}
+
+const OAUTH_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -155,6 +164,7 @@ impl Host {
             secrets: secrets::Secrets::open(root.join("secrets.json")),
             state: Mutex::new(State::default()),
             staged: Mutex::new(HashMap::new()),
+            oauth: Mutex::new(HashMap::new()),
         };
         let installed: BTreeMap<String, Installed> = store::read_json(&host.index)?.unwrap_or_default();
         host.state.lock().installed = installed.into_iter().filter(|(_, i)| manifest::validate(&i.manifest).is_ok()).collect();
@@ -189,6 +199,21 @@ impl Host {
     }
 
     /// Connection values with secrets filled in from the keychain. Only for the plugin itself.
+    /// Hosts this plugin may reach right now, with templates filled in.
+    fn granted_net(&self, m: &Manifest) -> Vec<String> {
+        let Some(inst) = self.get(&m.id) else { return Vec::new() };
+        let allowed: Vec<String> = m.permissions.net.iter().filter(|n| inst.granted.net.contains(n)).cloned().collect();
+        manifest::expand_net(&allowed, &self.connection_values(m))
+    }
+
+    /// Called by the editor listener when a browser comes back from a sign-in page.
+    pub fn oauth_finish(&self, state: &str, result: Result<String, String>) -> bool {
+        match self.oauth.lock().remove(state) {
+            Some(w) => w.tx.send(result).is_ok(),
+            None => false,
+        }
+    }
+
     fn connection_values(&self, m: &Manifest) -> Map<String, Value> {
         let mut v: Map<String, Value> = store::read_json(&self.config.join(format!("{}.json", m.id))).ok().flatten().unwrap_or_default();
         if let Some(schema) = &m.connection {
@@ -676,7 +701,7 @@ async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path
     let allowed: Vec<String> = m.permissions.net.iter().filter(|n| inst.granted.net.contains(n)).cloned().collect();
     let net = manifest::expand_net(&allowed, &conn);
     let entry = pkg.join(&m.entry);
-    let s = sandbox::Sandbox { deno, package: &pkg, entry: &entry, data: &data, cache: &cache, net: &net, udp: m.permissions.udp && inst.granted.udp, extra_args: &[] };
+    let s = sandbox::Sandbox { deno, package: &pkg, entry: &entry, data: &data, cache: &cache, net: &net, extra_args: &[] };
     let mut child = sandbox::command(&s).spawn().context("starting Deno")?;
     let stdin = child.stdin.take().context("no stdin")?;
     let stdout = child.stdout.take().context("no stdout")?;
@@ -718,6 +743,16 @@ async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path
     loop {
         tokio::select! {
             msg = incoming.recv() => match msg {
+                Some(Incoming::Call { id, method, params }) if method == "oauth.authorize" => {
+                    // Waits for the person to sign in, so it must not hold up other calls.
+                    let (app, m, peer) = (app.clone(), m.clone(), peer.clone());
+                    tokio::spawn(async move {
+                        let res = oauth_authorize(&app, &m, params).await;
+                        if let Some(id) = id {
+                            peer.reply(id, res).await;
+                        }
+                    });
+                }
                 Some(Incoming::Call { id, method, params }) => {
                     let res = handle_call(app, m, &method, params).await;
                     if let Some(id) = id {
@@ -877,6 +912,23 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             app.engine.lock().toast(format!("{} opened a sign-in page in your browser", m.name), Tone::Default);
             Ok(Value::Null)
         }
+        "udp.send" => {
+            let dest = params.get("host").and_then(Value::as_str).ok_or("missing host")?;
+            let port = params.get("port").and_then(Value::as_u64).filter(|p| (1..=65535).contains(p)).ok_or("invalid port")? as u16;
+            let data = params.get("data").and_then(Value::as_str).ok_or("missing data")?;
+            let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data).map_err(|_| "data must be base64")?;
+            if bytes.len() > 1400 {
+                return Err("datagram too large".into());
+            }
+            let granted = host.get(&m.id).is_some_and(|i| i.granted.udp) && m.permissions.udp;
+            let net = host.granted_net(m);
+            let target = format!("{dest}:{port}");
+            if !granted || !net.iter().any(|n| *n == target || n == dest) {
+                return Err("host not allowed".into());
+            }
+            crate::actions::core::send_udp(dest.trim_start_matches('[').trim_end_matches(']'), port, &bytes).await?;
+            Ok(Value::Null)
+        }
         "ipc.open" | "ipc.send" => {
             let bridge = params.get("bridge").and_then(Value::as_str).ok_or("missing bridge")?;
             let granted = host.get(&m.id).is_some_and(|i| i.granted.ipc.iter().any(|g| g == bridge) && m.permissions.ipc.iter().any(|g| g == bridge));
@@ -897,6 +949,50 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             }
         }
         _ => Err(format!("unknown method {method}")),
+    }
+}
+
+/// Opens a sign-in page and waits for the provider to redirect back to the editor listener.
+/// The host sets `redirect_uri` and a random `state`, so a plugin can't point the browser
+/// at its own redirect or replay someone else's sign-in.
+async fn oauth_authorize(app: &Arc<App>, m: &Manifest, params: Value) -> Result<Value, String> {
+    let host = &app.plugins;
+    let url = params.get("url").and_then(Value::as_str).ok_or("missing url")?;
+    let mut u = url::Url::parse(url).map_err(|_| "invalid url")?;
+    if u.scheme() != "https" || url.len() > 4096 {
+        return Err("only https links".into());
+    }
+    {
+        let mut st = host.state.lock();
+        let r = st.running.get_mut(&m.id).ok_or("not running")?;
+        if r.last_browser.is_some_and(|t| t.elapsed() < Duration::from_secs(10)) {
+            return Err("wait a moment before opening another page".into());
+        }
+        r.last_browser = Some(Instant::now());
+    }
+    let redirect = format!("http://127.0.0.1:{}/oauth/callback", app.settings.read().admin_port);
+    let state = crate::ids::random_b64(24);
+    let kept: Vec<(String, String)> = u.query_pairs().filter(|(k, _)| k != "state" && k != "redirect_uri").map(|(k, v)| (k.into_owned(), v.into_owned())).collect();
+    u.query_pairs_mut().clear().extend_pairs(kept).append_pair("redirect_uri", &redirect).append_pair("state", &state);
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    {
+        let mut waits = host.oauth.lock();
+        waits.retain(|_, w| w.plugin != m.id);
+        waits.insert(state.clone(), OAuthWait { plugin: m.id.clone(), tx });
+    }
+    if let Err(e) = open::that_detached(u.as_str()) {
+        host.oauth.lock().remove(&state);
+        return Err(e.to_string());
+    }
+    app.engine.lock().toast(format!("{} opened a sign-in page in your browser", m.name), Tone::Default);
+    let res = tokio::time::timeout(OAUTH_TIMEOUT, rx).await;
+    host.oauth.lock().remove(&state);
+    match res {
+        Ok(Ok(Ok(code))) => Ok(json!({ "code": code, "redirectUri": redirect })),
+        Ok(Ok(Err(e))) => Err(e),
+        Ok(Err(_)) => Err("sign-in was replaced by a newer one".into()),
+        Err(_) => Err("sign-in timed out".into()),
     }
 }
 

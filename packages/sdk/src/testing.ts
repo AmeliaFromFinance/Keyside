@@ -18,6 +18,10 @@ export interface Harness {
   press(instance: string, action: string, settings?: Settings): Promise<void>;
   release(instance: string, action: string, settings?: Settings): Promise<void>;
   slide(instance: string, action: string, value: number, settings?: Settings): Promise<void>;
+  /** Several steps on one key, the way the host sends a multi-action key. */
+  run(steps: Array<{ instance: string; action: string; settings?: Settings }>, phase?: "press" | "release"): Promise<void>;
+  /** Latest connection status the plugin reported. */
+  status(): { state: string; detail?: string; pills?: unknown[] } | undefined;
   options(action: string, field: string, settings?: Settings): Promise<Array<{ value: string; label: string }>>;
   setConnection(values: Settings): Promise<void>;
   /** Latest view sent for a key, merged across updates. */
@@ -82,6 +86,12 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
     press: (i, a, s) => run(i, a, "press", s),
     release: (i, a, s) => run(i, a, "release", s),
     slide: (i, a, value, s = {}) => notify("slide", { instance: i, action: a, settings: s, value }),
+    run: (steps, phase = "press") => call("run", { steps: steps.map((s) => ({ settings: {}, ...s })), phase, device: "test" }),
+    status() {
+      let last: any;
+      for (const s of sent) if (s.method === "status.set") last = { ...(last ?? {}), ...s.params };
+      return last;
+    },
     options: (action, field, settings = {}) => call("options", { action, field, settings }),
     setConnection: (values) => notify("connection.changed", { connection: values }),
     view(instance) {

@@ -155,6 +155,37 @@ async fn upload_asset(State(app): State<Arc<App>>, headers: HeaderMap, body: Byt
     }
 }
 
+/// Where OAuth providers send the browser back after sign-in. No session cookie arrives on
+/// this cross-site redirect, so the random single-use state is what ties it to a plugin.
+async fn oauth_callback(State(app): State<Arc<App>>, axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>) -> Response {
+    let state = q.get("state").map(String::as_str).unwrap_or("");
+    let result = match (q.get("code"), q.get("error")) {
+        (Some(code), None) if !code.is_empty() && code.len() <= 2048 => Ok(code.clone()),
+        (_, Some(e)) if e == "access_denied" => Err("sign-in was cancelled".to_string()),
+        _ => Err("sign-in failed".to_string()),
+    };
+    let ok = result.is_ok();
+    let delivered = !state.is_empty() && app.plugins.oauth_finish(state, result);
+    let (title, body) = match (delivered, ok) {
+        (true, true) => ("Signed in", "You can close this tab and go back to PhoneDeck."),
+        (true, false) => ("Sign-in cancelled", "Nothing was changed. You can close this tab."),
+        (false, _) => ("Link expired", "This sign-in link was already used or has expired. Start again from PhoneDeck."),
+    };
+    let html = format!(
+        "<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width\"><title>{title}</title><body style=\"font:16px system-ui;background:#121118;color:#edebf2;display:grid;place-items:center;height:90vh\"><div><h1 style=\"font-size:1.4rem\">{title}</h1><p>{body}</p></div>"
+    );
+    (
+        [
+            (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+            (header::CONTENT_SECURITY_POLICY, "default-src 'none'; style-src 'unsafe-inline'"),
+            (header::REFERRER_POLICY, "no-referrer"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        html,
+    )
+        .into_response()
+}
+
 async fn fallback(State(app): State<Arc<App>>, uri: axum::http::Uri) -> Response {
     let sd = crate::streamdeck::inspector_origin(&app);
     web::serve(uri, sd).await
@@ -168,6 +199,7 @@ pub async fn start(app: Arc<App>, port: u16) -> anyhow::Result<()> {
         .route("/admin/login", post(login))
         .route("/admin/logout", post(logout))
         .route("/admin/ws", get(admin_ws))
+        .route("/oauth/callback", get(oauth_callback))
         .route("/admin/upload/plugin", post(upload_plugin).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
         .route("/admin/upload/streamdeck", post(upload_streamdeck).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
         .route("/admin/upload/asset", post(upload_asset).layer(DefaultBodyLimit::max(crate::assets::MAX_SOUND)))

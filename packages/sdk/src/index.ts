@@ -109,6 +109,13 @@ export interface Host {
   saveConnection(values: Settings): Promise<void>;
   /** Opens an https page in the default browser on the PC. */
   openBrowser(url: string): Promise<void>;
+  /**
+   * Browser sign-in with a redirect back to PhoneDeck. Pass the provider's authorize URL;
+   * PhoneDeck adds redirect_uri and state, then returns the code once the person signs in.
+   */
+  authorize(url: string): Promise<{ code: string; redirectUri: string }>;
+  /** Sends one UDP datagram (needs the "udp" permission and the host in "net"). */
+  udp(host: string, port: number, data: Uint8Array): Promise<void>;
   /** Local app bridges the companion opens for you (needs the "ipc" permission). */
   ipc: {
     open(bridge: "discord"): Promise<void>;
@@ -262,6 +269,16 @@ class Runtime implements Host {
 
   async openBrowser(url: string) {
     await this.#call("browser.open", { url });
+  }
+
+  authorize(url: string) {
+    return this.#call("oauth.authorize", { url }) as Promise<{ code: string; redirectUri: string }>;
+  }
+
+  async udp(host: string, port: number, data: Uint8Array) {
+    let bin = "";
+    for (const b of data) bin += String.fromCharCode(b);
+    await this.#call("udp.send", { host, port, data: btoa(bin) });
   }
 
   #sync(list: Instance[]) {

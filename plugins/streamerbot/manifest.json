@@ -1,0 +1,59 @@
+{
+  "id": "dev.phonedeck.streamerbot",
+  "name": "Streamer.bot",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "sb",
+  "description": "Run Streamer.bot actions, show its global variables and mirror chat and alerts from the platforms it is connected to.",
+  "homepage": "https://streamer.bot",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "bot",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "default": 8080, "minimum": 1, "maximum": 65535, "description": "Streamer.bot: Servers/Clients > WebSocket Server." },
+      "endpoint": { "type": "string", "title": "Endpoint", "default": "/", "maxLength": 100 },
+      "password": { "type": "string", "format": "secret", "title": "Password", "description": "Only if authentication is turned on in Streamer.bot." },
+      "chat": { "type": "boolean", "title": "Mirror chat and alerts", "default": true }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "run",
+      "name": "Run action",
+      "icon": "zap",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "actionName": { "type": "string", "title": "Action", "x-options": "dynamic" },
+          "args": { "type": "object", "title": "Arguments", "description": "Available in Streamer.bot as %name%.", "additionalProperties": { "type": "string" } }
+        },
+        "required": ["actionName"]
+      }
+    },
+    {
+      "id": "trigger",
+      "name": "Custom trigger",
+      "icon": "webhook",
+      "description": "Fires a custom code trigger, so several actions can listen to one key.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "triggerName": { "type": "string", "title": "Trigger name", "maxLength": 100 },
+          "args": { "type": "object", "title": "Arguments", "additionalProperties": { "type": "string" } }
+        },
+        "required": ["triggerName"]
+      }
+    }
+  ],
+  "variables": [{ "name": "connected", "title": "Connected", "type": "boolean" }],
+  "feeds": [
+    { "name": "chat", "title": "Chat" },
+    { "name": "events", "title": "Alerts" }
+  ]
+}

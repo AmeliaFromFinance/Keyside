@@ -1,0 +1,470 @@
+// Twitch through Helix and EventSub. Signs in with the device code flow, so no client
+// secret or redirect server is needed.
+
+import { definePlugin, setting, type Host, type Key, type KeyView, type Step } from "@phonedeck/sdk";
+import { Reconnecting } from "../../_lib/socket.ts";
+import { Session, fromResponse, pollDeviceCode } from "../../_lib/session.ts";
+import { HttpError, errorText, firstTime, http, want } from "../../_lib/util.ts";
+
+/** Overridden in tests. */
+export const endpoints = {
+  id: "https://id.twitch.tv/oauth2",
+  api: "https://api.twitch.tv/helix",
+  eventsub: "wss://eventsub.wss.twitch.tv/ws",
+};
+
+const SCOPES = [
+  "user:read:chat",
+  "user:write:chat",
+  "channel:manage:broadcast",
+  "clips:edit",
+  "channel:edit:commercial",
+  "channel:read:ads",
+  "channel:manage:ads",
+  "moderator:manage:chat_settings",
+  "moderator:manage:announcements",
+  "moderator:manage:chat_messages",
+  "moderator:manage:shoutouts",
+  "moderator:read:followers",
+  "channel:read:subscriptions",
+  "channel:manage:raids",
+  "bits:read",
+].join(" ");
+
+const POLL_EVERY = 60_000;
+
+interface ChatSettings {
+  emote_mode?: boolean;
+  slow_mode?: boolean;
+  slow_mode_wait_time?: number | null;
+  follower_mode?: boolean;
+  follower_mode_duration?: number | null;
+  subscriber_mode?: boolean;
+  unique_chat_mode?: boolean;
+}
+
+let host: Host;
+let session: Session;
+let me: { id: string; login: string; name: string } | null = null;
+let events: Reconnecting | null = null;
+let generation = 0;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let adTimer: ReturnType<typeof setInterval> | null = null;
+let watchdog: ReturnType<typeof setTimeout> | null = null;
+let reconnectUrl: string | null = null;
+let signInPage: string | null = null;
+
+const live = { on: false, viewers: 0 };
+let chat: ChatSettings = {};
+const channel = { title: "", category: "" };
+const ads = { until: 0, length: 0, next: 0, snoozes: 0 };
+
+const clientId = () => String(setting(host.connection, "clientId", "")).trim();
+
+async function api(method: string, path: string, body?: unknown, retry = true): Promise<any> {
+  const token = await session.token();
+  try {
+    return await http(`${endpoints.api}${path}`, { method, headers: { authorization: `Bearer ${token}`, "client-id": clientId() }, json: body });
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 401 && retry) {
+      await session.renew();
+      return api(method, path, body, false);
+    }
+    throw e;
+  }
+}
+
+const q = (o: Record<string, string | number>) => `?${new URLSearchParams(Object.entries(o).map(([k, v]) => [k, String(v)]))}`;
+
+async function signIn(gen: number) {
+  const client = clientId();
+  const dev = await http(`${endpoints.id}/device`, { form: { client_id: client, scopes: SCOPES } });
+  signInPage = String(dev.verification_uri ?? "https://www.twitch.tv/activate");
+  host.status("connecting", `Sign in: open twitch.tv/activate and enter ${dev.user_code}`);
+  host.toast(`Twitch code: ${dev.user_code}`);
+  if (signInPage.startsWith("https://") && (await firstTime(host.dataDir, `twitch-${client}`))) await host.openBrowser(signInPage).catch(() => {});
+  const tokens = await pollDeviceCode(
+    () => http(`${endpoints.id}/token`, { form: { client_id: client, scopes: SCOPES, device_code: dev.device_code, grant_type: "urn:ietf:params:oauth:grant-type:device_code" } }),
+    Number(dev.interval),
+    Number(dev.expires_in),
+    () => gen !== generation,
+  );
+  signInPage = null;
+  await session.save(fromResponse(tokens, client));
+  host.toast("Signed in to Twitch", "success");
+}
+
+async function start(gen: number) {
+  stopAll();
+  const client = clientId();
+  if (!client) {
+    host.status("offline", "Add your Twitch Client ID in the plugin settings.");
+    return;
+  }
+  session = new Session(host, { refresh: (t) => http(`${endpoints.id}/token`, { form: { client_id: client, grant_type: "refresh_token", refresh_token: t.refresh ?? "" } }) });
+  session.onSignedOut = () => {
+    if (gen === generation) void begin();
+  };
+  try {
+    if (!session.load(client)) await signIn(gen);
+    if (gen !== generation) return;
+    const u = (await api("GET", "/users")).data?.[0];
+    if (!u) throw new Error("Twitch didn't return your account");
+    me = { id: u.id, login: u.login, name: u.display_name };
+    host.status("connected", me.name);
+    await Promise.all([poll(), loadChannel(), loadChat()]);
+    pollTimer = setInterval(() => void poll(), POLL_EVERY);
+    connectEvents(gen);
+    render();
+  } catch (e) {
+    if (gen !== generation) return;
+    host.status("error", errorText(e));
+  }
+}
+
+function begin() {
+  generation++;
+  return start(generation);
+}
+
+function stopAll() {
+  if (pollTimer) clearInterval(pollTimer);
+  if (adTimer) clearInterval(adTimer);
+  if (watchdog) clearTimeout(watchdog);
+  pollTimer = adTimer = watchdog = null;
+  events?.stop();
+  events = null;
+  me = null;
+}
+
+async function poll() {
+  if (!me) return;
+  const [stream, followers, schedule] = await Promise.all([
+    api("GET", `/streams${q({ user_id: me.id })}`).catch(() => null),
+    api("GET", `/channels/followers${q({ broadcaster_id: me.id, first: 1 })}`).catch(() => null),
+    api("GET", `/channels/ads${q({ broadcaster_id: me.id })}`).catch(() => null),
+  ]);
+  if (stream) {
+    const s = stream.data?.[0];
+    live.on = !!s;
+    live.viewers = s ? Number(s.viewer_count) : 0;
+    host.setVar("live", live.on);
+    host.setVar("viewers", live.viewers);
+  }
+  if (followers) host.setVar("followers", Number(followers.total ?? 0));
+  const a = schedule?.data?.[0];
+  if (a) {
+    ads.next = a.next_ad_at ? Number(a.next_ad_at) * 1000 : 0;
+    ads.snoozes = Number(a.snooze_count ?? 0);
+  }
+  render();
+}
+
+async function loadChannel() {
+  if (!me) return;
+  const c = (await api("GET", `/channels${q({ broadcaster_id: me.id })}`)).data?.[0];
+  if (!c) return;
+  channel.title = c.title ?? "";
+  channel.category = c.game_name ?? "";
+  host.setVar("title", channel.title);
+  host.setVar("category", channel.category);
+}
+
+async function loadChat() {
+  if (!me) return;
+  chat = (await api("GET", `/chat/settings${q({ broadcaster_id: me.id, moderator_id: me.id })}`)).data?.[0] ?? {};
+}
+
+const MODES: Record<string, keyof ChatSettings> = { emote: "emote_mode", slow: "slow_mode", followers: "follower_mode", subs: "subscriber_mode", unique: "unique_chat_mode" };
+
+const mmss = (ms: number) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
+function view(k: Key): KeyView | null {
+  if (!me) return { disabled: true };
+  const s = k.settings;
+  switch (k.action) {
+    case "marker":
+    case "clip":
+      return live.on ? null : { disabled: true, sub: "Offline" };
+    case "ad": {
+      const left = ads.until - Date.now();
+      if (left > 0) return { tone: "warning", badge: "AD", badgeTone: "warning", meta: mmss(left), progress: Math.min(1, left / (ads.length * 1000 || 1)) };
+      if (!live.on) return { disabled: true, sub: "Offline" };
+      return ads.next > Date.now() ? { meta: `next ${Math.max(1, Math.round((ads.next - Date.now()) / 60_000))}m` } : null;
+    }
+    case "snooze-ad":
+      return live.on && ads.snoozes > 0 ? { badge: String(ads.snoozes) } : { disabled: true };
+    case "chat-mode": {
+      const key = MODES[String(s.mode ?? "emote")];
+      return key && chat[key] ? { tone: "accent", badge: "ON", badgeTone: "accent" } : null;
+    }
+    case "title":
+      return s.title && s.title === channel.title ? { tone: "accent" } : null;
+    default:
+      return null;
+  }
+}
+
+function render() {
+  for (const k of host.keys()) {
+    const v = view(k);
+    if (v) k.set(v);
+    else k.clear();
+  }
+}
+
+function onEvent(type: string, e: any) {
+  const who = String(e.user_name ?? e.chatter_user_name ?? e.from_broadcaster_user_name ?? "");
+  const showChat = setting(host.connection, "chat", true);
+  switch (type) {
+    case "channel.chat.message":
+      if (showChat) host.feed("chat", { author: who, text: String(e.message?.text ?? "").slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(e.color ?? "") ? e.color : undefined });
+      return;
+    case "channel.chat_settings.update":
+      chat = { ...chat, ...e };
+      break;
+    case "channel.follow":
+      host.setVar("last_follower", who);
+      if (showChat) host.feed("events", { author: who, text: "followed" });
+      return;
+    case "channel.subscribe":
+      if (e.is_gift) return;
+      host.setVar("last_sub", who);
+      if (showChat) host.feed("events", { author: who, text: "subscribed" });
+      return;
+    case "channel.subscription.message":
+      host.setVar("last_sub", who);
+      if (showChat) host.feed("events", { author: who, text: `resubscribed (${e.cumulative_months ?? "?"} months)` });
+      return;
+    case "channel.subscription.gift":
+      if (showChat) host.feed("events", { author: e.is_anonymous ? "Anonymous" : who, text: `gifted ${e.total ?? 1} sub${e.total === 1 ? "" : "s"}` });
+      return;
+    case "channel.cheer":
+      host.setVar("last_cheer", `${e.is_anonymous ? "Anonymous" : who} (${e.bits})`);
+      if (showChat) host.feed("events", { author: e.is_anonymous ? "Anonymous" : who, text: `cheered ${e.bits} bits` });
+      return;
+    case "channel.raid":
+      host.setVar("last_raid", `${e.from_broadcaster_user_name} (${e.viewers})`);
+      if (showChat) host.feed("events", { author: String(e.from_broadcaster_user_name ?? ""), text: `raided with ${e.viewers}` });
+      return;
+    case "stream.online":
+    case "stream.offline":
+      live.on = type === "stream.online";
+      if (!live.on) live.viewers = 0;
+      host.setVar("live", live.on);
+      host.setVar("viewers", live.viewers);
+      break;
+    case "channel.update":
+      channel.title = e.title ?? channel.title;
+      channel.category = e.category_name ?? channel.category;
+      host.setVar("title", channel.title);
+      host.setVar("category", channel.category);
+      break;
+    case "channel.ad_break.begin":
+      ads.length = Number(e.duration_seconds ?? 0);
+      ads.until = Date.parse(e.started_at ?? "") + ads.length * 1000 || Date.now() + ads.length * 1000;
+      tickAds();
+      break;
+    default:
+      return;
+  }
+  render();
+}
+
+function tickAds() {
+  if (adTimer) return;
+  adTimer = setInterval(() => {
+    if (Date.now() > ads.until) {
+      clearInterval(adTimer!);
+      adTimer = null;
+      void poll();
+    }
+    for (const k of host.keys("ad")) {
+      const v = view(k);
+      if (v) k.set(v);
+      else k.clear();
+    }
+  }, 1000);
+}
+
+function subscriptions(user: string): Array<[string, string, Record<string, string>]> {
+  const b = { broadcaster_user_id: user };
+  return [
+    ["channel.chat.message", "1", { ...b, user_id: user }],
+    ["channel.chat_settings.update", "1", { ...b, user_id: user }],
+    ["channel.follow", "2", { ...b, moderator_user_id: user }],
+    ["channel.subscribe", "1", b],
+    ["channel.subscription.message", "1", b],
+    ["channel.subscription.gift", "1", b],
+    ["channel.cheer", "1", b],
+    ["channel.raid", "1", { to_broadcaster_user_id: user }],
+    ["stream.online", "1", b],
+    ["stream.offline", "1", b],
+    ["channel.update", "2", b],
+    ["channel.ad_break.begin", "1", b],
+  ];
+}
+
+function connectEvents(gen: number) {
+  let moved = false;
+  const sock = new Reconnecting(
+    () => {
+      const u = reconnectUrl ?? `${endpoints.eventsub}?keepalive_timeout_seconds=30`;
+      moved = !!reconnectUrl;
+      reconnectUrl = null;
+      return u;
+    },
+    {
+      open() {},
+      message(raw) {
+        const m = JSON.parse(raw);
+        const kind = m.metadata?.message_type;
+        const timeout = Number(m.payload?.session?.keepalive_timeout_seconds ?? 30);
+        if (watchdog) clearTimeout(watchdog);
+        watchdog = setTimeout(() => sock.drop("EventSub went quiet"), (timeout + 10) * 1000);
+        if (kind === "session_welcome") {
+          sock.healthy();
+          if (!moved && me && gen === generation) void subscribe(String(m.payload.session.id), me.id);
+        } else if (kind === "session_reconnect") {
+          const next = String(m.payload?.session?.reconnect_url ?? "");
+          if (next.startsWith("wss://")) reconnectUrl = next;
+          sock.drop("moving to a new EventSub server");
+        } else if (kind === "notification") {
+          onEvent(String(m.metadata.subscription_type), m.payload?.event ?? {});
+        }
+      },
+      close() {},
+    },
+  );
+  events = sock;
+  sock.start();
+}
+
+async function subscribe(sessionId: string, user: string) {
+  const chatOff = !setting(host.connection, "chat", true);
+  const results = await Promise.allSettled(
+    subscriptions(user)
+      .filter(([type]) => !(chatOff && type === "channel.chat.message"))
+      .map(([type, version, condition]) => api("POST", "/eventsub/subscriptions", { type, version, condition, transport: { method: "websocket", session_id: sessionId } })),
+  );
+  const failed = results.filter((r) => r.status === "rejected").length;
+  if (failed) host.log.warn(`${failed} Twitch event subscriptions were refused (some need Affiliate or Partner)`);
+}
+
+async function userId(login: string): Promise<string> {
+  const name = login.trim().replace(/^@/, "").toLowerCase();
+  if (!/^[a-z0-9_]{1,25}$/.test(name)) throw new Error("That isn't a valid Twitch channel name");
+  const u = (await api("GET", `/users${q({ login: name })}`)).data?.[0];
+  if (!u) throw new Error(`No Twitch channel called ${name}`);
+  return u.id;
+}
+
+function signedIn() {
+  if (!me) {
+    if (signInPage) void host.openBrowser(signInPage).catch(() => {});
+    throw new Error("Twitch isn't signed in yet");
+  }
+  return me;
+}
+
+const handlers: Record<string, (s: Record<string, unknown>) => Promise<unknown>> = {
+  async marker(s) {
+    const u = signedIn();
+    await api("POST", "/streams/markers", { user_id: u.id, description: String(s.description ?? "").slice(0, 140) || undefined });
+    host.toast("Marker added", "success");
+  },
+  async clip() {
+    const u = signedIn();
+    const r = await api("POST", `/clips${q({ broadcaster_id: u.id })}`);
+    host.toast(r.data?.[0]?.id ? "Clip created" : "Clip requested", "success");
+  },
+  async ad(s) {
+    const u = signedIn();
+    const length = Math.min(180, Math.max(30, Number(s.length ?? 60)));
+    const r = (await api("POST", "/channels/commercial", { broadcaster_id: u.id, length })).data?.[0];
+    if (r?.length) {
+      ads.length = Number(r.length);
+      ads.until = Date.now() + ads.length * 1000;
+      tickAds();
+    }
+  },
+  async "snooze-ad"() {
+    const u = signedIn();
+    const r = (await api("POST", `/channels/ads/schedule/snooze${q({ broadcaster_id: u.id })}`)).data?.[0];
+    if (r) {
+      ads.snoozes = Number(r.snooze_count ?? 0);
+      ads.next = r.next_ad_at ? Number(r.next_ad_at) * 1000 : ads.next;
+      render();
+    }
+  },
+  async "chat-mode"(s) {
+    const u = signedIn();
+    const mode = String(s.mode ?? "emote");
+    const key = MODES[mode];
+    if (!key) throw new Error("Unknown chat mode");
+    const on = want(s.op ?? "toggle", !!chat[key]);
+    const body: Record<string, unknown> = { [key]: on };
+    if (mode === "slow" && on) body.slow_mode_wait_time = Number(s.seconds ?? 30);
+    if (mode === "followers" && on) body.follower_mode_duration = Number(s.minutes ?? 0);
+    const r = (await api("PATCH", `/chat/settings${q({ broadcaster_id: u.id, moderator_id: u.id })}`, body)).data?.[0];
+    chat = r ?? { ...chat, [key]: on };
+    render();
+  },
+  async send(s) {
+    const u = signedIn();
+    const r = (await api("POST", "/chat/messages", { broadcaster_id: u.id, sender_id: u.id, message: String(s.message ?? "").slice(0, 500) })).data?.[0];
+    if (r && r.is_sent === false) throw new Error(r.drop_reason?.message ?? "Twitch didn't send the message");
+  },
+  async announce(s) {
+    const u = signedIn();
+    await api("POST", `/chat/announcements${q({ broadcaster_id: u.id, moderator_id: u.id })}`, { message: String(s.message ?? "").slice(0, 500), color: String(s.color ?? "primary") });
+  },
+  async title(s) {
+    const u = signedIn();
+    const body: Record<string, string> = {};
+    if (s.title) body.title = String(s.title);
+    if (s.category) {
+      const g = (await api("GET", `/games${q({ name: String(s.category) })}`)).data?.[0];
+      if (!g) throw new Error(`No Twitch category called "${s.category}"`);
+      body.game_id = g.id;
+    }
+    if (!Object.keys(body).length) return;
+    await api("PATCH", `/channels${q({ broadcaster_id: u.id })}`, body);
+    await loadChannel();
+    render();
+  },
+  async shoutout(s) {
+    const u = signedIn();
+    const to = await userId(String(s.user ?? ""));
+    await api("POST", `/chat/shoutouts${q({ from_broadcaster_id: u.id, to_broadcaster_id: to, moderator_id: u.id })}`);
+  },
+  async raid(s) {
+    const u = signedIn();
+    if (s.op === "cancel") return api("DELETE", `/raids${q({ broadcaster_id: u.id })}`);
+    const to = await userId(String(s.user ?? ""));
+    await api("POST", `/raids${q({ from_broadcaster_id: u.id, to_broadcaster_id: to })}`);
+    host.toast("Raid ready. It starts after 90 seconds or when you confirm on Twitch.");
+  },
+  async "clear-chat"() {
+    const u = signedIn();
+    await api("DELETE", `/moderation/chat${q({ broadcaster_id: u.id, moderator_id: u.id })}`);
+  },
+};
+
+export default definePlugin({
+  start(h) {
+    host = h;
+    void begin();
+  },
+  connectionChanged() {
+    void begin();
+  },
+  stop() {
+    generation++;
+    stopAll();
+  },
+  actions: Object.fromEntries(Object.entries(handlers).map(([id, fn]) => [id, { press: (step: Step) => fn(step.settings), appear: (k: Key) => (view(k) ? k.set(view(k)!) : k.clear()) }])),
+});

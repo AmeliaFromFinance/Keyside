@@ -21,7 +21,7 @@
   let loading = $state<Record<string, boolean>>({});
   let failed = $state<Record<string, string>>({});
 
-  const fields = $derived(Object.entries(schema?.properties ?? {}));
+  const fields = $derived(Object.entries(schema?.properties ?? {}).filter(([, f]) => !(f as { "x-hidden"?: boolean })["x-hidden"]));
 
   function set(name: string, v: unknown) {
     const next = { ...values };

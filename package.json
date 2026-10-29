@@ -2,7 +2,9 @@
   "name": "phonedeck",
   "private": true,
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22.6" },
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
     "build": "pnpm build:plugins && pnpm --filter @phonedeck/client build",
     "build:plugins": "node scripts/build-plugins.ts",
@@ -14,7 +16,9 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "ws": "^8.22.0"
   }
 }

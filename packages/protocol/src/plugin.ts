@@ -15,6 +15,8 @@ export type FieldSchema =
       format?: "secret" | "textarea" | "color" | "url" | "hotkey" | "file";
       /** Options are fetched from the plugin while editing. */
       "x-options"?: "dynamic";
+      /** Kept by the plugin itself (such as a sign-in session) and hidden in the editor. */
+      "x-hidden"?: boolean;
     }
   | { type: "number" | "integer"; title?: string; description?: string; default?: number; minimum?: number; maximum?: number }
   | { type: "boolean"; title?: string; description?: string; default?: boolean }
@@ -42,7 +44,7 @@ export interface PluginPermissions {
    * settings such as "{host}:{port}". No wildcards.
    */
   net?: string[];
-  /** UDP sockets (needed for some LAN protocols). Still limited to the hosts in net. */
+  /** Send UDP datagrams through the host. Still limited to the hosts in net. */
   udp?: boolean;
   /** Local app bridges the companion opens on the plugin's behalf. */
   ipc?: Array<"discord">;
@@ -100,13 +102,16 @@ export interface PluginToHost {
   "key.set": { params: { instance: string; view: Partial<Omit<KeyView, "id" | "kind" | "x" | "y" | "w" | "h" | "lines">> | null }; result: void };
   "var.set": { params: { name: string; value: VarValue }; result: void };
   "feed.push": { params: { feed: string; item: Omit<FeedItem, "at"> }; result: void };
-  "status.set": { params: { state: "connected" | "connecting" | "offline" | "error"; detail?: string }; result: void };
+  "status.set": { params: { state: "connected" | "connecting" | "offline" | "error"; detail?: string; pills?: Array<{ label: string; tone?: string; since?: number }> }; result: void };
   toast: { params: { text: string; tone?: "default" | "success" | "warning" | "danger" }; result: void };
   log: { params: { level: "debug" | "info" | "warn" | "error"; message: string }; result: void };
   /** Save values (such as OAuth tokens) into the plugin's connection settings. Secret fields go to the keychain. */
   "connection.update": { params: { values: Record<string, unknown> }; result: void };
   "ipc.open": { params: { bridge: "discord" }; result: void };
   "ipc.send": { params: { bridge: "discord"; data: unknown }; result: void };
-  /** Opens a URL in the default browser on the PC (used for OAuth sign-in). https only. */
+  /** Opens a URL in the default browser on the PC. https only. */
   "browser.open": { params: { url: string }; result: void };
+  /** Browser sign-in. The host sets redirect_uri and state and returns the code. */
+  "oauth.authorize": { params: { url: string }; result: { code: string; redirectUri: string } };
+  "udp.send": { params: { host: string; port: number; data: string }; result: void };
 }

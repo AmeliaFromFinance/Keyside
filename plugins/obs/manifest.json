@@ -1,0 +1,225 @@
+{
+  "id": "dev.phonedeck.obs",
+  "name": "OBS Studio",
+  "version": "1.0.0",
+  "author": "PhoneDeck",
+  "prefix": "obs",
+  "description": "Scenes, audio, recording, streaming, replay buffer, sources and filters, with live state on every key.",
+  "homepage": "https://obsproject.com",
+  "license": "GPL-3.0-only",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "video",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1", "description": "127.0.0.1 when OBS runs on this PC." },
+      "port": { "type": "integer", "title": "Port", "default": 4455, "minimum": 1, "maximum": 65535 },
+      "password": { "type": "string", "format": "secret", "title": "Password", "description": "OBS: Tools > WebSocket Server Settings > Show Connect Info." }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "scene",
+      "name": "Switch scene",
+      "icon": "monitor",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "scene": { "type": "string", "title": "Scene", "x-options": "dynamic" },
+          "target": { "type": "string", "title": "Send to", "enum": ["auto", "program", "preview"], "enumNames": ["Preview in studio mode, else live", "Always live", "Preview"], "default": "auto" },
+          "thumbnail": { "type": "boolean", "title": "Show a live thumbnail", "default": false }
+        },
+        "required": ["scene"]
+      }
+    },
+    {
+      "id": "mute",
+      "name": "Mute audio",
+      "icon": "mic",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "title": "Audio source", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off", "hold"], "enumNames": ["Toggle", "Mute", "Unmute", "Unmute while held"], "default": "toggle" }
+        },
+        "required": ["input"]
+      }
+    },
+    {
+      "id": "volume",
+      "name": "Volume",
+      "icon": "volume-2",
+      "kind": "slider",
+      "settings": {
+        "type": "object",
+        "properties": { "input": { "type": "string", "title": "Audio source", "x-options": "dynamic" } },
+        "required": ["input"]
+      }
+    },
+    {
+      "id": "record",
+      "name": "Record",
+      "icon": "circle-dot",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "start", "stop", "pause"], "enumNames": ["Start or stop", "Start", "Stop", "Pause or resume"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "stream",
+      "name": "Stream",
+      "icon": "radio-tower",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "start", "stop"], "enumNames": ["Start or stop", "Start", "Stop"], "default": "toggle" }
+        }
+      }
+    },
+    {
+      "id": "replay",
+      "name": "Replay buffer",
+      "icon": "history",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "mode": { "type": "string", "title": "On press", "enum": ["save", "toggle", "start", "stop"], "enumNames": ["Save replay", "Start or stop the buffer", "Start the buffer", "Stop the buffer"], "default": "save" }
+        }
+      }
+    },
+    {
+      "id": "virtualcam",
+      "name": "Virtual camera",
+      "icon": "webcam",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Start", "Stop"], "default": "toggle" } }
+      }
+    },
+    {
+      "id": "studio-mode",
+      "name": "Studio mode",
+      "icon": "layout-grid",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" } }
+      }
+    },
+    { "id": "transition", "name": "Transition to live", "icon": "arrow-right", "description": "Sends the preview scene live in studio mode." },
+    {
+      "id": "transition-type",
+      "name": "Pick transition",
+      "icon": "layers",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "transition": { "type": "string", "title": "Transition", "x-options": "dynamic" },
+          "duration": { "type": "integer", "title": "Duration (ms)", "minimum": 50, "maximum": 20000 }
+        },
+        "required": ["transition"]
+      }
+    },
+    {
+      "id": "source",
+      "name": "Show or hide source",
+      "icon": "eye",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "scene": { "type": "string", "title": "Scene", "x-options": "dynamic" },
+          "source": { "type": "string", "title": "Source", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Show", "Hide"], "default": "toggle" }
+        },
+        "required": ["scene", "source"]
+      }
+    },
+    {
+      "id": "filter",
+      "name": "Filter on or off",
+      "icon": "sliders-horizontal",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string", "title": "Source or scene", "x-options": "dynamic" },
+          "filter": { "type": "string", "title": "Filter", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        },
+        "required": ["source", "filter"]
+      }
+    },
+    {
+      "id": "media",
+      "name": "Media control",
+      "icon": "circle-play",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "title": "Media source", "x-options": "dynamic" },
+          "op": { "type": "string", "title": "On press", "enum": ["play-pause", "restart", "stop", "next", "previous"], "enumNames": ["Play or pause", "Restart", "Stop", "Next", "Previous"], "default": "play-pause" }
+        },
+        "required": ["input"]
+      }
+    },
+    {
+      "id": "text",
+      "name": "Set text",
+      "icon": "type",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "title": "Text source", "x-options": "dynamic" },
+          "text": { "type": "string", "title": "Text", "format": "textarea", "maxLength": 2000 }
+        },
+        "required": ["input"]
+      }
+    },
+    {
+      "id": "chapter",
+      "name": "Recording chapter",
+      "icon": "bookmark",
+      "description": "Adds a chapter marker to the recording (OBS 30.2+, Hybrid MP4).",
+      "settings": { "type": "object", "properties": { "name": { "type": "string", "title": "Chapter name", "maxLength": 100 } } }
+    },
+    {
+      "id": "collection",
+      "name": "Scene collection",
+      "icon": "folder",
+      "settings": { "type": "object", "properties": { "collection": { "type": "string", "title": "Collection", "x-options": "dynamic" } }, "required": ["collection"] }
+    },
+    {
+      "id": "profile",
+      "name": "OBS profile",
+      "icon": "user",
+      "settings": { "type": "object", "properties": { "profile": { "type": "string", "title": "Profile", "x-options": "dynamic" } }, "required": ["profile"] }
+    },
+    {
+      "id": "hotkey",
+      "name": "OBS hotkey",
+      "icon": "keyboard",
+      "description": "Runs any hotkey action OBS or its plugins register, even without a key bound.",
+      "settings": { "type": "object", "properties": { "hotkey": { "type": "string", "title": "Hotkey", "x-options": "dynamic" } }, "required": ["hotkey"] }
+    }
+  ],
+  "variables": [
+    { "name": "scene", "title": "Live scene", "type": "string" },
+    { "name": "preview", "title": "Preview scene", "type": "string" },
+    { "name": "recording", "title": "Recording", "type": "boolean" },
+    { "name": "streaming", "title": "Streaming", "type": "boolean" },
+    { "name": "replay", "title": "Replay buffer on", "type": "boolean" },
+    { "name": "studio", "title": "Studio mode", "type": "boolean" },
+    { "name": "collection", "title": "Scene collection", "type": "string" },
+    { "name": "profile", "title": "Profile", "type": "string" }
+  ]
+}
