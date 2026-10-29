@@ -1,0 +1,16 @@
+monitor monitor-play monitor-off tv tv-minimal video video-off camera camera-off webcam film clapperboard projector screen-share screen-share-off app-window layout-grid layers layers-2 scan-face
+mic mic-off headphones headset volume volume-1 volume-2 volume-x speaker music music-2 music-4 radio radio-tower audio-lines audio-waveform disc-3 piano drum guitar
+circle-dot circle-stop circle-play circle-pause play pause square skip-forward skip-back fast-forward rewind repeat shuffle rotate-ccw rotate-cw refresh-cw history timer timer-reset alarm-clock clock hourglass
+message-square message-circle messages-square megaphone bell bell-off at-sign hash smile laugh heart star sparkles party-popper gift trophy crown flame zap bolt thumbs-up thumbs-down hand hand-heart
+users user user-plus user-check user-x user-round shield shield-check shield-off ban gavel eye eye-off lock lock-open key-round fingerprint
+bookmark scissors clipboard copy link link-2 external-link globe wifi wifi-off cloud cloud-upload download upload send share-2 webhook plug unplug cable server database
+folder folder-open file file-text image images palette brush pen pencil type text-cursor keyboard mouse-pointer-click command option
+settings settings-2 sliders-horizontal sliders-vertical toggle-left toggle-right power power-off plus minus x check circle-check circle-x circle-alert triangle-alert info help-circle
+arrow-left arrow-right arrow-up arrow-down chevron-left chevron-right chevron-up chevron-down chevrons-left chevrons-right move maximize minimize corner-down-left undo-2 redo-2 log-out log-in home house
+sun moon lightbulb lightbulb-off lamp lamp-desk flashlight thermometer droplet coffee pizza cookie beer wine utensils bed bath
+gamepad-2 joystick swords sword target crosshair dices puzzle ghost skull bot cat dog rabbit bird fish paw-print
+heart-pulse activity chart-line chart-bar chart-pie gauge trending-up trending-down calendar calendar-clock map-pin map navigation compass rocket plane car bike
+dollar-sign coins wallet credit-card shopping-cart tag ticket badge-check award medal
+variable braces code terminal square-terminal bug wrench hammer cpu memory-stick hard-drive battery battery-low smartphone tablet laptop
+scan qr-code expand shrink grid-3x3 square-dashed mouse vibrate cast airplay rss podcast newspaper book book-open graduation-cap briefcase building store
+search trash-2 grip-vertical file-up file-down save list-plus arrow-up-down

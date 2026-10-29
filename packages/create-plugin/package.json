@@ -1,0 +1,9 @@
+{
+  "name": "create-phonedeck-plugin",
+  "version": "1.0.0",
+  "description": "Scaffold a PhoneDeck plugin: npm create phonedeck-plugin my-plugin",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "create-phonedeck-plugin": "./index.mjs" },
+  "files": ["index.mjs", "template"]
+}

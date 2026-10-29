@@ -1,6 +1,6 @@
 // Layout and key model. Mirrored by crates/companion/src/model.rs.
 
-export type Tone = "default" | "accent" | "danger" | "success" | "warning" | "muted";
+export type Tone = "default" | "accent" | "danger" | "success" | "warning" | "info" | "muted";
 export type FormFactor = "phone-portrait" | "phone-landscape" | "tablet" | "desktop";
 export type KeyKind = "button" | "toggle" | "folder" | "back" | "slider" | "widget";
 export type Scope = "deck" | "moderator" | "editor";
@@ -97,7 +97,7 @@ export interface Condition {
 
 export interface Feedback {
   when: Condition;
-  style: Partial<Pick<KeyView, "label" | "sub" | "icon" | "badge" | "tone" | "meta" | "disabled">>;
+  style: Partial<Pick<KeyView, "label" | "sub" | "icon" | "badge" | "tone" | "badgeTone" | "meta" | "disabled">>;
 }
 
 /** What a client draws for one key. */
@@ -113,7 +113,10 @@ export interface KeyView {
   icon?: string;
   color?: KeyColor;
   badge?: string;
+  /** Colours the key: accent and danger change its border and background. */
   tone?: Tone;
+  /** Colours only the badge. accent and danger draw a filled pill, the rest coloured text. */
+  badgeTone?: Tone;
   /** Small text in the top right, e.g. "3 steps". */
   meta?: string;
   /** Plugin image as a data URL (png, jpeg, webp or svg). */

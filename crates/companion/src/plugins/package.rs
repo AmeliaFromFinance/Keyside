@@ -175,7 +175,8 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>, total: &mut u
             bail!("symlinks are not allowed in plugins: {}", p.display());
         }
         let name = e.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') || name == "node_modules" || name == "src" {
+        // Source, tests and tooling files stay out of the package; only the built plugin goes in.
+        if name.starts_with('.') || ["node_modules", "src", "test", "package.json", "package-lock.json", "pnpm-lock.yaml", "tsconfig.json"].contains(&name.as_str()) || name.ends_with(".pdp") {
             continue;
         }
         if ft.is_dir() {

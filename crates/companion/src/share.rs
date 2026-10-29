@@ -65,7 +65,11 @@ pub fn import(code: &str) -> Result<Profile> {
     if shared.v != 1 {
         bail!("this share code needs a newer PhoneDeck");
     }
-    let mut p = shared.profile;
+    import_profile(shared.profile)
+}
+
+/// Takes a profile from outside (code or file): fresh id, review flags, full validation.
+pub fn import_profile(mut p: Profile) -> Result<Profile> {
     p.id = crate::ids::short().replace(['-', '_'], "x");
     p.apps.clear();
     for pg in &mut p.pages {

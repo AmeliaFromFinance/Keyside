@@ -34,6 +34,8 @@ pub struct ViewPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tone: Option<Tone>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub badge_tone: Option<Tone>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
@@ -67,6 +69,8 @@ pub struct KeyView {
     pub badge: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tone: Option<Tone>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub badge_tone: Option<Tone>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -136,6 +140,7 @@ pub fn base_view(key: &Key, pos: [u8; 4], folder_size: Option<usize>) -> KeyView
         color: key.color,
         badge: None,
         tone: None,
+        badge_tone: None,
         meta: None,
         image: None,
         value: None,
@@ -175,7 +180,7 @@ pub fn apply_patch(v: &mut KeyView, p: &ViewPatch) {
     if let Some(l) = &p.label {
         v.label = l.clone();
     }
-    set!(sub, icon, color, badge, tone, meta, image, value, progress, since);
+    set!(sub, icon, color, badge, tone, badge_tone, meta, image, value, progress, since);
     if let Some(d) = p.disabled {
         v.disabled = d;
     }
@@ -192,6 +197,9 @@ pub fn apply_style(v: &mut KeyView, s: &FeedbackStyle) {
     }
     if let Some(t) = s.tone {
         v.tone = Some(t);
+    }
+    if let Some(t) = s.badge_tone {
+        v.badge_tone = Some(t);
     }
     if let Some(d) = s.disabled {
         v.disabled = d;

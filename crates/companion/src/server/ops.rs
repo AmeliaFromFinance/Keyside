@@ -130,6 +130,15 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             need_edit(who)?;
             Ok(serde_json::to_value(crate::share::import(s(&a, "code")?).map_err(OpError::failed)?).unwrap_or(Value::Null))
         }
+        "share.importJson" => {
+            need_edit(who)?;
+            let raw = a.get("profile").cloned().unwrap_or(Value::Null);
+            if raw.to_string().len() > 4 * 1024 * 1024 {
+                return Err(OpError::invalid("layout file is too large"));
+            }
+            let p: crate::model::Profile = serde_json::from_value(raw).map_err(|e| OpError::invalid(format!("not a PhoneDeck layout: {e}")))?;
+            Ok(serde_json::to_value(crate::share::import_profile(p).map_err(OpError::failed)?).unwrap_or(Value::Null))
+        }
         "gallery.list" => {
             need_edit(who)?;
             let url = app.settings.read().registry_url.clone();

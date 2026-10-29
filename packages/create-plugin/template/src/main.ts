@@ -1,0 +1,19 @@
+import { definePlugin, setting } from "@phonedeck/sdk";
+
+let presses = 0;
+
+export default definePlugin({
+  start(host) {
+    host.status("connected");
+    host.setVar("presses", presses);
+  },
+  actions: {
+    hello: {
+      press({ key, settings }) {
+        presses++;
+        key.set({ badge: String(presses) });
+        key.set({ sub: setting(settings, "message", "Hello") });
+      },
+    },
+  },
+});

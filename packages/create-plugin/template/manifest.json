@@ -1,0 +1,30 @@
+{
+  "id": "com.example.__SLUG__",
+  "name": "__SLUG__",
+  "version": "0.1.0",
+  "author": "Your name",
+  "prefix": "__PREFIX__",
+  "description": "What this plugin controls.",
+  "host": "^1.0",
+  "entry": "main.js",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": { "type": "integer", "title": "Port", "default": 8080, "minimum": 1, "maximum": 65535 }
+    }
+  },
+  "actions": [
+    {
+      "id": "hello",
+      "name": "Say hello",
+      "icon": "hand",
+      "settings": {
+        "type": "object",
+        "properties": { "message": { "type": "string", "title": "Message", "default": "Hello" } }
+      }
+    }
+  ],
+  "variables": [{ "name": "presses", "title": "Times pressed", "type": "number" }]
+}

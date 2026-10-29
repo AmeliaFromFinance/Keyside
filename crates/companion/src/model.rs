@@ -213,6 +213,8 @@ pub struct FeedbackStyle {
     pub badge: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tone: Option<Tone>,
+    #[serde(default, rename = "badgeTone", skip_serializing_if = "Option::is_none")]
+    pub badge_tone: Option<Tone>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -227,6 +229,7 @@ pub enum Tone {
     Danger,
     Success,
     Warning,
+    Info,
     Muted,
 }
 

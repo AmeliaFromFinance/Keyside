@@ -42,7 +42,11 @@ pub fn local_addresses() -> Vec<IpAddr> {
 /// What the pairing QR code holds. The link opens the browser deck; the native app reads
 /// the same fragment. The fragment never reaches any server.
 pub fn pairing_payload(app: &App, pid: &str, code: &str) -> Value {
-    let hosts: Vec<String> = app.addresses.read().iter().map(|ip| if ip.is_ipv6() { format!("[{ip}]") } else { ip.to_string() }).collect();
+    let mut hosts: Vec<String> = app.addresses.read().iter().map(|ip| if ip.is_ipv6() { format!("[{ip}]") } else { ip.to_string() }).collect();
+    if hosts.is_empty() {
+        // No private network found: only devices on this PC can connect.
+        hosts.push("127.0.0.1".into());
+    }
     let port = app.settings.read().lan_port;
     let cid = app.identity.read().cid.clone();
     let name = app.settings.read().name.clone();

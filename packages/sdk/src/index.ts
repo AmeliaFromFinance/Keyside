@@ -1,7 +1,7 @@
 // @phonedeck/sdk: write PhoneDeck plugins in TypeScript.
 // Plugins run inside the companion's Deno sandbox and talk to it over stdin/stdout.
 
-export type Tone = "default" | "accent" | "danger" | "success" | "warning" | "muted";
+export type Tone = "default" | "accent" | "danger" | "success" | "warning" | "info" | "muted";
 export type KeyColor = "default" | "teal" | "violet" | "green" | "amber" | "red" | "blue";
 export type VarValue = string | number | boolean | null;
 export type Settings = Record<string, unknown>;
@@ -13,7 +13,10 @@ export interface KeyView {
   icon?: string;
   color?: KeyColor;
   badge?: string;
+  /** accent and danger change the key's border and background. */
   tone?: Tone;
+  /** Badge colour. accent and danger draw a filled pill, the rest coloured text. */
+  badgeTone?: Tone;
   meta?: string;
   /** png, jpeg, webp, gif or svg data URL, under 350 KB. */
   image?: string;
