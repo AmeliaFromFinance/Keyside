@@ -91,6 +91,22 @@ struct Running {
     stop: Option<tokio::sync::oneshot::Sender<()>>,
     crashes: VecDeque<Instant>,
     last_url: Option<Instant>,
+    /// Token bucket for settings writes, which go to disk.
+    writes: (f64, Instant),
+}
+
+/// Settings writes allowed per second for one plugin, with a short burst.
+const WRITES_PER_SEC: f64 = 10.0;
+const WRITE_BURST: f64 = 30.0;
+
+fn write_allowed(app: &App, uuid: &str) -> bool {
+    let mut st = app.streamdeck.state.lock();
+    let Some(r) = st.running.get_mut(uuid) else { return false };
+    let now = Instant::now();
+    let (tokens, last) = r.writes;
+    let tokens = (tokens + now.duration_since(last).as_secs_f64() * WRITES_PER_SEC).min(WRITE_BURST);
+    r.writes = (tokens - 1.0, now);
+    tokens >= 1.0
 }
 
 struct Inspector {
@@ -328,6 +344,9 @@ fn to_inspectors(app: &App, uuid: &str, context: Option<&str>, msg: Value) {
 
 /// Saves settings for one key from the plugin or its settings panel.
 fn store_settings(app: &App, uuid: &str, context: &str, payload: &Value) -> Result<Map<String, Value>, String> {
+    if !write_allowed(app, uuid) {
+        return Err("too many settings changes".into());
+    }
     let settings = payload.as_object().cloned().ok_or("settings must be an object")?;
     if serde_json::to_vec(&settings).map(|v| v.len()).unwrap_or(usize::MAX) > MAX_SETTINGS {
         return Err("settings are larger than 64 KB".into());
@@ -344,6 +363,9 @@ fn store_settings(app: &App, uuid: &str, context: &str, payload: &Value) -> Resu
 }
 
 fn store_global(app: &App, uuid: &str, payload: &Value) -> Result<(), String> {
+    if !write_allowed(app, uuid) {
+        return Err("too many settings changes".into());
+    }
     if !payload.is_object() || payload.to_string().len() > MAX_SETTINGS {
         return Err("global settings must be an object under 64 KB".into());
     }

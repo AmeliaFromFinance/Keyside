@@ -200,7 +200,16 @@ pub fn start(app: &Arc<App>, uuid: &str) {
         let g = st.generation;
         st.running.insert(
             uuid.to_string(),
-            Running { generation: g, token: crate::ids::random_b64(24), tx: None, instances: Default::default(), stop: Some(stop_tx), crashes: Default::default(), last_url: None },
+            Running {
+                generation: g,
+                token: crate::ids::random_b64(24),
+                tx: None,
+                instances: Default::default(),
+                stop: Some(stop_tx),
+                crashes: Default::default(),
+                last_url: None,
+                writes: (super::WRITE_BURST, Instant::now()),
+            },
         );
         g
     };

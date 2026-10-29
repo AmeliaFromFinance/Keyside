@@ -3,7 +3,7 @@
 // and agree on fresh AES-256-GCM keys through an ephemeral P-256 exchange.
 // See docs/protocol.md for the byte layout.
 
-import { concat, fromB64u, fromUtf8, lp, randomBytes, toB64u, u64be, utf8 } from "./bytes.ts";
+import { concat, fromB64u, fromUtf8, lp, randomBytes, toB64u, u64be, utf8, type Bytes } from "./bytes.ts";
 
 export const PROTOCOL = "phonedeck/1";
 export const MAX_FRAME = 2 * 1024 * 1024;
@@ -53,10 +53,10 @@ const subtle = () => globalThis.crypto.subtle;
 /** Imports a pre-shared key so it can't be read back out of storage. */
 export async function importPsk(raw: Uint8Array, extractable = false): Promise<CryptoKey> {
   if (raw.length < 16) throw new RangeError("psk too short");
-  return subtle().importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, extractable, ["sign"]);
+  return subtle().importKey("raw", new Uint8Array(raw), { name: "HMAC", hash: "SHA-256" }, extractable, ["sign"]);
 }
 
-async function hmac(key: CryptoKey | Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+async function hmac(key: CryptoKey | Bytes, data: Bytes): Promise<Bytes> {
   const k = key instanceof Uint8Array
     ? await subtle().importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
     : key;
@@ -64,7 +64,7 @@ async function hmac(key: CryptoKey | Uint8Array, data: Uint8Array): Promise<Uint
 }
 
 /** HKDF-SHA256 with the psk as salt. Same output as RFC 5869 with salt=psk, ikm=shared. */
-async function hkdf(psk: CryptoKey, ikm: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array> {
+async function hkdf(psk: CryptoKey, ikm: Bytes, info: Bytes, len: number): Promise<Bytes> {
   const prk = await hmac(psk, ikm);
   const out = new Uint8Array(len);
   let prev = new Uint8Array(0);
@@ -76,12 +76,12 @@ async function hkdf(psk: CryptoKey, ikm: Uint8Array, info: Uint8Array, len: numb
   return out;
 }
 
-export function transcript(mode: Mode, cid: Uint8Array, id: Uint8Array, ec: Uint8Array, nc: Uint8Array, es: Uint8Array, ns: Uint8Array): Uint8Array {
+export function transcript(mode: Mode, cid: Bytes, id: Bytes, ec: Bytes, nc: Bytes, es: Bytes, ns: Bytes): Bytes {
   return concat(lp(utf8(PROTOCOL)), lp(utf8(mode)), lp(cid), lp(id), lp(ec), lp(nc), lp(es), lp(ns));
 }
 
 interface Derived {
-  th: Uint8Array;
+  th: Bytes;
   c2s: CryptoKey;
   s2c: CryptoKey;
   macS: CryptoKey;
@@ -89,11 +89,11 @@ interface Derived {
   sas: string;
 }
 
-async function derive(psk: CryptoKey, shared: Uint8Array, transcriptBytes: Uint8Array): Promise<Derived> {
+async function derive(psk: CryptoKey, shared: Bytes, transcriptBytes: Bytes): Promise<Derived> {
   const th = new Uint8Array(await subtle().digest("SHA-256", transcriptBytes));
   const okm = await hkdf(psk, shared, concat(lp(utf8(`${PROTOCOL} keys`)), th), 128);
-  const aes = (b: Uint8Array) => subtle().importKey("raw", b, "AES-GCM", false, ["encrypt", "decrypt"]);
-  const mac = (b: Uint8Array) => subtle().importKey("raw", b, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  const aes = (b: Bytes) => subtle().importKey("raw", b, "AES-GCM", false, ["encrypt", "decrypt"]);
+  const mac = (b: Bytes) => subtle().importKey("raw", b, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
   const macS = await mac(okm.slice(64, 96));
   const sasBytes = await hmac(macS, concat(utf8("sas"), th));
   const sasNum = new DataView(sasBytes.buffer).getUint32(0) % 1_000_000;
@@ -107,7 +107,7 @@ async function derive(psk: CryptoKey, shared: Uint8Array, transcriptBytes: Uint8
   };
 }
 
-async function ecdh(priv: CryptoKey, peerRaw: Uint8Array): Promise<Uint8Array> {
+async function ecdh(priv: CryptoKey, peerRaw: Bytes): Promise<Bytes> {
   if (peerRaw.length !== 65 || peerRaw[0] !== 4) throw new HandshakeError("bad public key");
   const peer = await subtle().importKey("raw", peerRaw, { name: "ECDH", namedCurve: "P-256" }, false, []);
   return new Uint8Array(await subtle().deriveBits({ name: "ECDH", public: peer }, priv, 256));
@@ -138,7 +138,7 @@ export class Session {
   }
 
   /** Encrypts in call order, even when called concurrently. */
-  seal(msg: unknown): Promise<Uint8Array> {
+  seal(msg: unknown): Promise<Bytes> {
     const ctr = this.#sendCtr++;
     if (ctr >= MAX_COUNTER) return Promise.reject(new HandshakeError("session exhausted"));
     const plain = utf8(JSON.stringify(msg));
@@ -157,7 +157,7 @@ export class Session {
   }
 
   /** Decrypts in arrival order. Throws on tampering, replay or reordering; close the socket if it does. */
-  open<T = unknown>(frame: Uint8Array): Promise<T> {
+  open<T = unknown>(frame: Bytes): Promise<T> {
     const job = this.#recvTail.then(async () => {
       if (frame.length < 8 + 16 || frame.length > MAX_FRAME) throw new HandshakeError("bad frame");
       const ctr = new DataView(frame.buffer, frame.byteOffset, 8).getBigUint64(0);
@@ -175,7 +175,7 @@ export class Session {
   }
 }
 
-function nonce(ctr: bigint): Uint8Array {
+function nonce(ctr: bigint): Bytes {
   return concat(new Uint8Array(4), u64be(ctr));
 }
 
@@ -192,14 +192,14 @@ export interface ClientOptions {
   psk: CryptoKey;
   device?: DeviceInfo;
   /** Test vectors only. */
-  fixed?: { pair: CryptoKeyPair; nonce: Uint8Array };
+  fixed?: { pair: CryptoKeyPair; nonce: Bytes };
 }
 
 export class ClientHandshake {
   #o: ClientOptions;
   #pair!: CryptoKeyPair;
-  #e!: Uint8Array;
-  #n!: Uint8Array;
+  #e!: Bytes;
+  #n!: Bytes;
 
   private constructor(o: ClientOptions) {
     this.#o = o;
@@ -230,9 +230,9 @@ export class ClientHandshake {
 }
 
 export interface ServerOptions {
-  cid: Uint8Array;
+  cid: Bytes;
   psk: CryptoKey;
-  fixed?: { pair: CryptoKeyPair; nonce: Uint8Array };
+  fixed?: { pair: CryptoKeyPair; nonce: Bytes };
 }
 
 /** Reference server side. The companion implements the same steps in Rust. */

@@ -12,7 +12,7 @@
     "test": "pnpm test:js && pnpm test:e2e && cargo test --workspace",
     "test:js": "node --test packages/protocol/test/channel.test.ts packages/sdk/test/*.test.ts plugins/*/test/*.test.ts apps/client/test/*.test.ts",
     "test:e2e": "node --test --test-concurrency=1 packages/protocol/test/e2e.test.ts packages/protocol/test/sandbox.test.ts packages/protocol/test/streamdeck.test.ts",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "check": "tsc -p tsconfig.json && pnpm --filter @phonedeck/client check",
     "dev": "pnpm --filter @phonedeck/client dev"
   },
   "devDependencies": {

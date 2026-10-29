@@ -89,7 +89,7 @@ async function until<T>(fn: () => T | undefined | null | false, what: string, ms
 
 test("runs an unmodified Stream Deck plugin in the sandbox", { skip: (!existsSync(bin) && "companion not built") || (!hasDeno && "Deno not installed") }, async () => {
   const s = await session();
-  const up = await fetch(`${origin}/admin/upload/streamdeck`, { method: "POST", headers: { cookie: s.cookie, origin, "x-phonedeck": "1" }, body: pluginZip() });
+  const up = await fetch(`${origin}/admin/upload/streamdeck`, { method: "POST", headers: { cookie: s.cookie, origin, "x-phonedeck": "1" }, body: Buffer.from(pluginZip()) });
   assert.equal(up.status, 200, await up.clone().text());
   const staged = await up.json();
   assert.equal(staged.uuid, "com.phonedeck.test");

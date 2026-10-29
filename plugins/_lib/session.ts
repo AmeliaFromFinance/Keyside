@@ -1,7 +1,7 @@
 // OAuth sessions for plugins that sign in to an online service. The session is saved in
 // a hidden secret connection field, so it lands in the OS keychain.
 
-import type { Host } from "@phonedeck/sdk";
+import type { Host } from "../../packages/sdk/src/index.ts";
 import { HttpError, sleep } from "./util.ts";
 
 export interface Tokens {

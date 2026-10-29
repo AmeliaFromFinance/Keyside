@@ -390,7 +390,7 @@ class Runtime implements Host {
 }
 
 function detachedKey(id: string, action: string, settings: Settings): Key {
-  return { id, action, settings, set() {}, clear() {} };
+  return { id, action, settings, label: "", set() {}, clear() {} };
 }
 
 function errorText(e: unknown): string {

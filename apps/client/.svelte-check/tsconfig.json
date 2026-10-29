@@ -1,0 +1,48 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDirs": [
+      "..",
+      "svelte"
+    ],
+    "allowArbitraryExtensions": true,
+    "noEmit": true,
+    "incremental": false,
+    "tsBuildInfoFile": "tsbuildinfo.json"
+  },
+  "files": [
+    "../../../node_modules/.pnpm/svelte-check@4.7.7_picomatch@4.0.7_svelte@5.57.3_typescript@6.0.3/node_modules/svelte-check/dist/src/svelte-shims-v4.d.ts",
+    "../../../node_modules/.pnpm/svelte@5.57.3/node_modules/svelte/svelte-html.d.ts"
+  ],
+  "include": [
+    "../src/**/*.ts",
+    "../src/**/*.svelte",
+    "svelte/src/**/*.ts",
+    "svelte/src/**/*.d.svelte.ts"
+  ],
+  "exclude": [
+    "../src/App.svelte",
+    "../src/components/Deck.svelte",
+    "../src/components/Grid.svelte",
+    "../src/components/Icon.svelte",
+    "../src/components/Key.svelte",
+    "../src/components/Pair.svelte",
+    "../src/components/PinPad.svelte",
+    "../src/components/Scanner.svelte",
+    "../src/components/Sheet.svelte",
+    "../src/editor/Canvas.svelte",
+    "../src/editor/Editor.svelte",
+    "../src/editor/IconPicker.svelte",
+    "../src/editor/Inspector.svelte",
+    "../src/editor/PairPanel.svelte",
+    "../src/editor/Palette.svelte",
+    "../src/editor/Plugins.svelte",
+    "../src/editor/Profiles.svelte",
+    "../src/editor/Review.svelte",
+    "../src/editor/SdPanel.svelte",
+    "../src/editor/Settings.svelte",
+    "../src/editor/SettingsForm.svelte",
+    "../src/editor/Share.svelte",
+    "../src/editor/StreamDeck.svelte"
+  ]
+}
