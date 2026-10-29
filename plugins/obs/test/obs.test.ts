@@ -8,7 +8,7 @@ import { fakeServer, eventually } from "../../_lib/fake.ts";
 const sha = (s: string) => createHash("sha256").update(s).digest("base64");
 
 function fakeObs(password: string) {
-  const state = { program: "Live", preview: "", muted: true, recording: false };
+  const state = { program: "Live", preview: "", muted: true, recording: false, monitor: "OBS_MONITORING_TYPE_NONE" };
   const answer = (requestType: string, d: any): any => {
     switch (requestType) {
       case "GetSceneList":
@@ -23,6 +23,17 @@ function fakeObs(password: string) {
         return { inputVolumeMul: 0.125, inputVolumeDb: -18 };
       case "GetReplayBufferStatus":
         return null;
+      case "GetRecordDirectory":
+        return { recordDirectory: "/home/fern/Videos/" };
+      case "GetInputAudioMonitorType":
+        return { monitorType: state.monitor };
+      case "SetInputAudioMonitorType":
+        state.monitor = d.monitorType;
+        return {};
+      case "GetStats":
+        return { activeFps: 60, cpuUsage: 12.5, renderSkippedFrames: 0, renderTotalFrames: 1000, outputSkippedFrames: 30, outputTotalFrames: 1000 };
+      case "GetStreamStatus":
+        return { outputActive: false };
       case "SetInputMute":
       case "SetCurrentProgramScene":
       case "ToggleRecord":
@@ -125,6 +136,38 @@ test("a wrong password stops retrying and says why", async () => {
   const hellos = obs.received.filter((m) => m.op === 1).length;
   await new Promise((r) => setTimeout(r, 1500));
   assert.equal(obs.received.filter((m) => m.op === 1).length, hellos);
+  await h.stop();
+  await obs.close();
+});
+
+test("screenshots, audio monitoring and stream health", async () => {
+  const obs = await fakeObs("pw");
+  const h = createTestHost(plugin, { connection: { host: "127.0.0.1", port: obs.port, password: "pw" }, prefix: "obs" });
+  await h.start();
+  await h.sync([
+    { id: "shot", action: "screenshot" },
+    { id: "mon", action: "monitor", settings: { input: "Music" } },
+    { id: "health", action: "stats" },
+    { id: "split", action: "split" },
+  ]);
+  await eventually(() => h.status()?.state === "connected");
+  await eventually(() => h.view("mon")?.badge === "OFF");
+  assert.equal(h.view("split")?.disabled, true, "split needs a recording");
+
+  await h.press("shot", "screenshot", {});
+  const shot = await obs.until((m) => m.op === 6 && m.d.requestType === "SaveSourceScreenshot");
+  assert.equal(shot.d.requestData.sourceName, "Live");
+  assert.match(shot.d.requestData.imageFilePath, /^\/home\/fern\/Videos\/Screenshot Live \d{4}-\d\d-\d\d \d\d-\d\d-\d\d\.png$/);
+
+  await h.press("mon", "monitor", { input: "Music", mode: "toggle" });
+  const mon = await obs.until((m) => m.op === 6 && m.d.requestType === "SetInputAudioMonitorType");
+  assert.equal(mon.d.requestData.monitorType, "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT");
+  obs.broadcast({ op: 5, d: { eventType: "InputAudioMonitorTypeChanged", eventData: { inputName: "Music", monitorType: "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT" } } });
+  await eventually(() => h.view("mon")?.badge === "ON");
+
+  // 30 of 1000 encoded frames skipped: 3%.
+  await eventually(() => h.view("health")?.badge === "DROPPING", 5000);
+  assert.equal(h.view("health")?.sub, "Encoding 3.0% dropped");
   await h.stop();
   await obs.close();
 });

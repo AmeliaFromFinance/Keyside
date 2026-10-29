@@ -1,9 +1,13 @@
 //! Runs the actions behind a key press.
 
+#[cfg(target_os = "linux")]
+pub mod appaudio;
 pub mod core;
 pub mod input;
 #[cfg(feature = "midi")]
 pub mod midi;
+#[cfg(feature = "nowplaying")]
+pub mod nowplaying;
 #[cfg(feature = "sound")]
 pub mod sound;
 pub mod timers;

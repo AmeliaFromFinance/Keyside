@@ -14,3 +14,4 @@ dollar-sign coins wallet credit-card shopping-cart tag ticket badge-check award 
 variable braces code terminal square-terminal bug wrench hammer cpu memory-stick hard-drive battery battery-low smartphone tablet laptop
 scan qr-code expand shrink grid-3x3 square-dashed mouse vibrate cast airplay rss podcast newspaper book book-open graduation-cap briefcase building store
 search trash-2 grip-vertical file-up file-down save list-plus arrow-up-down
+headphone-off

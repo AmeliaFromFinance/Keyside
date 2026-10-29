@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.obs",
   "name": "OBS Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "obs",
   "description": "Scenes, audio, recording, streaming, replay buffer, sources and filters, with live state on every key.",
@@ -191,6 +191,39 @@
       "icon": "bookmark",
       "description": "Adds a chapter marker to the recording (OBS 30.2+, Hybrid MP4).",
       "settings": { "type": "object", "properties": { "name": { "type": "string", "title": "Chapter name", "maxLength": 100 } } }
+    },
+    { "id": "split", "name": "Split recording", "icon": "scissors", "description": "Starts a new recording file without stopping (OBS 30.2+, needs file splitting on in OBS output settings)." },
+    {
+      "id": "screenshot",
+      "name": "Screenshot",
+      "icon": "camera",
+      "description": "Saves a PNG to OBS's recording folder.",
+      "settings": { "type": "object", "properties": { "capture": { "type": "string", "title": "Scene or source", "x-options": "dynamic", "description": "Leave empty for the live scene." } } }
+    },
+    {
+      "id": "monitor",
+      "name": "Audio monitoring",
+      "icon": "headphones",
+      "kind": "toggle",
+      "description": "Lets you hear a source in your headphones.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "title": "Audio source", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Monitor and output", "Off"], "default": "toggle" }
+        },
+        "required": ["input"]
+      }
+    },
+    {
+      "id": "stats",
+      "name": "Stream health",
+      "icon": "gauge",
+      "description": "Shows dropped frames, CPU or FPS, updated every 2 seconds.",
+      "settings": {
+        "type": "object",
+        "properties": { "show": { "type": "string", "title": "Show", "enum": ["dropped", "cpu", "fps"], "enumNames": ["Dropped frames", "CPU", "FPS"], "default": "dropped" } }
+      }
     },
     {
       "id": "collection",

@@ -3,6 +3,28 @@
 use serde_json::{Value, json};
 
 pub fn core_actions() -> Value {
+    let mut all = base_actions();
+    if let Some(list) = all.as_array_mut() {
+        if cfg!(all(feature = "nowplaying", any(target_os = "linux", windows))) {
+            list.push(json!({ "id": "core.nowplaying", "group": "Media", "name": "Now playing", "icon": "disc-3", "description": "track and cover", "settings": { "type": "object", "properties": {
+                "op": { "type": "string", "title": "On press", "enum": ["toggle", "next", "previous"], "enumNames": ["Play or pause", "Next track", "Previous track"], "default": "toggle" },
+                "cover": { "type": "boolean", "title": "Show the cover", "default": true } } } }));
+        }
+        if cfg!(target_os = "linux") {
+            let app = json!({ "type": "string", "title": "App", "x-options": "dynamic", "description": "Apps appear here once they've played sound." });
+            list.push(
+                json!({ "id": "core.app-mute", "group": "Media", "name": "Mute an app", "icon": "volume-x", "settings": { "type": "object", "required": ["app"], "properties": {
+                "app": app,
+                "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Mute", "Unmute"], "default": "toggle" } } } }),
+            );
+            list.push(json!({ "id": "core.app-volume", "group": "Media", "name": "App volume", "icon": "audio-lines", "kind": "slider", "settings": { "type": "object", "required": ["app"], "properties": {
+                "app": app } } }));
+        }
+    }
+    all
+}
+
+fn base_actions() -> Value {
     json!([
         { "id": "core.wait", "group": "Flow", "name": "Wait", "icon": "timer", "settings": { "type": "object", "required": ["ms"], "properties": {
             "ms": { "type": "integer", "title": "Milliseconds", "minimum": 0, "maximum": 60000, "default": 1000 } } } },

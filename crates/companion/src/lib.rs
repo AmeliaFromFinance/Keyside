@@ -38,6 +38,10 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     }
     streamdeck::hardware::spawn(app.clone());
     actions::timers::Timers::spawn_ticker(app.clone());
+    #[cfg(feature = "nowplaying")]
+    actions::nowplaying::spawn(app.clone());
+    #[cfg(target_os = "linux")]
+    actions::appaudio::spawn(app.clone());
     focus::spawn(app.clone());
 
     // Keep plugins in step with layout changes.

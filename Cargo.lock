@@ -2409,6 +2409,8 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "windows 0.62.2",
+ "zbus",
  "zip",
 ]
 

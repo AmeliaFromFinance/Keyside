@@ -598,6 +598,13 @@ impl Conn {
                     let step = Step { instance: instance_id(&self.profile, &self.page, id, false, n), action: action.to_string(), settings: a.settings.clone() };
                     self.app.plugins.slide(plugin, step, value).await;
                 }
+                #[cfg(target_os = "linux")]
+                None if a.kind == crate::actions::appaudio::VOLUME => {
+                    let settings = a.settings.clone();
+                    tokio::spawn(async move {
+                        let _ = crate::actions::appaudio::set_volume(&settings, value).await;
+                    });
+                }
                 None if a.kind == "core.var" => {
                     let Some(name) = a.settings.get("name").and_then(Value::as_str).filter(|n| n.starts_with("user.")) else { continue };
                     let range = key.slider.as_ref().map(|s| (s.min, s.max)).unwrap_or((0.0, 1.0));

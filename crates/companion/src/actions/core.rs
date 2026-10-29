@@ -107,6 +107,12 @@ pub async fn run(app: &App, ctx: &Ctx, a: &Action) -> Res {
             app.timers.apply(app, m)?;
             Ok(None)
         }
+        #[cfg(feature = "nowplaying")]
+        "core.nowplaying" => super::nowplaying::press(m).await.map(|_| None),
+        #[cfg(target_os = "linux")]
+        "core.app-mute" => super::appaudio::mute(m).await.map(|_| None),
+        // A volume key is a slider. Pressing it does nothing.
+        "core.app-volume" => Ok(None),
         "core.page" => Ok(Some(Nav::Page(req(m, "page")?.to_string()))),
         "core.profile" => Ok(Some(Nav::Profile(req(m, "profile")?.to_string()))),
         other => {

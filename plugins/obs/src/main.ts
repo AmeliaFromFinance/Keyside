@@ -9,6 +9,7 @@ const OP = { Hello: 0, Identify: 1, Identified: 2, Event: 5, Request: 6, Respons
 const EVENTS = 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 | 1024;
 const AUTH_FAILED = 4009;
 const THUMB_EVERY = 5000;
+const STATS_EVERY = 2000;
 
 interface Req {
   requestType: string;
@@ -36,13 +37,20 @@ const st = {
   profile: "",
   transition: "",
   thumbs: new Map<string, string>(),
+  monitor: new Map<string, string>(),
+  recordDir: "",
+  stats: null as null | { fps: number; cpu: number; render: number; encode: number; network: number },
 };
+
+const MONITOR_OFF = "OBS_MONITORING_TYPE_NONE";
+const MONITOR_ON = "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT";
 
 let host: Host;
 let sock: Reconnecting;
 let authFailed = false;
 const waiting = new Waiters<any>();
 let thumbTimer: ReturnType<typeof setInterval> | null = null;
+let statsTimer: ReturnType<typeof setInterval> | null = null;
 
 const pair = (a: string, b: string) => `${a}\u0000${b}`;
 
@@ -116,7 +124,7 @@ async function identify(hello: any) {
 
 /** Full state refresh after connecting or switching scene collection. */
 async function sync() {
-  const [scenes, studio, rec, stream, replay, vcam, colls, profiles, trans, inputs] = await batch([
+  const [scenes, studio, rec, stream, replay, vcam, colls, profiles, trans, inputs, dir] = await batch([
     { requestType: "GetSceneList" },
     { requestType: "GetStudioModeEnabled" },
     { requestType: "GetRecordStatus" },
@@ -127,6 +135,7 @@ async function sync() {
     { requestType: "GetProfileList" },
     { requestType: "GetSceneTransitionList" },
     { requestType: "GetInputList" },
+    { requestType: "GetRecordDirectory" },
   ]);
   if (scenes) {
     st.scenes = (scenes.scenes ?? []).map((s: any) => s.sceneName);
@@ -142,11 +151,13 @@ async function sync() {
   st.profile = profiles?.currentProfileName ?? "";
   st.transition = trans?.currentSceneTransitionName ?? "";
   st.inputs = new Set((inputs?.inputs ?? []).map((i: any) => i.inputName));
+  st.recordDir = dir?.recordDirectory ?? "";
   st.muted.clear();
   st.volume.clear();
   st.items.clear();
   st.filters.clear();
   st.media.clear();
+  st.monitor.clear();
   st.ready = true;
   await watchKeys(host.keys());
   lastPills = JSON.stringify(pills());
@@ -168,6 +179,10 @@ async function watchKeys(keys: Key[]) {
       seen.add(`a:${input}`);
       add({ requestType: "GetInputMute", requestData: { inputName: input } }, (r) => r && st.muted.set(input, !!r.inputMuted));
       add({ requestType: "GetInputVolume", requestData: { inputName: input } }, (r) => r && st.volume.set(input, Number(r.inputVolumeMul)));
+    }
+    if (k.action === "monitor" && input && !seen.has(`o:${input}`)) {
+      seen.add(`o:${input}`);
+      add({ requestType: "GetInputAudioMonitorType", requestData: { inputName: input } }, (r) => r && st.monitor.set(input, r.monitorType));
     }
     if (k.action === "media" && input && !seen.has(`m:${input}`)) {
       seen.add(`m:${input}`);
@@ -263,6 +278,11 @@ function onEvent(type: string, d: any) {
       break;
     case "CurrentProfileChanged":
       st.profile = d.profileName;
+      // Each profile has its own recording folder.
+      void request("GetRecordDirectory").then((r) => (st.recordDir = r.recordDirectory ?? ""), () => {});
+      break;
+    case "InputAudioMonitorTypeChanged":
+      st.monitor.set(d.inputName, d.monitorType);
       break;
     case "CurrentSceneCollectionChanged":
       st.collection = d.sceneCollectionName;
@@ -357,7 +377,17 @@ function view(k: Key): KeyView | null {
       return state === "OBS_MEDIA_STATE_PLAYING" ? { badge: "PLAYING", badgeTone: "success", icon: (s.op ?? "play-pause") === "play-pause" ? "circle-pause" : undefined } : null;
     }
     case "chapter":
+    case "split":
       return st.record.active ? null : { disabled: true, sub: "Not recording" };
+    case "screenshot":
+      return st.recordDir ? null : { disabled: true, sub: "No recording folder" };
+    case "monitor": {
+      const type = st.monitor.get(String(s.input ?? ""));
+      if (type === undefined) return st.inputs.has(String(s.input ?? "")) ? null : { disabled: true, sub: "Not in OBS" };
+      return type === MONITOR_OFF ? { badge: "OFF", badgeTone: "muted", icon: "headphone-off" } : { tone: "accent", badge: type === MONITOR_ON ? "ON" : "ONLY", badgeTone: "accent" };
+    }
+    case "stats":
+      return statsView(String(s.show ?? "dropped"));
     case "collection":
       return st.collection === s.collection ? { tone: "accent", badge: "ACTIVE", badgeTone: "accent" } : null;
     case "profile":
@@ -365,6 +395,40 @@ function view(k: Key): KeyView | null {
     default:
       return null;
   }
+}
+
+/** One figure from OBS's stats. Warns when frames are being lost. */
+function statsView(show: string): KeyView {
+  const x = st.stats;
+  if (!x) return { sub: "Waiting for OBS" };
+  const pct = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}%`;
+  switch (show) {
+    case "fps":
+      return { sub: `${x.fps.toFixed(0)} fps` };
+    case "cpu":
+      return { sub: `CPU ${pct(x.cpu)}`, ...(x.cpu >= 90 ? { badge: "HIGH", badgeTone: "warning" as const } : {}) };
+    default: {
+      // The worst of render lag, encoder lag and network drops.
+      const [what, n] = [["Render", x.render], ["Encoding", x.encode], ["Network", x.network]].reduce((a, b) => ((b[1] as number) > (a[1] as number) ? b : a)) as [string, number];
+      if (n < 0.1) return { sub: "No dropped frames", badge: "OK", badgeTone: "success" };
+      return { sub: `${what} ${pct(n)} dropped`, tone: n >= 1 ? "danger" : undefined, badge: n >= 1 ? "DROPPING" : "SOME", badgeTone: n >= 1 ? "danger" : "warning" };
+    }
+  }
+}
+
+async function stats() {
+  if (!st.ready || !host.keys("stats").length) return;
+  const [g, net] = await batch([{ requestType: "GetStats" }, { requestType: "GetStreamStatus" }]).catch(() => [null, null]);
+  if (!g) return;
+  const share = (part: number, total: number) => (total > 0 ? (100 * part) / total : 0);
+  st.stats = {
+    fps: Number(g.activeFps ?? 0),
+    cpu: Number(g.cpuUsage ?? 0),
+    render: share(Number(g.renderSkippedFrames ?? 0), Number(g.renderTotalFrames ?? 0)),
+    encode: share(Number(g.outputSkippedFrames ?? 0), Number(g.outputTotalFrames ?? 0)),
+    network: net?.outputActive ? share(Number(net.outputSkippedFrames ?? 0), Number(net.outputTotalFrames ?? 0)) : 0,
+  };
+  render();
 }
 
 function render() {
@@ -474,6 +538,24 @@ function plan(action: string, s: Record<string, unknown>, phase: "press" | "rele
       return [{ requestType: "SetInputSettings", requestData: { inputName: s.input, inputSettings: { text: String(s.text ?? "") }, overlay: true } }];
     case "chapter":
       return [{ requestType: "CreateRecordChapter", requestData: s.name ? { chapterName: s.name } : {} }];
+    case "split":
+      if (!st.record.active) throw new Error("Not recording");
+      return [{ requestType: "SplitRecordFile" }];
+    case "screenshot": {
+      if (!st.recordDir) throw new Error("OBS has no recording folder set");
+      const source = String(s.capture || st.program);
+      const stamp = new Date().toISOString().slice(0, 19).replace("T", " ").replace(/:/g, "-");
+      const safe = source.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60);
+      const path = `${st.recordDir.replace(/[\\/]+$/, "")}/Screenshot ${safe} ${stamp}.png`;
+      return [{ requestType: "SaveSourceScreenshot", requestData: { sourceName: source, imageFormat: "png", imageFilePath: path } }];
+    }
+    case "monitor": {
+      const input = String(s.input ?? "");
+      const on = want(mode, (st.monitor.get(input) ?? MONITOR_OFF) !== MONITOR_OFF);
+      return [{ requestType: "SetInputAudioMonitorType", requestData: { inputName: input, monitorType: on ? MONITOR_ON : MONITOR_OFF } }];
+    }
+    case "stats":
+      return [];
     case "collection":
       return [{ requestType: "SetCurrentSceneCollection", requestData: { sceneCollectionName: s.collection } }];
     case "profile":
@@ -514,6 +596,8 @@ async function options(field: string, s: Record<string, unknown>) {
       return list(st.scenes);
     case "input":
       return list([...st.inputs].sort());
+    case "capture":
+      return [{ value: "", label: "Live scene" }, ...list(st.scenes), ...list([...st.inputs].sort())];
     case "source": {
       if (!s.scene) {
         const scenes = list(st.scenes);
@@ -563,7 +647,7 @@ function connect() {
 }
 
 const actions = Object.fromEntries(
-  ["scene", "mute", "volume", "record", "stream", "replay", "virtualcam", "studio-mode", "transition", "transition-type", "source", "filter", "media", "text", "chapter", "collection", "profile", "hotkey"].map(
+  ["scene", "mute", "volume", "record", "stream", "replay", "virtualcam", "studio-mode", "transition", "transition-type", "source", "filter", "media", "text", "chapter", "split", "screenshot", "monitor", "stats", "collection", "profile", "hotkey"].map(
     (id) => [id, { press, release: (step: Step) => runOne(step, "release"), options, appear: watchSoon }],
   ),
 );
@@ -584,12 +668,14 @@ export default definePlugin({
     host = h;
     connect();
     thumbTimer = setInterval(() => void thumbnails(), THUMB_EVERY);
+    statsTimer = setInterval(() => void stats(), STATS_EVERY);
   },
   connectionChanged() {
     connect();
   },
   stop() {
     if (thumbTimer) clearInterval(thumbTimer);
+    if (statsTimer) clearInterval(statsTimer);
     sock?.stop();
   },
   actions,

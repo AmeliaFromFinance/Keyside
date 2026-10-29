@@ -352,11 +352,20 @@ impl Engine {
 
     /// Every placed action of one plugin, so the plugin can draw its keys.
     pub fn instances_for(&self, plugin: &str) -> Vec<Instance> {
+        self.instances_where(|a| a.plugin().is_some_and(|(id, _)| id == plugin))
+    }
+
+    /// Steps of one built-in kind, like "core.nowplaying".
+    pub fn instances_of(&self, kind: &str) -> Vec<Instance> {
+        self.instances_where(|a| a.kind == kind)
+    }
+
+    fn instances_where(&self, wanted: impl Fn(&Action) -> bool) -> Vec<Instance> {
         let mut out = Vec::new();
         for (p, pg, k) in all_keys(&self.layout) {
             for (off, list) in [(false, &k.actions), (true, &k.off_actions)] {
                 for (n, a) in list.iter().enumerate() {
-                    if a.plugin().is_some_and(|(id, _)| id == plugin) && !a.review {
+                    if wanted(a) && !a.review {
                         out.push(Instance {
                             id: instance_id(&p.id, &pg.id, &k.id, off, n),
                             action: a.kind.clone(),

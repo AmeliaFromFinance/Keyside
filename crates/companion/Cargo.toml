@@ -16,9 +16,11 @@ name = "keyside"
 path = "src/main.rs"
 
 [features]
-default = ["hardware", "input", "sound", "midi", "focus"]
+default = ["hardware", "input", "sound", "midi", "focus", "nowplaying"]
 hardware = ["dep:elgato-streamdeck", "render"]
 render = ["dep:image", "dep:resvg", "dep:ab_glyph"]
+# Track and cover from any media player (MPRIS on Linux, media controls on Windows).
+nowplaying = ["dep:image", "dep:zbus", "dep:windows"]
 input = ["dep:enigo"]
 sound = ["dep:rodio"]
 midi = ["dep:midir"]
@@ -75,6 +77,12 @@ rodio = { version = "0.23", optional = true, default-features = false, features 
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", optional = true, features = ["Media_Control", "Foundation", "Storage_Streams"] }
 
 [lints.clippy]
 # axum handlers return full responses as errors, and the device link holds a session inline.

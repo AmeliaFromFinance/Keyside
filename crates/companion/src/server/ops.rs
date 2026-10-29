@@ -87,6 +87,10 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             let kind = s(&a, "type")?;
             let field = s(&a, "field")?;
             let settings = a.get("settings").and_then(Value::as_object).cloned().unwrap_or_default();
+            #[cfg(target_os = "linux")]
+            if field == "app" && (kind == crate::actions::appaudio::MUTE || kind == crate::actions::appaudio::VOLUME) {
+                return Ok(json!(crate::actions::appaudio::names().into_iter().map(|n| json!({ "value": n, "label": n })).collect::<Vec<_>>()));
+            }
             let (plugin, action) = kind.split_once('/').ok_or_else(|| OpError::invalid("not a plugin action"))?;
             app.plugins.options(plugin, action, field, &settings).await.map_err(OpError::failed)
         }
