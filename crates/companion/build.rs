@@ -1,0 +1,3 @@
+fn main() {
+    println!("cargo:rustc-env=PHONEDECK_TARGET={}", std::env::var("TARGET").unwrap_or_default());
+}

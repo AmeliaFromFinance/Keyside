@@ -1,0 +1,737 @@
+{
+ "version": 1,
+ "rev": 0,
+ "defaultProfile": "main",
+ "profiles": [
+  {
+   "id": "main",
+   "name": "Main stage",
+   "apps": [],
+   "homePage": "scenes",
+   "pages": [
+    {
+     "id": "scenes",
+     "name": "Main stage",
+     "subtitle": "Scenes and audio",
+     "cols": 3,
+     "rows": 5,
+     "keys": [
+      {
+       "id": "starting",
+       "x": 0,
+       "y": 0,
+       "kind": "button",
+       "label": "Starting Soon",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Starting Soon"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "monitor"
+      },
+      {
+       "id": "chatting",
+       "x": 1,
+       "y": 0,
+       "kind": "button",
+       "label": "Just Chatting",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Just Chatting"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "monitor"
+      },
+      {
+       "id": "gameplay",
+       "x": 2,
+       "y": 0,
+       "kind": "button",
+       "label": "Gameplay",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Gameplay"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "monitor"
+      },
+      {
+       "id": "brb",
+       "x": 0,
+       "y": 1,
+       "kind": "button",
+       "label": "BRB",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "BRB"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "monitor"
+      },
+      {
+       "id": "ending",
+       "x": 1,
+       "y": 1,
+       "kind": "button",
+       "label": "Ending",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Ending"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "monitor"
+      },
+      {
+       "id": "cameras",
+       "x": 2,
+       "y": 1,
+       "kind": "folder",
+       "label": "Cameras",
+       "actions": [],
+       "target": "cameras",
+       "icon": "folder"
+      },
+      {
+       "id": "mic",
+       "x": 0,
+       "y": 2,
+       "kind": "button",
+       "label": "Mic",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Mic/Aux",
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Mic/Aux",
+       "icon": "mic"
+      },
+      {
+       "id": "desktop",
+       "x": 1,
+       "y": 2,
+       "kind": "button",
+       "label": "Desktop audio",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Desktop Audio",
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Input",
+       "icon": "volume-2"
+      },
+      {
+       "id": "music",
+       "x": 2,
+       "y": 2,
+       "kind": "button",
+       "label": "Lo-fi music",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Lo-fi music",
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Input",
+       "icon": "music"
+      },
+      {
+       "id": "record",
+       "x": 0,
+       "y": 3,
+       "kind": "button",
+       "label": "Recording",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/record",
+         "settings": {
+          "mode": "toggle"
+         }
+        }
+       ],
+       "icon": "circle-dot"
+      },
+      {
+       "id": "stream",
+       "x": 1,
+       "y": 3,
+       "kind": "button",
+       "label": "Stream",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/stream",
+         "settings": {
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Hold 1 s to stop",
+       "icon": "radio",
+       "hold": 1000
+      },
+      {
+       "id": "replay",
+       "x": 2,
+       "y": 3,
+       "kind": "button",
+       "label": "Save replay",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/replay",
+         "settings": {
+          "mode": "save"
+         }
+        }
+       ],
+       "icon": "rotate-ccw"
+      },
+      {
+       "id": "hydrate",
+       "x": 0,
+       "y": 4,
+       "kind": "button",
+       "label": "Hydrate",
+       "actions": [
+        {
+         "type": "dev.phonedeck.streamerbot/run",
+         "settings": {
+          "actionName": "Hydrate"
+         }
+        }
+       ],
+       "sub": "Streamer.bot",
+       "icon": "droplet"
+      },
+      {
+       "id": "raid",
+       "x": 1,
+       "y": 4,
+       "kind": "button",
+       "label": "Raid PixelPancake",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Ending"
+         }
+        },
+        {
+         "type": "core.wait",
+         "settings": {
+          "ms": 3000
+         }
+        },
+        {
+         "type": "dev.phonedeck.streamerbot/run",
+         "settings": {
+          "actionName": "Raid out",
+          "args": {
+           "target": "PixelPancake"
+          }
+         }
+        }
+       ],
+       "icon": "layers"
+      },
+      {
+       "id": "shoutout",
+       "x": 2,
+       "y": 4,
+       "kind": "button",
+       "label": "Shoutout",
+       "actions": [
+        {
+         "type": "dev.phonedeck.streamerbot/run",
+         "settings": {
+          "actionName": "Shoutout",
+          "args": {
+           "user": "QuietFern"
+          }
+         }
+        }
+       ],
+       "sub": "QuietFern",
+       "icon": "megaphone"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "name": "Audio",
+     "subtitle": "Levels and timers",
+     "cols": 3,
+     "rows": 5,
+     "keys": [
+      {
+       "id": "mic-vol",
+       "x": 0,
+       "y": 0,
+       "kind": "slider",
+       "label": "Mic",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/volume",
+         "settings": {
+          "input": "Mic/Aux"
+         }
+        }
+       ],
+       "h": 3,
+       "slider": {
+        "min": 0,
+        "max": 1
+       },
+       "icon": "mic"
+      },
+      {
+       "id": "desk-vol",
+       "x": 1,
+       "y": 0,
+       "kind": "slider",
+       "label": "Desktop",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/volume",
+         "settings": {
+          "input": "Desktop Audio"
+         }
+        }
+       ],
+       "h": 3,
+       "slider": {
+        "min": 0,
+        "max": 1
+       },
+       "icon": "volume-2"
+      },
+      {
+       "id": "music-vol",
+       "x": 2,
+       "y": 0,
+       "kind": "slider",
+       "label": "Music",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/volume",
+         "settings": {
+          "input": "Lo-fi music"
+         }
+        }
+       ],
+       "h": 3,
+       "slider": {
+        "min": 0,
+        "max": 1
+       },
+       "icon": "music"
+      },
+      {
+       "id": "mic-mute",
+       "x": 0,
+       "y": 3,
+       "kind": "button",
+       "label": "Mic",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Mic/Aux",
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Mute",
+       "icon": "mic-off"
+      },
+      {
+       "id": "desk-mute",
+       "x": 1,
+       "y": 3,
+       "kind": "button",
+       "label": "Desktop",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Desktop Audio",
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Mute",
+       "icon": "volume-x"
+      },
+      {
+       "id": "music-mute",
+       "x": 2,
+       "y": 3,
+       "kind": "button",
+       "label": "Music",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Lo-fi music",
+          "mode": "toggle"
+         }
+        }
+       ],
+       "sub": "Mute",
+       "icon": "volume-x"
+      },
+      {
+       "id": "timer",
+       "x": 0,
+       "y": 4,
+       "kind": "button",
+       "label": "Break timer",
+       "actions": [
+        {
+         "type": "core.timer",
+         "settings": {
+          "name": "break",
+          "mode": "countdown",
+          "op": "toggle",
+          "seconds": 300
+         }
+        }
+       ],
+       "sub": "5 min",
+       "icon": "timer"
+      },
+      {
+       "id": "mute-all",
+       "x": 1,
+       "y": 4,
+       "kind": "button",
+       "label": "Mute all",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Mic/Aux",
+          "mode": "on"
+         }
+        },
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Desktop Audio",
+          "mode": "on"
+         }
+        },
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Lo-fi music",
+          "mode": "on"
+         }
+        }
+       ],
+       "icon": "volume-x",
+       "hold": 600
+      },
+      {
+       "id": "unmute-all",
+       "x": 2,
+       "y": 4,
+       "kind": "button",
+       "label": "Unmute all",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Mic/Aux",
+          "mode": "off"
+         }
+        },
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Desktop Audio",
+          "mode": "off"
+         }
+        },
+        {
+         "type": "dev.phonedeck.obs/mute",
+         "settings": {
+          "input": "Lo-fi music",
+          "mode": "off"
+         }
+        }
+       ],
+       "icon": "volume-2"
+      }
+     ]
+    },
+    {
+     "id": "chat",
+     "name": "Chat tools",
+     "subtitle": "Twitch and Streamer.bot",
+     "cols": 3,
+     "rows": 5,
+     "keys": [
+      {
+       "id": "chat",
+       "x": 0,
+       "y": 0,
+       "kind": "widget",
+       "label": "Chat",
+       "actions": [],
+       "w": 3,
+       "h": 2,
+       "widget": {
+        "feed": "twitch.chat",
+        "lines": 6
+       },
+       "icon": "message-square"
+      },
+      {
+       "id": "viewers",
+       "x": 0,
+       "y": 2,
+       "kind": "widget",
+       "label": "Viewers",
+       "actions": [],
+       "widget": {
+        "text": "{twitch.viewers}"
+       },
+       "icon": "users"
+      },
+      {
+       "id": "marker",
+       "x": 1,
+       "y": 2,
+       "kind": "button",
+       "label": "Marker",
+       "actions": [
+        {
+         "type": "dev.phonedeck.twitch/marker",
+         "settings": {
+          "description": ""
+         }
+        }
+       ],
+       "sub": "Twitch",
+       "icon": "bookmark"
+      },
+      {
+       "id": "clip",
+       "x": 2,
+       "y": 2,
+       "kind": "button",
+       "label": "Clip that",
+       "actions": [
+        {
+         "type": "dev.phonedeck.twitch/clip",
+         "settings": {}
+        }
+       ],
+       "sub": "Twitch",
+       "icon": "scissors"
+      },
+      {
+       "id": "ad",
+       "x": 0,
+       "y": 3,
+       "kind": "button",
+       "label": "Run ad",
+       "actions": [
+        {
+         "type": "dev.phonedeck.twitch/ad",
+         "settings": {
+          "length": 60
+         }
+        }
+       ],
+       "sub": "Hold 1 s",
+       "icon": "tv",
+       "hold": 1000
+      },
+      {
+       "id": "emote",
+       "x": 1,
+       "y": 3,
+       "kind": "button",
+       "label": "Emote only",
+       "actions": [
+        {
+         "type": "dev.phonedeck.twitch/chat-mode",
+         "settings": {
+          "mode": "emote",
+          "op": "toggle"
+         }
+        }
+       ],
+       "icon": "smile"
+      },
+      {
+       "id": "slow",
+       "x": 2,
+       "y": 3,
+       "kind": "button",
+       "label": "Slow mode",
+       "actions": [
+        {
+         "type": "dev.phonedeck.twitch/chat-mode",
+         "settings": {
+          "mode": "slow",
+          "op": "toggle",
+          "seconds": 10
+         }
+        }
+       ],
+       "icon": "hourglass"
+      },
+      {
+       "id": "first",
+       "x": 0,
+       "y": 4,
+       "kind": "button",
+       "label": "First chatter",
+       "actions": [
+        {
+         "type": "dev.phonedeck.streamerbot/run",
+         "settings": {
+          "actionName": "First chatter"
+         }
+        }
+       ],
+       "sub": "Streamer.bot",
+       "icon": "star"
+      },
+      {
+       "id": "goal",
+       "x": 1,
+       "y": 4,
+       "kind": "widget",
+       "label": "Sub goal",
+       "actions": [],
+       "w": 2,
+       "widget": {
+        "text": "{user.sub_goal}",
+        "progress": "user.sub_goal_progress"
+       },
+       "icon": "target"
+      }
+     ]
+    },
+    {
+     "id": "cameras",
+     "name": "Cameras",
+     "folder": true,
+     "cols": 2,
+     "rows": 3,
+     "keys": [
+      {
+       "id": "cam0",
+       "x": 0,
+       "y": 0,
+       "kind": "button",
+       "label": "Camera 1",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Camera 1"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "video"
+      },
+      {
+       "id": "cam1",
+       "x": 1,
+       "y": 0,
+       "kind": "button",
+       "label": "Camera 2",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Camera 2"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "video"
+      },
+      {
+       "id": "cam2",
+       "x": 0,
+       "y": 1,
+       "kind": "button",
+       "label": "Camera 3",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Camera 3"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "video"
+      },
+      {
+       "id": "cam3",
+       "x": 1,
+       "y": 1,
+       "kind": "button",
+       "label": "Camera 4",
+       "actions": [
+        {
+         "type": "dev.phonedeck.obs/scene",
+         "settings": {
+          "scene": "Camera 4"
+         }
+        }
+       ],
+       "sub": "Scene",
+       "icon": "video"
+      },
+      {
+       "id": "back",
+       "x": 0,
+       "y": 2,
+       "kind": "back",
+       "label": "Back",
+       "actions": []
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

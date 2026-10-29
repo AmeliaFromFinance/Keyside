@@ -61,7 +61,6 @@ pub struct Settings {
     pub hardware_decks: bool,
     pub registry_url: String,
     pub locale: String,
-    pub sound_output: Option<String>,
 }
 
 impl Default for Settings {
@@ -78,7 +77,6 @@ impl Default for Settings {
             hardware_decks: true,
             registry_url: DEFAULT_REGISTRY.into(),
             locale: "en".into(),
-            sound_output: None,
         }
     }
 }
