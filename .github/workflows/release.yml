@@ -18,8 +18,21 @@ env:
   TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
+  # A rebuild starts from a clean draft. Published releases are never touched.
+  draft:
+    name: Clear old draft
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - run: |
+          for id in $(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.draft and .tag_name == \"$TAG\") | .id"); do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id"
+          done
+
   desktop:
     name: Desktop (${{ matrix.target }})
+    needs: draft
     strategy:
       fail-fast: false
       matrix:
@@ -91,6 +104,9 @@ jobs:
 
   android:
     name: Android
+    # After the desktop builds, so both upload into the same draft.
+    needs: desktop
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
