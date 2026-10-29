@@ -1,14 +1,11 @@
-//! Per-app volume and mute on Linux through `pactl`, which PipeWire and PulseAudio both answer.
-//! `pactl subscribe` reports changes, so keys follow what happens in other mixers too.
+//! Per-app volume and mute: `pactl` on Linux (PipeWire and PulseAudio both answer it), Core Audio
+//! sessions on Windows. Keys follow changes made in other mixers too.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
-use std::time::Duration;
 
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
-use tokio::io::AsyncBufReadExt;
-use tokio::process::Command;
 
 use crate::app::App;
 use crate::model::Tone;
@@ -18,8 +15,16 @@ use crate::state::view::ViewPatch;
 pub const MUTE: &str = "core.app-mute";
 pub const VOLUME: &str = "core.app-volume";
 
+#[cfg(target_os = "linux")]
+#[path = "appaudio/pactl.rs"]
+mod backend;
+#[cfg(all(windows, feature = "appaudio"))]
+#[path = "appaudio/wasapi.rs"]
+mod backend;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stream {
+    /// The sink input on Linux, the process on Windows.
     pub index: u32,
     pub name: String,
     pub binary: String,
@@ -43,47 +48,16 @@ struct Seen {
 }
 
 static STATE: std::sync::LazyLock<Mutex<Seen>> = std::sync::LazyLock::new(Mutex::default);
-
-async fn pactl(args: &[&str]) -> Result<String, String> {
-    let out = Command::new("pactl").args(args).stdin(std::process::Stdio::null()).kill_on_drop(true).output().await.map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound { "pactl isn't installed (it comes with pipewire-pulse or pulseaudio-utils)".to_string() } else { e.to_string() }
-    })?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
-}
-
-/// Parses `pactl -f json list sink-inputs`.
-pub fn parse(json: &str) -> Vec<Stream> {
-    let Ok(Value::Array(list)) = serde_json::from_str::<Value>(json) else { return Vec::new() };
-    list.iter()
-        .filter_map(|s| {
-            let props = s.get("properties")?;
-            let prop = |k: &str| props.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
-            let channels: Vec<f64> = s.get("volume")?.as_object()?.values().filter_map(|c| c.get("value").and_then(Value::as_f64)).collect();
-            let volume = channels.iter().copied().fold(0.0, f64::max) / 65536.0;
-            let name = prop("application.name");
-            let binary = prop("application.process.binary");
-            let index = u32::try_from(s.get("index")?.as_u64()?).ok()?;
-            (!name.is_empty() || !binary.is_empty()).then(|| Stream {
-                index,
-                name: if name.is_empty() { binary.clone() } else { name },
-                binary,
-                muted: s.get("mute").and_then(Value::as_bool).unwrap_or(false),
-                volume,
-            })
-        })
-        .collect()
-}
+/// Asks for a fresh look straight after a key changed something.
+static POKE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
 async fn refresh(app: &App) {
-    let streams = match pactl(&["-f", "json", "list", "sink-inputs"]).await {
-        Ok(j) => parse(&j),
-        Err(_) => Vec::new(),
-    };
+    let streams = backend::list().await;
     {
         let mut st = STATE.lock();
+        if st.streams == streams {
+            return;
+        }
         for s in &streams {
             if st.names.len() < 200 {
                 st.names.insert(s.name.clone());
@@ -105,7 +79,7 @@ fn show(app: &App) {
             let name = inst.settings.get("app").and_then(Value::as_str).unwrap_or_default();
             let mine: Vec<&Stream> = streams.iter().filter(|s| s.is(name)).collect();
             let patch = if !available {
-                ViewPatch { disabled: Some(true), sub: Some("Needs pactl".into()), ..Default::default() }
+                ViewPatch { disabled: Some(true), sub: Some(backend::UNAVAILABLE.into()), ..Default::default() }
             } else if mine.is_empty() {
                 ViewPatch { sub: Some("No sound from it".into()), tone: Some(Tone::Muted), ..Default::default() }
             } else {
@@ -161,78 +135,40 @@ pub async fn mute(m: &Map<String, Value>) -> Result<(), String> {
         "off" => false,
         _ => !all_muted,
     };
-    for id in ids {
-        pactl(&["set-sink-input-mute", &id.to_string(), if on { "1" } else { "0" }]).await?;
-    }
+    backend::set_mute(&ids, on).await?;
+    POKE.notify_one();
     Ok(())
 }
 
 /// Sets the app's volume, 0 to 1 for 0 to 100%.
 pub async fn set_volume(m: &Map<String, Value>, value: f64) -> Result<(), String> {
-    let pct = format!("{}%", (value.clamp(0.0, 1.0) * 100.0).round());
-    for id in matching(m)? {
-        pactl(&["set-sink-input-volume", &id.to_string(), &pct]).await?;
-    }
+    backend::set_volume(&matching(m)?, value.clamp(0.0, 1.0)).await?;
+    POKE.notify_one();
     Ok(())
 }
 
 pub fn spawn(app: Arc<App>) {
     tokio::spawn(async move {
-        STATE.lock().available = pactl(&["info"]).await.is_ok();
+        STATE.lock().available = backend::available().await;
         if !STATE.lock().available {
-            tracing::info!("per-app audio is off: pactl not found or no sound server");
+            tracing::info!("per-app audio is off: {}", backend::UNAVAILABLE);
             show(&app);
             return;
         }
         refresh(&app).await;
+        show(&app);
         let mut layout = app.engine.lock().subscribe();
+        let mut watcher = backend::Watcher::new();
         loop {
-            let child = Command::new("pactl").arg("subscribe").stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).kill_on_drop(true).spawn();
-            let Ok(mut child) = child else {
-                tokio::time::sleep(Duration::from_secs(10)).await;
-                continue;
-            };
-            let Some(out) = child.stdout.take() else { continue };
-            let mut lines = tokio::io::BufReader::new(out).lines();
-            loop {
-                tokio::select! {
-                    line = lines.next_line() => match line {
-                        Ok(Some(l)) if l.contains("sink-input") => {
-                            // Changes come in bursts. Read them all, then look once.
-                            tokio::time::sleep(Duration::from_millis(80)).await;
-                            refresh(&app).await;
-                        }
-                        Ok(Some(_)) => {}
-                        _ => break,
-                    },
-                    r = layout.recv() => if matches!(r, Ok(Change::Layout)) { show(&app) },
-                }
+            tokio::select! {
+                _ = watcher.changed() => refresh(&app).await,
+                _ = POKE.notified() => refresh(&app).await,
+                r = layout.recv() => match r {
+                    Ok(Change::Layout) => show(&app),
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                    _ => {}
+                },
             }
-            // The sound server restarted. Try again shortly.
-            let _ = child.kill().await;
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            refresh(&app).await;
         }
     });
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn reads_pactl_json() {
-        let json = r#"[
-            {"index": 42, "mute": false, "volume": {"front-left": {"value": 32768}, "front-right": {"value": 39322}},
-             "properties": {"application.name": "Firefox", "application.process.binary": "firefox"}},
-            {"index": 43, "mute": true, "volume": {"mono": {"value": 65536}},
-             "properties": {"application.process.binary": "spotify"}},
-            {"index": 44, "mute": false, "volume": {}, "properties": {}}
-        ]"#;
-        let s = super::parse(json);
-        assert_eq!(s.len(), 2);
-        assert_eq!((s[0].index, s[0].name.as_str(), s[0].muted), (42, "Firefox", false));
-        assert!((s[0].volume - 0.6).abs() < 0.001, "loudest channel");
-        assert_eq!(s[1].name, "spotify");
-        assert!(s[1].is("Spotify") && s[0].is("firefox") && !s[0].is(""));
-        assert!(super::parse("not json").is_empty());
-    }
 }

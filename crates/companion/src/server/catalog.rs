@@ -10,7 +10,7 @@ pub fn core_actions() -> Value {
                 "op": { "type": "string", "title": "On press", "enum": ["toggle", "next", "previous"], "enumNames": ["Play or pause", "Next track", "Previous track"], "default": "toggle" },
                 "cover": { "type": "boolean", "title": "Show the cover", "default": true } } } }));
         }
-        if cfg!(target_os = "linux") {
+        if cfg!(any(target_os = "linux", all(windows, feature = "appaudio"))) {
             let app = json!({ "type": "string", "title": "App", "x-options": "dynamic", "description": "Apps appear here once they've played sound." });
             list.push(
                 json!({ "id": "core.app-mute", "group": "Media", "name": "Mute an app", "icon": "volume-x", "settings": { "type": "object", "required": ["app"], "properties": {

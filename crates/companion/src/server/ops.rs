@@ -87,7 +87,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             let kind = s(&a, "type")?;
             let field = s(&a, "field")?;
             let settings = a.get("settings").and_then(Value::as_object).cloned().unwrap_or_default();
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
             if field == "app" && (kind == crate::actions::appaudio::MUTE || kind == crate::actions::appaudio::VOLUME) {
                 return Ok(json!(crate::actions::appaudio::names().into_iter().map(|n| json!({ "value": n, "label": n })).collect::<Vec<_>>()));
             }

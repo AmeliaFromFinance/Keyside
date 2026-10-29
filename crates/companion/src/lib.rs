@@ -40,7 +40,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     actions::timers::Timers::spawn_ticker(app.clone());
     #[cfg(feature = "nowplaying")]
     actions::nowplaying::spawn(app.clone());
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
     actions::appaudio::spawn(app.clone());
     focus::spawn(app.clone());
 

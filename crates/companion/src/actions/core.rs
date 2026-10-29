@@ -109,7 +109,7 @@ pub async fn run(app: &App, ctx: &Ctx, a: &Action) -> Res {
         }
         #[cfg(feature = "nowplaying")]
         "core.nowplaying" => super::nowplaying::press(m).await.map(|_| None),
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
         "core.app-mute" => super::appaudio::mute(m).await.map(|_| None),
         // A volume key is a slider. Pressing it does nothing.
         "core.app-volume" => Ok(None),

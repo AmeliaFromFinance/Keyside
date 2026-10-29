@@ -605,7 +605,7 @@ impl Conn {
                     let step = Step { instance: instance_id(&self.profile, &self.page, id, false, n), action: action.to_string(), settings: a.settings.clone() };
                     self.app.plugins.slide(plugin, step, value).await;
                 }
-                #[cfg(target_os = "linux")]
+                #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
                 None if a.kind == crate::actions::appaudio::VOLUME => {
                     let settings = a.settings.clone();
                     tokio::spawn(async move {

@@ -12,7 +12,7 @@ First release.
 - Deck, editor and moderator access levels.
 - Built-in actions: hotkeys, text, media keys, links, apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.
 - Now playing key with track and cover from any player (Linux and Windows), and media.* variables.
-- Per-app mute and volume on Linux.
+- Per-app mute and volume on Linux and Windows.
 - OBS screenshots, split recordings, audio monitoring and a stream health key.
 - Twitch polls, predictions, channel point rewards and shield mode.
 - Discord noise suppression, echo cancellation and automatic gain control.

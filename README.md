@@ -63,7 +63,7 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 
 Built in: hotkeys, typing text, media keys, now playing with cover art (Linux and Windows), open links and apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.
 
-On Linux, keys can also mute an app or set its volume (needs `pactl`, which comes with PipeWire and PulseAudio).
+On Linux and Windows, keys can also mute an app or set its volume. Linux needs `pactl`, which comes with PipeWire and PulseAudio.
 
 Setup for each plugin is in [docs/plugins.md](docs/plugins.md).
 

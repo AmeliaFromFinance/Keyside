@@ -1,6 +1,6 @@
 //! Runs the actions behind a key press.
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
 pub mod appaudio;
 pub mod core;
 pub mod input;

@@ -16,11 +16,13 @@ name = "keyside"
 path = "src/main.rs"
 
 [features]
-default = ["hardware", "input", "sound", "midi", "focus", "nowplaying"]
+default = ["hardware", "input", "sound", "midi", "focus", "nowplaying", "appaudio"]
 hardware = ["dep:elgato-streamdeck", "render"]
 render = ["dep:image", "dep:resvg", "dep:ab_glyph"]
 # Track and cover from any media player (MPRIS on Linux, media controls on Windows).
 nowplaying = ["dep:image", "dep:zbus", "dep:windows"]
+# Per-app volume and mute on Windows. Linux uses pactl and needs nothing extra.
+appaudio = ["dep:windows"]
 input = ["dep:enigo"]
 sound = ["dep:rodio"]
 midi = ["dep:midir"]
@@ -83,7 +85,17 @@ libc = "0.2"
 zbus = { version = "5", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.62", optional = true, features = ["Media_Control", "Foundation", "Storage_Streams"] }
+windows = { version = "0.62", optional = true, features = [
+    "Media_Control",
+    "Foundation",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_Media_Audio",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_System_Threading",
+] }
 
 [lints.clippy]
 # axum handlers return full responses as errors, and the device link holds a session inline.
