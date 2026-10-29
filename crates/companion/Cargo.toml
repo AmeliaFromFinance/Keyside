@@ -17,7 +17,8 @@ path = "src/main.rs"
 
 [features]
 default = ["hardware", "input", "sound", "midi", "focus"]
-hardware = ["dep:elgato-streamdeck", "dep:image", "dep:resvg", "dep:ab_glyph"]
+hardware = ["dep:elgato-streamdeck", "render"]
+render = ["dep:image", "dep:resvg", "dep:ab_glyph"]
 input = ["dep:enigo"]
 sound = ["dep:rodio"]
 midi = ["dep:midir"]

@@ -36,6 +36,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     if let Err(e) = streamdeck::start_all(&app).await {
         tracing::warn!("Stream Deck plugins are off: {e:#}");
     }
+    streamdeck::hardware::spawn(app.clone());
     actions::timers::Timers::spawn_ticker(app.clone());
     focus::spawn(app.clone());
 
