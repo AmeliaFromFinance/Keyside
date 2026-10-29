@@ -70,7 +70,7 @@ fn headers(app: &App, uuid: &str, mime: &str) -> HeaderMap {
     let csp = format!(
         "default-src 'self'; script-src 'self' 'unsafe-inline' https://sdpi-components.dev; style-src 'self' 'unsafe-inline' https://sdpi-components.dev; \
          img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://127.0.0.1:{sd} {}; object-src 'none'; base-uri 'self'; form-action 'none'; \
-         frame-ancestors http://127.0.0.1:{admin} http://localhost:{admin} http://[::1]:{admin}",
+         frame-ancestors http://127.0.0.1:{admin} http://localhost:{admin}",
         hosts.join(" ")
     );
     let mut h = HeaderMap::new();

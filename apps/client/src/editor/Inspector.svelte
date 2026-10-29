@@ -4,6 +4,7 @@
   import Sheet from "../components/Sheet.svelte";
   import IconPicker from "./IconPicker.svelte";
   import SettingsForm from "./SettingsForm.svelte";
+  import SdPanel from "./SdPanel.svelte";
   import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits } from "./state.svelte.ts";
   import { req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
@@ -282,7 +283,11 @@
                 <div class="form">
                   {#if a.review}<p class="warn">{t("Imported step. It won't run until you approve it on the PC.")}</p>{/if}
                   {#if !def}<p class="warn">{t("This action needs a plugin that is not installed.")}</p>{/if}
-                  <SettingsForm schema={def?.settings} values={a.settings} type={a.type} onchange={(v) => editStep(off, i, (s) => (s.settings = v))} />
+                  {#if a.type.startsWith("sd.")}
+                    {#if admin && !off && def}<SdPanel instance="{ed.profile}/{ed.page}/{key.id}/{i}" dirty={ed.dirty} />{:else if def}<p class="muted">{t("Stream Deck plugin settings open in the editor on the PC.")}</p>{/if}
+                  {:else}
+                    <SettingsForm schema={def?.settings} values={a.settings} type={a.type} onchange={(v) => editStep(off, i, (s) => (s.settings = v))} />
+                  {/if}
                 </div>
               {/if}
             </div>
@@ -493,6 +498,10 @@
   .warn {
     margin: 0;
     color: var(--warning);
+  }
+  .form .muted {
+    margin: 0;
+    color: var(--muted);
   }
   .add {
     display: flex;
