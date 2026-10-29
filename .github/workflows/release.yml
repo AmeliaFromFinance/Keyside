@@ -72,7 +72,7 @@ jobs:
             echo "### Installing"
             echo
             echo "- **Windows:** the installer isn't code-signed yet. If SmartScreen warns, choose *More info* then *Run anyway*."
-            echo "- **macOS:** the app isn't notarized yet. Open it once with right-click then *Open*."
+            echo "- **macOS:** the app isn't notarized yet. If macOS blocks the first launch, open *System Settings → Privacy & Security* and choose *Open Anyway*."
             echo "- **Linux:** use the AppImage, or the .deb or .rpm package."
             echo "EOF"
           } >> "$GITHUB_ENV"
