@@ -90,6 +90,8 @@ Equibop doesn't report its state, so keys show what Keyside last sent. If you mu
 1. In VTube Studio: **Settings**, turn on **Start API** (port `8001`).
 2. Save the plugin settings in Keyside. VTube Studio asks to allow Keyside. Click **Allow**.
 
+A **Move a parameter** slider takes that parameter over from face tracking while it's away from its default. Slide it back to the default to hand it back.
+
 ## VNyan
 
 1. In VNyan: **Settings > Misc**, turn on the WebSocket server (port `8000`).
@@ -111,6 +113,8 @@ Equibop doesn't report its state, so keys show what Keyside last sent. If you mu
 2. In Keyside, enter the Voicemeeter PC's address (`127.0.0.1` for this PC). The port is `6980`.
 
 VBAN text can't report state back, so toggle keys follow what Keyside last sent.
+
+**Load preset** needs the full path of a settings file saved from Voicemeeter (**Menu > Save Settings**), on the Voicemeeter PC. **Macro button** presses buttons in Voicemeeter's Macro Buttons app, numbered from 1 in the order they appear there.
 
 ## Elgato Key Light
 

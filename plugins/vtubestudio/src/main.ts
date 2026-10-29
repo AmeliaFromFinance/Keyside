@@ -1,9 +1,9 @@
 // VTube Studio public API. The first connection asks for access inside VTube Studio;
 // the token it grants is kept in the keychain.
 
-import { definePlugin, setting, type Host, type Key } from "@keyside/sdk";
+import { definePlugin, setting, type Host, type Key, type KeyView } from "@keyside/sdk";
 import { Reconnecting, Waiters } from "../../_lib/socket.ts";
-import { errorText, randomId, want } from "../../_lib/util.ts";
+import { clamp01, errorText, randomId, want } from "../../_lib/util.ts";
 
 const PLUGIN = { pluginName: "Keyside", pluginDeveloper: "Keyside" };
 const EXPRESSIONS_EVERY = 4000;
@@ -19,6 +19,16 @@ let hotkeys: Array<{ id: string; name: string }> = [];
 let models: Array<{ id: string; name: string }> = [];
 const expressions = new Map<string, { name: string; active: boolean }>();
 let timer: ReturnType<typeof setInterval> | null = null;
+/** Item file name -> instance ids in the scene. */
+const items = new Map<string, string[]>();
+let itemFiles: string[] = [];
+/** Tracking parameters and their ranges. */
+const params = new Map<string, { min: number; max: number; dflt: number }>();
+/** Parameters a slider has taken over, with the value to keep sending. */
+const held = new Map<string, number>();
+let holdTimer: ReturnType<typeof setInterval> | null = null;
+// VTube Studio hands a parameter back to tracking a second after the last value.
+const HOLD_EVERY = 500;
 
 class VtsError extends Error {
   readonly id: number;
@@ -68,6 +78,29 @@ async function refreshModel() {
   await refreshExpressions();
 }
 
+async function refreshItems() {
+  if (!ready) return;
+  const r = await call("ItemListRequest", { includeAvailableSpots: false, includeItemInstancesInScene: true, includeAvailableItemFiles: true }).catch(() => null);
+  if (!r) return;
+  items.clear();
+  for (const i of r.itemInstancesInScene ?? []) items.set(i.fileName, [...(items.get(i.fileName) ?? []), i.instanceID]);
+  itemFiles = (r.availableItemFiles ?? []).map((f: any) => String(f.fileName));
+  render();
+}
+
+async function refreshParams() {
+  const r = await call("InputParameterListRequest");
+  params.clear();
+  for (const p of [...(r.defaultParameters ?? []), ...(r.customParameters ?? [])]) params.set(p.name, { min: Number(p.min), max: Number(p.max), dflt: Number(p.defaultValue ?? 0) });
+}
+
+/** Keeps sending held values, so tracking doesn't take the parameter back. */
+async function injectHeld() {
+  if (!ready || !held.size) return;
+  const parameterValues = [...held].map(([id, value]) => ({ id, value }));
+  await call("InjectParameterDataRequest", { faceFound: false, mode: "set", parameterValues }).catch(() => {});
+}
+
 async function refreshExpressions() {
   if (!ready || !model.id) return;
   const r = await call("ExpressionStateRequest", { details: false }).catch(() => null);
@@ -77,9 +110,18 @@ async function refreshExpressions() {
   render();
 }
 
-function view(k: Key) {
+function view(k: Key): KeyView | null {
   if (!ready) return { disabled: true };
   const s = k.settings;
+  if (k.action === "item") return items.get(String(s.item ?? ""))?.length ? { tone: "accent", badge: "SHOWN", badgeTone: "accent" } : null;
+  if (k.action === "parameter") {
+    const id = String(s.parameter ?? "");
+    const p = params.get(id);
+    if (params.size && !p) return { disabled: true, sub: "Unknown parameter" };
+    const v = held.get(id);
+    if (v === undefined || !p) return { meta: "Tracking" };
+    return { value: clamp01((v - p.min) / (p.max - p.min || 1)), meta: v.toFixed(2), tone: "accent" };
+  }
   if (k.action === "model") return s.model === model.id ? { tone: "accent" as const, badge: "LOADED", badgeTone: "accent" as const } : null;
   if (k.action === "expression") {
     const e = expressions.get(String(s.expression ?? ""));
@@ -115,6 +157,7 @@ function connect() {
           sock.healthy();
           await call("EventSubscriptionRequest", { eventName: "ModelLoadedEvent", subscribe: true }).catch(() => {});
           await refreshModel();
+          await Promise.all([refreshItems(), refreshParams().catch(() => {})]);
           host.status("connected", model.name || undefined);
           render();
         } catch (e) {
@@ -131,6 +174,7 @@ function connect() {
       message: onMessage,
       close(reason) {
         ready = false;
+        held.clear();
         waiting.failAll(new Error("VTube Studio disconnected"));
         if (!denied) host.status("offline", `Can't reach VTube Studio (${reason}). Is its API turned on?`);
         render();
@@ -158,11 +202,14 @@ export default definePlugin({
     connect();
     timer = setInterval(() => {
       if (host.keys("expression").length) void refreshExpressions();
+      if (host.keys("item").length) void refreshItems();
     }, EXPRESSIONS_EVERY);
+    holdTimer = setInterval(() => void injectHeld(), HOLD_EVERY);
   },
   connectionChanged: connect,
   stop() {
     if (timer) clearInterval(timer);
+    if (holdTimer) clearInterval(holdTimer);
     sock?.stop();
   },
   actions: {
@@ -191,6 +238,54 @@ export default definePlugin({
         connected();
         await refreshExpressions();
         return [...expressions].map(([file, e]) => ({ value: file, label: e.name }));
+      },
+      appear: render,
+    },
+    item: {
+      async press({ settings }) {
+        connected();
+        const file = String(settings.item ?? "");
+        if (!file) throw new Error("Pick an item");
+        const shown = items.get(file) ?? [];
+        if (want(settings.mode ?? "toggle", shown.length > 0)) {
+          if (shown.length) return;
+          await call("ItemLoadRequest", {
+            fileName: file,
+            positionX: Math.max(-1, Math.min(1, Number(settings.x ?? 0))),
+            positionY: Math.max(-1, Math.min(1, Number(settings.y ?? 0))),
+            size: Math.max(0, Math.min(1, Number(settings.size ?? 0.32))),
+            fadeTime: 0.3,
+          });
+        } else if (shown.length) {
+          await call("ItemUnloadRequest", { instanceIDs: shown, unloadAllInScene: false, unloadAllLoadedByThisPlugin: false, allowUnloadingItemsLoadedByUserOrOtherPlugins: true });
+        }
+        await refreshItems();
+      },
+      async options() {
+        connected();
+        await refreshItems();
+        return itemFiles.map((f) => ({ value: f, label: f.replace(/\.[a-z0-9]+$/i, "") }));
+      },
+      appear: render,
+    },
+    parameter: {
+      // Moving the slider takes the parameter over. Back at its default, tracking gets it back.
+      async slide({ settings, value }) {
+        connected();
+        const id = String(settings.parameter ?? "");
+        if (!params.size) await refreshParams();
+        const p = params.get(id);
+        if (!p) throw new Error("Pick a parameter");
+        const v = p.min + clamp01(value) * (p.max - p.min);
+        if (Math.abs(v - p.dflt) <= (p.max - p.min) * 0.02) held.delete(id);
+        else held.set(id, v);
+        await injectHeld();
+        render();
+      },
+      async options() {
+        connected();
+        await refreshParams();
+        return [...params.keys()].sort().map((name) => ({ value: name, label: name }));
       },
       appear: render,
     },

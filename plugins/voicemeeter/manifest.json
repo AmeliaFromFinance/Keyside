@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.voicemeeter",
   "name": "Voicemeeter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "vm",
   "description": "Mute, gain, routing and scripts for Voicemeeter, sent as VBAN text commands. Works over the network too.",
@@ -74,6 +74,37 @@
       "icon": "terminal",
       "description": "Any Voicemeeter script, like Strip[0].Mute=1; Bus[1].Gain=-10;",
       "settings": { "type": "object", "properties": { "script": { "type": "string", "title": "Script", "format": "textarea", "maxLength": 1000 } }, "required": ["script"] }
+    },
+    {
+      "id": "macro",
+      "name": "Macro button",
+      "icon": "mouse-pointer-click",
+      "description": "Presses a button in Voicemeeter's Macro Buttons app. Use Toggle for toggle buttons.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "button": { "type": "integer", "title": "Button number (1 to 80)", "minimum": 1, "maximum": 80, "default": 1 },
+          "mode": { "type": "string", "title": "On press", "enum": ["press", "toggle", "on", "off"], "enumNames": ["Press", "Toggle", "Turn on", "Turn off"], "default": "press" }
+        },
+        "required": ["button"]
+      }
+    },
+    {
+      "id": "preset",
+      "name": "Load preset",
+      "icon": "folder-open",
+      "description": "Loads a settings file you saved from Voicemeeter (Menu > Save Settings).",
+      "settings": { "type": "object", "properties": { "file": { "type": "string", "title": "Preset file (.xml, full path)", "maxLength": 260 } }, "required": ["file"] }
+    },
+    {
+      "id": "recorder",
+      "name": "Recorder",
+      "icon": "disc-3",
+      "description": "Voicemeeter's built-in recorder and player.",
+      "settings": {
+        "type": "object",
+        "properties": { "op": { "type": "string", "title": "On press", "enum": ["play", "stop", "record", "pause"], "enumNames": ["Play", "Stop", "Record", "Pause"], "default": "play" } }
+      }
     }
   ]
 }

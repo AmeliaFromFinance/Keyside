@@ -1,7 +1,7 @@
 import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import plugin, { cleanScript, packet } from "../src/main.ts";
+import plugin, { cleanScript, packet, presetCommand } from "../src/main.ts";
 
 const text = (b64: string) => Buffer.from(b64, "base64").subarray(28).toString();
 
@@ -33,4 +33,26 @@ test("scripts stay plain text", () => {
   assert.equal(cleanScript("Strip[0].Mute=1\nBus[0].Gain=-3"), "Strip[0].Mute=1;Bus[0].Gain=-3");
   assert.throws(() => cleanScript("x\u0000y"));
   assert.throws(() => cleanScript(""));
+});
+
+test("macro buttons, presets and the recorder", async () => {
+  const h = createTestHost(plugin, { connection: { host: "127.0.0.1", port: 6980 } });
+  await h.start();
+  await h.sync([{ id: "b", action: "macro", settings: { button: 3, mode: "toggle" } }]);
+  const sent = () => h.sent.filter((s) => s.method === "udp.send").map((s) => text(s.params.data));
+  await h.press("b", "macro", { button: 3, mode: "press" });
+  assert.deepEqual(sent(), ["Command.Button[2].State=1;", "Command.Button[2].State=0;"]);
+  await h.press("b", "macro", { button: 3, mode: "toggle" });
+  await h.settle();
+  assert.equal(h.view("b")?.badge, "ON");
+  await assert.rejects(h.press("b", "macro", { button: 81 }), /1 to 80/);
+
+  await h.press("p", "preset", { file: "C:\\Users\\Fern\\My Presets\\stream.xml" });
+  assert.equal(sent().at(-1), 'Command.Load="C:\\Users\\Fern\\My Presets\\stream.xml";');
+  assert.throws(() => presetCommand('a.xml";Strip[0].Mute=1;"'), /quotes/);
+  assert.throws(() => presetCommand("C:\\x.txt"), /xml/);
+
+  await h.press("r", "recorder", { op: "record" });
+  assert.equal(sent().at(-1), "Recorder.Record=1;");
+  await h.stop();
 });

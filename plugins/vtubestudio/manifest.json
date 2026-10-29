@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.vtubestudio",
   "name": "VTube Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "vts",
   "description": "Hotkeys, expressions and model switching, with the active model and expressions lit up.",
@@ -46,6 +46,32 @@
       "name": "Load model",
       "icon": "user-round",
       "settings": { "type": "object", "properties": { "model": { "type": "string", "title": "Model", "x-options": "dynamic" } }, "required": ["model"] }
+    },
+    {
+      "id": "item",
+      "name": "Item",
+      "icon": "sparkles",
+      "kind": "toggle",
+      "description": "Shows or hides a prop, sticker or animation.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "item": { "type": "string", "title": "Item", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Show", "Hide"], "default": "toggle" },
+          "x": { "type": "number", "title": "Position left to right (-1 to 1)", "minimum": -1, "maximum": 1, "default": 0 },
+          "y": { "type": "number", "title": "Position bottom to top (-1 to 1)", "minimum": -1, "maximum": 1, "default": 0 },
+          "size": { "type": "number", "title": "Size (0 to 1)", "minimum": 0, "maximum": 1, "default": 0.32 }
+        },
+        "required": ["item"]
+      }
+    },
+    {
+      "id": "parameter",
+      "name": "Move a parameter",
+      "icon": "move",
+      "kind": "slider",
+      "description": "Takes over a tracking parameter, like head tilt. Slide back to its default to hand it back to tracking.",
+      "settings": { "type": "object", "properties": { "parameter": { "type": "string", "title": "Parameter", "x-options": "dynamic" } }, "required": ["parameter"] }
     }
   ],
   "variables": [{ "name": "model", "title": "Current model", "type": "string" }]

@@ -50,12 +50,12 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | Streamer.bot | Run actions and custom triggers, globals as variables, chat and alerts |
 | Twitch | Chat and alerts, markers, clips, ads, chat modes, title and category, shoutouts, raids, polls, predictions, channel point rewards, shield mode |
 | YouTube Live | Chat, Super Chats, members, viewer count, send messages |
-| VTube Studio | Hotkeys, expressions, model switching |
+| VTube Studio | Hotkeys, expressions, model switching, items, sliders that move model parameters |
 | VNyan, Warudo | Trigger node graphs and blueprints |
 | veadotube | Avatar states with thumbnails |
 | Discord | Mute, deafen, push to talk, noise suppression, echo cancellation, voice channels, mic and speaker volume. Equibop on Linux too |
 | Spotify | Now playing with album art, playback, volume, like, playlists |
-| Voicemeeter | Mute, gain, routing and scripts over VBAN |
+| Voicemeeter | Mute, gain, routing, macro buttons, presets, the recorder and scripts over VBAN |
 | Elgato Key Light | Power, brightness, colour temperature, presets |
 | Philips Hue | Rooms, zones, lights, scenes, brightness, colour |
 | Home Assistant | Toggle devices, scenes, scripts, light brightness and colour, thermostats, media players with covers, camera snapshots, any service, live sensor values |

@@ -47,8 +47,32 @@ const ch = (s: Record<string, unknown>) => {
   return `${target}[${index}]`;
 };
 
+/** A preset file path, quoted for Voicemeeter. Quotes and command separators aren't allowed in it. */
+export function presetCommand(path: string): string {
+  const p = path.trim();
+  if (!p) throw new Error("Set the preset file first");
+  if (p.length > 260 || /[";\x00-\x1f]/.test(p)) throw new Error("That path can't contain quotes, ; or control characters");
+  if (!/\.xml$/i.test(p)) throw new Error("Voicemeeter presets are .xml files");
+  return `Command.Load="${p}";`;
+}
+
+const button = (s: Record<string, unknown>) => {
+  const n = Math.round(Number(s.button ?? 1));
+  if (!(n >= 1 && n <= 80)) throw new Error("Macro buttons are numbered 1 to 80");
+  return `Command.Button[${n - 1}].State`;
+};
+
+const RECORDER: Record<string, string> = { play: "Recorder.Play=1;", stop: "Recorder.Stop=1;", record: "Recorder.Record=1;", pause: "Recorder.Pause=1;" };
+
 function view(k: Key): KeyView | null {
   const s = k.settings;
+  if (k.action === "macro") {
+    try {
+      return known.get(button(s)) === true ? { tone: "accent", badge: "ON", badgeTone: "accent" } : null;
+    } catch {
+      return { disabled: true, sub: "Set a button number" };
+    }
+  }
   if (k.action === "mute") return known.get(`${ch(s)}.Mute`) === true ? { tone: "danger", badge: "MUTED", badgeTone: "danger", icon: (k.icon ?? "mic") === "mic" ? "mic-off" : undefined } : null;
   if (k.action === "route") return known.get(`${ch({ index: s.index })}.${s.output ?? "A1"}`) === true ? { tone: "accent", badge: "ON", badgeTone: "accent" } : null;
   if (k.action === "gain") {
@@ -98,5 +122,28 @@ export default definePlugin({
       appear: render,
     },
     script: { press: ({ settings }) => send(cleanScript(String(settings.script ?? ""))) },
+    macro: {
+      async press({ settings }) {
+        const b = button(settings);
+        const mode = String(settings.mode ?? "press");
+        if (mode === "press") {
+          // Like a click: down, then up.
+          await send(`${b}=1;`);
+          await new Promise((r) => setTimeout(r, 120));
+          await send(`${b}=0;`);
+          return;
+        }
+        await setFlag(b, mode);
+      },
+      appear: render,
+    },
+    preset: { press: ({ settings }) => send(presetCommand(String(settings.file ?? ""))) },
+    recorder: {
+      press({ settings }) {
+        const cmd = RECORDER[String(settings.op ?? "play")];
+        if (!cmd) throw new Error("Unknown recorder control");
+        return send(cmd);
+      },
+    },
   },
 });
