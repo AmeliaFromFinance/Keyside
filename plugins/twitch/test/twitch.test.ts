@@ -54,9 +54,8 @@ test("loads the channel, subscribes to events and runs actions", async () => {
     { id: "e", action: "chat-mode", settings: { mode: "emote", op: "toggle" } },
   ]);
   await eventually(() => h.status()?.state === "connected");
-  await eventually(() => h.variable("viewers") === 17);
-  assert.equal(h.variable("followers"), 1200);
-  assert.equal(h.variable("title"), "Cozy");
+  // These load in parallel, so wait for each.
+  await eventually(() => h.variable("viewers") === 17 && h.variable("followers") === 1200 && h.variable("title") === "Cozy");
   await eventually(() => tw.api.hits.filter((x) => x.path === "/eventsub/subscriptions").length >= 10);
   const sub = tw.api.hits.find((x) => x.body?.type === "channel.chat.message")!;
   assert.deepEqual(sub.body.transport, { method: "websocket", session_id: "sess" });

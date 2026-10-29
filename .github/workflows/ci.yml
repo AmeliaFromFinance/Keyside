@@ -19,6 +19,7 @@ jobs:
   web:
     name: Web, SDK and plugins
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,6 +40,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - name: System libraries
@@ -56,6 +58,7 @@ jobs:
   e2e:
     name: End to end
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y libudev-dev libasound2-dev libxdo-dev libdbus-1-dev pkg-config
