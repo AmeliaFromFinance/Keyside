@@ -1,0 +1,9 @@
+{
+  "name": "@phonedeck/protocol",
+  "version": "1.0.0",
+  "description": "PhoneDeck wire protocol: secure channel and message types.",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./channel": "./src/channel.ts" },
+  "scripts": { "test": "node --test test/channel.test.ts" }
+}

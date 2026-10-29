@@ -348,7 +348,10 @@ pub fn expand_net(entries: &[String], conn: &Map<String, Value>) -> Vec<String> 
             };
             match conn.get(&rest[start + 1..end]) {
                 Some(Value::String(v)) => s.push_str(v.trim()),
-                Some(Value::Number(n)) => s.push_str(&n.to_string()),
+                Some(Value::Number(n)) => match n.as_f64() {
+                    Some(f) if f.fract() == 0.0 && (0.0..=65535.0).contains(&f) => s.push_str(&(f as u32).to_string()),
+                    _ => ok = false,
+                },
                 _ => ok = false,
             }
             rest = &rest[end + 1..];

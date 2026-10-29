@@ -1,0 +1,14 @@
+{
+  "name": "@phonedeck/sdk",
+  "version": "1.0.0",
+  "description": "Write PhoneDeck plugins in TypeScript.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "files": ["src", "README.md", "LICENSE"],
+  "keywords": ["phonedeck", "stream deck", "plugin", "obs", "streaming"],
+  "repository": { "type": "git", "url": "git+https://github.com/OWNER/phonedeck.git", "directory": "packages/sdk" }
+}

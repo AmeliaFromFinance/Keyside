@@ -1,0 +1,14 @@
+{
+  "id": "dev.phonedeck.test-probe",
+  "name": "Sandbox probe",
+  "version": "1.0.0",
+  "author": "PhoneDeck tests",
+  "prefix": "probe",
+  "host": "^1.0",
+  "entry": "main.js",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": { "type": "object", "properties": {
+    "host": { "type": "string", "default": "127.0.0.1" },
+    "port": { "type": "integer", "default": 17462 } } },
+  "actions": [{ "id": "noop", "name": "No-op" }]
+}

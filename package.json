@@ -1,0 +1,20 @@
+{
+  "name": "phonedeck",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "build": "pnpm build:plugins && pnpm --filter @phonedeck/client build",
+    "build:plugins": "node scripts/build-plugins.ts",
+    "test": "pnpm test:js && cargo test --workspace",
+    "test:js": "node --test packages/*/test/*.test.ts plugins/*/test/*.test.ts",
+    "test:e2e": "node --test packages/protocol/test/e2e.test.ts packages/protocol/test/sandbox.test.ts",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "pnpm --filter @phonedeck/client dev"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

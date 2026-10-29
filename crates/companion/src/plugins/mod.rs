@@ -575,6 +575,7 @@ fn field_default(f: &manifest::Field) -> Option<Value> {
     use manifest::Field::*;
     match f {
         String { default: Some(d), .. } => Some(Value::String(d.clone())),
+        Integer { default: Some(d), .. } if d.fract() == 0.0 => Some(Value::from(*d as i64)),
         Number { default: Some(d), .. } | Integer { default: Some(d), .. } => serde_json::Number::from_f64(*d).map(Value::Number),
         Boolean { default: Some(d), .. } => Some(Value::Bool(*d)),
         _ => None,
