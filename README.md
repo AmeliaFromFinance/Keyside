@@ -74,6 +74,20 @@ The phone app (Android, iOS) and any modern browser work the same way. In a brow
 
 Away from home? See [remote access](docs/remote-access.md).
 
+### Phone can't connect?
+
+- Both need to be on the same network. Guest Wi-Fi often keeps devices apart.
+- The PC's firewall must allow TCP port 7443:
+
+| System | Command or setting |
+| --- | --- |
+| Windows | Allow Keyside when Windows asks, and set your network to *Private* |
+| macOS | *System Settings → Network → Firewall → Options*: allow Keyside |
+| Ubuntu, Mint (ufw) | `sudo ufw allow 7443/tcp` |
+| Fedora, openSUSE (firewalld) | `sudo firewall-cmd --permanent --add-port=7443/tcp && sudo firewall-cmd --reload` |
+
+To test, open `https://<PC address>:7443` in the phone's browser. A certificate warning means the network is fine.
+
 ## Build from source
 
 You need Rust 1.88+, Node.js 22+ and pnpm 10.

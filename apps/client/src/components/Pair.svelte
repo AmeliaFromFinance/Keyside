@@ -21,18 +21,20 @@
   let name = $state(deviceName());
   let started = $state(false);
   let problem = $state("");
+  let problemVars = $state<Record<string, string | number>>({});
 
   const reasons: Record<string, string> = {
     "pairing-expired": mark("This code expired or was already used. Make a new one on your PC."),
     "wrong-companion": mark("This code belongs to a different PC."),
     "bad-proof": mark("The code did not match. Scan it again."),
     denied: mark("Pairing was turned down on the PC."),
-    unreachable: mark("Can't reach your PC. Make sure both are on the same network."),
+    unreachable: mark("Can't reach your PC at {addresses}. Check that both are on the same network and that the PC's firewall allows port {port}."),
   };
 
   $effect(() => {
     if (started && deck.conn.s === "closed") {
       problem = reasons[deck.conn.reason] ?? mark("Pairing stopped. Try again.");
+      problemVars = pending ? { addresses: pending.hosts.join(", "), port: pending.port } : {};
       started = false;
     }
   });
@@ -99,7 +101,7 @@
     </details>
   {/if}
 
-  {#if problem}<p class="problem" role="alert">{t(problem)}</p>{/if}
+  {#if problem}<p class="problem" role="alert">{t(problem, problemVars)}</p>{/if}
 
   {#if saved.length && !started}
     <section class="saved">

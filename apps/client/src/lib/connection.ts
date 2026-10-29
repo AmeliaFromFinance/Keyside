@@ -89,7 +89,7 @@ export class Connection {
       const timer = setTimeout(() => {
         ws.close();
         reject(new Error("timeout"));
-      }, 4000);
+      }, 6000);
       ws.onopen = () => {
         clearTimeout(timer);
         resolve(ws);
@@ -101,20 +101,22 @@ export class Connection {
     });
   }
 
+  /** Tries every address at once (a PC often has several) and keeps the first that answers. */
+  async #openAny(urls: string[]): Promise<WebSocket | null> {
+    const tries = urls.map((u) => this.#open(u));
+    try {
+      const ws = await Promise.any(tries);
+      for (const t of tries) void t.then((other) => other !== ws && other.close(), () => {});
+      return ws;
+    } catch {
+      return null;
+    }
+  }
+
   async #connect() {
     if (this.#stopped) return;
     this.onState({ s: "connecting", attempt: this.#retry });
-    let ws: WebSocket | null = null;
-    let usedHost = "";
-    for (const url of this.#urls()) {
-      try {
-        ws = await this.#open(url);
-        usedHost = new URL(url).hostname;
-        break;
-      } catch {
-        /* try the next address */
-      }
-    }
+    const ws = await this.#openAny(this.#urls());
     if (!ws) return this.#closed("unreachable", true);
     this.#ws = ws;
     try {
@@ -123,7 +125,6 @@ export class Connection {
       } else {
         await this.#handshake(ws);
         if (this.#target.kind === "device") void companions.touch(this.#target.companion.cid);
-        void usedHost;
       }
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);

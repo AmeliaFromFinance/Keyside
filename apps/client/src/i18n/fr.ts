@@ -37,7 +37,7 @@ export default {
   "Button palette": "Palette de boutons",
   "By {author}": "Par {author}",
   "Camera is not available. Allow camera access, or paste the pairing link instead.": "La caméra n'est pas disponible. Autorisez l'accès à la caméra ou collez le lien d'appairage.",
-  "Can't reach your PC. Make sure both are on the same network.": "Impossible de joindre votre PC. Vérifiez que les deux sont sur le même réseau.",
+  "Can't reach your PC at {addresses}. Check that both are on the same network and that the PC's firewall allows port {port}.": "Impossible de joindre votre PC à {addresses}. Vérifiez que les deux sont sur le même réseau et que le pare-feu du PC autorise le port {port}.",
   "Cancel": "Annuler",
   "Certificate": "Certificat",
   "Certificate (browsers show this)": "Certificat (affiché par les navigateurs)",

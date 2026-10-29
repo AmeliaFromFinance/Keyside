@@ -168,7 +168,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             Ok(json!({
                 "name": st.name,
                 "version": env!("CARGO_PKG_VERSION"),
-                "addresses": *app.addresses.read(),
+                "addresses": super::local_addresses(),
                 "lanPort": st.lan_port,
                 "adminPort": st.admin_port,
                 "fingerprint": *app.tls_fingerprint.read(),

@@ -17,17 +17,28 @@ use serde_json::{Value, json};
 
 use crate::app::App;
 
-/// Private LAN, link-local, Tailscale/CGNAT and loopback addresses of this PC.
+/// Bridges for containers and virtual machines. Phones can't reach them.
+fn is_virtual(name: &str) -> bool {
+    const PARTS: [&str; 4] = ["(wsl", "(default switch)", "virtualbox host-only", "vmware network adapter"];
+    const PREFIXES: [&str; 12] = ["docker", "br-", "virbr", "veth", "vmnet", "vboxnet", "lxcbr", "lxdbr", "podman", "cni", "flannel", "cali"];
+    let n = name.to_ascii_lowercase();
+    // Windows Hyper-V adapters start with "vEthernet" and can be the real network.
+    if n.starts_with("vethernet") {
+        return PARTS.iter().any(|p| n.contains(p));
+    }
+    PREFIXES.iter().any(|p| n.starts_with(p)) || PARTS.iter().any(|p| n.contains(p))
+}
+
+/// Private LAN, Tailscale/CGNAT and unique local IPv6 addresses of this PC, real networks first.
 pub fn local_addresses() -> Vec<IpAddr> {
-    let mut v: Vec<IpAddr> = if_addrs::get_if_addrs()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|i| i.ip())
-        .filter(|ip| match ip {
-            IpAddr::V4(v4) => v4.is_private() || v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]),
-            IpAddr::V6(v6) => (v6.segments()[0] & 0xfe00) == 0xfc00,
-        })
-        .collect();
+    let wanted = |ip: &IpAddr| match ip {
+        IpAddr::V4(v4) => v4.is_private() || v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]),
+        IpAddr::V6(v6) => (v6.segments()[0] & 0xfe00) == 0xfc00,
+    };
+    let all: Vec<_> = if_addrs::get_if_addrs().unwrap_or_default().into_iter().filter(|i| wanted(&i.ip())).collect();
+    let real: Vec<IpAddr> = all.iter().filter(|i| !is_virtual(&i.name)).map(|i| i.ip()).collect();
+    // Keep the virtual ones only when there is nothing else.
+    let mut v = if real.is_empty() { all.iter().map(|i| i.ip()).collect() } else { real };
     v.sort_by_key(|ip| match ip {
         IpAddr::V4(v4) if v4.octets()[0] == 192 => 0,
         IpAddr::V4(v4) if v4.octets()[0] == 10 => 1,
@@ -42,7 +53,10 @@ pub fn local_addresses() -> Vec<IpAddr> {
 /// What the pairing QR code holds. The link opens the browser deck; the native app reads
 /// the same fragment. The fragment never reaches any server.
 pub fn pairing_payload(app: &App, pid: &str, code: &str) -> Value {
-    let mut hosts: Vec<String> = app.addresses.read().iter().map(|ip| if ip.is_ipv6() { format!("[{ip}]") } else { ip.to_string() }).collect();
+    // Read fresh: the PC may have joined a network or changed address since Keyside started.
+    let addrs = local_addresses();
+    *app.addresses.write() = addrs.clone();
+    let mut hosts: Vec<String> = addrs.iter().map(|ip| if ip.is_ipv6() { format!("[{ip}]") } else { ip.to_string() }).collect();
     if hosts.is_empty() {
         // No private network found: only devices on this PC can connect.
         hosts.push("127.0.0.1".into());
@@ -80,4 +94,19 @@ pub async fn start(app: Arc<App>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_virtual;
+
+    #[test]
+    fn skips_container_and_vm_bridges_only() {
+        for n in ["docker0", "br-3f2a", "virbr0", "veth12ab", "vboxnet0", "vEthernet (WSL (Hyper-V firewall))", "vEthernet (Default Switch)", "VMware Network Adapter VMnet8"] {
+            assert!(is_virtual(n), "{n}");
+        }
+        for n in ["eth0", "enp3s0", "wlan0", "wlp2s0", "br0", "tailscale0", "Wi-Fi", "Ethernet", "vEthernet (External)"] {
+            assert!(!is_virtual(n), "{n}");
+        }
+    }
 }
