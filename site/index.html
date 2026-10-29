@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PhoneDeck: your phone is the stream deck</title>
+    <meta name="description" content="Switch scenes, mute mics and run Streamer.bot actions from any phone, tablet or browser. Free, open source, and everything stays on your own network." />
+    <meta name="theme-color" content="#121118" />
+    <meta property="og:title" content="PhoneDeck" />
+    <meta property="og:description" content="Your phone is the stream deck. Free, open source and private." />
+    <meta property="og:image" content="https://phonedeck.sinist3r.lol/images/phone.png" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="site.css" />
+    <script src="deck.js" defer></script>
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28" />PhoneDeck</a>
+      <nav>
+        <a href="docs/plugins/">Docs</a>
+        <a href="{{repo}}">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="pitch">
+          <h1>Your phone is the stream&nbsp;deck.</h1>
+          <p class="lede">Switch scenes, mute mics, start the recording and run Streamer.bot actions from any phone, tablet or browser. Free, open source, and it all stays on your own network.</p>
+          <div class="cta">
+            <a class="btn primary" href="{{repo}}/releases/latest">Download for your PC</a>
+            <a class="btn" href="{{repo}}">Source on GitHub</a>
+          </div>
+          <p class="fine">Windows, macOS and Linux on the PC. Android, iOS or any browser on the deck.</p>
+        </div>
+
+        <figure class="demo" aria-label="A working sample deck">
+          <div class="device">
+            <div class="status">
+              <span class="dot ok"></span>
+              <span class="host"><b>Studio PC</b></span>
+              <span class="pills">
+                <span class="pill" data-pill="rec" hidden>REC <span class="mono" data-clock="rec"></span></span>
+                <span class="pill" data-pill="live" hidden>LIVE <span class="mono" data-clock="live"></span></span>
+              </span>
+            </div>
+            <div class="grid" id="deck">
+              <button class="key" data-scene="Starting Soon"><i class="ic ic-monitor"></i><span class="label">Starting Soon</span><span class="sub">Scene</span></button>
+              <button class="key on" data-scene="Just Chatting"><i class="ic ic-monitor"></i><span class="badge">ON AIR</span><span class="label">Just Chatting</span><span class="sub">Scene</span></button>
+              <button class="key" data-scene="Gameplay"><i class="ic ic-monitor"></i><span class="label">Gameplay</span><span class="sub">Scene</span></button>
+              <button class="key" data-mute="mic"><i class="ic ic-mic"></i><span class="label">Mic</span><span class="sub">Mic/Aux</span></button>
+              <button class="key" data-mute="desk"><i class="ic ic-volume"></i><span class="label">Desktop audio</span><span class="sub">Input</span></button>
+              <button class="key" data-mute="music"><i class="ic ic-music"></i><span class="label">Lo-fi music</span><span class="sub">Input</span></button>
+              <button class="key" data-output="rec"><i class="ic ic-rec"></i><span class="label">Record</span><span class="sub">Off</span></button>
+              <button class="key" data-output="live"><i class="ic ic-live"></i><span class="label">Go live</span><span class="sub">Off</span></button>
+              <button class="key" data-replay><i class="ic ic-replay"></i><span class="label">Save replay</span><span class="sub">Buffer on</span></button>
+            </div>
+          </div>
+          <figcaption>Try it. These keys behave like the real ones do with OBS.</figcaption>
+        </figure>
+      </section>
+
+      <section class="steps">
+        <h2>Set up in three steps</h2>
+        <ol>
+          <li>
+            <h3>Install it on your PC</h3>
+            <p>PhoneDeck sits in the tray and opens the editor. Nothing to sign up for.</p>
+          </li>
+          <li>
+            <h3>Scan the code with your phone</h3>
+            <p>Check that both screens show the same six digits, then approve. That device is now paired, encrypted end to end.</p>
+          </li>
+          <li>
+            <h3>Drag actions onto keys</h3>
+            <p>Push to your phones and press away. Layouts adapt to portrait, landscape, tablets and desktop browsers.</p>
+          </li>
+        </ol>
+        <img class="shot" src="images/editor.png" alt="The PhoneDeck editor: an action palette, a live preview of the deck and key settings" loading="lazy" width="1440" height="900" />
+      </section>
+
+      <section class="apps">
+        <h2>Works with what you stream with</h2>
+        <p class="lede">Keys show live state from your apps: which scene is on air, who's muted, how long you've been recording.</p>
+        <ul class="names">
+          <li>OBS Studio</li>
+          <li>Streamlabs Desktop</li>
+          <li>Streamer.bot</li>
+          <li>Twitch</li>
+          <li>YouTube Live</li>
+          <li>VTube Studio</li>
+          <li>VNyan</li>
+          <li>Warudo</li>
+          <li>veadotube</li>
+          <li>Discord</li>
+          <li>Spotify</li>
+          <li>Voicemeeter</li>
+          <li>Elgato Key Light</li>
+          <li>Philips Hue</li>
+          <li>Home Assistant</li>
+        </ul>
+        <p>Plus hotkeys, typing, media keys, apps, sounds, timers, webhooks, OSC, MIDI and more, built in.</p>
+        <div class="split">
+          <div>
+            <h3>Already own a Stream Deck?</h3>
+            <p>Plug it in and it shows the same layout as your phone. Plugins made for Elgato's Stream Deck app install too, settings pages and all.</p>
+            <a href="docs/stream-deck-plugins/">How Stream Deck plugins work</a>
+          </div>
+          <div>
+            <h3>Missing something?</h3>
+            <p>Write a plugin in TypeScript, or let your own tools press keys and change them over the HTTP API.</p>
+            <a href="docs/plugin-guide/">Writing plugins</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="private">
+        <h2>Private by design</h2>
+        <div class="split three">
+          <div>
+            <h3>No account, no cloud</h3>
+            <p>Your phone talks straight to your PC. Nothing is sent to us, and there's no telemetry.</p>
+          </div>
+          <div>
+            <h3>Pairing you can check</h3>
+            <p>Single-use QR codes, a code to compare on both screens, approval on the PC and an optional PIN.</p>
+          </div>
+          <div>
+            <h3>Plugins in a sandbox</h3>
+            <p>Plugins can't read your files or start programs, and only reach the addresses you allow.</p>
+          </div>
+        </div>
+        <p><a href="docs/privacy/">Privacy</a> and <a href="docs/security/">how PhoneDeck stays secure</a>.</p>
+      </section>
+    </main>
+
+    <footer>
+      <p>PhoneDeck is free software under the <a href="{{repo}}/blob/main/LICENSE">GPL-3.0</a>. The plugin SDK is MIT.</p>
+      <p>Not affiliated with Elgato, OBS or any app it works with.</p>
+    </footer>
+  </body>
+</html>

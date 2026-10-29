@@ -9,6 +9,7 @@
   "scripts": {
     "build": "pnpm build:plugins && pnpm --filter @phonedeck/client build",
     "build:plugins": "node scripts/build-plugins.ts",
+    "build:site": "node scripts/build-site.ts",
     "test": "pnpm test:js && pnpm test:e2e && cargo test --workspace",
     "test:js": "node --test packages/protocol/test/channel.test.ts packages/sdk/test/*.test.ts plugins/*/test/*.test.ts apps/client/test/*.test.ts",
     "test:e2e": "node --test --test-concurrency=1 packages/protocol/test/e2e.test.ts packages/protocol/test/sandbox.test.ts packages/protocol/test/streamdeck.test.ts",
@@ -19,6 +20,7 @@
     "@types/node": "^26.6.6",
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
+    "marked": "^16.4.2",
     "typescript": "^7.0.2",
     "ws": "^8.22.0"
   }

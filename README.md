@@ -6,7 +6,8 @@
 
 <p align="center">
   Turn a phone, tablet or browser into a stream deck.<br />
-  Free, open source, and private by design.
+  Free, open source, and private by design.<br />
+  <a href="https://phonedeck.sinist3r.lol">phonedeck.sinist3r.lol</a>
 </p>
 
 <p align="center">
