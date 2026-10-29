@@ -210,6 +210,7 @@ export default {
   "Output": "Sortie",
   "PIN for this phone": "Code PIN pour ce téléphone",
   "Page": "Page",
+  "Page and key id, for the HTTP API": "ID de page et de touche, pour l'API HTTP",
   "Page name": "Nom de la page",
   "Page settings": "Réglages de la page",
   "Page {n} of {count}": "Page {n} sur {count}",

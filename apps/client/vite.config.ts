@@ -13,6 +13,6 @@ export default defineConfig({
   },
   server: {
     // `pnpm dev` talks to a running companion on the default editor port.
-    proxy: { "/admin": { target: "http://127.0.0.1:7442", ws: true, headers: { origin: "http://127.0.0.1:7442" } } },
+    proxy: { "/admin": { target: "http://127.0.0.1:7442", ws: true, changeOrigin: true, headers: { origin: "http://127.0.0.1:7442" } } },
   },
 });

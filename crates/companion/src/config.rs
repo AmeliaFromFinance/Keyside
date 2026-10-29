@@ -8,7 +8,7 @@ use crate::{ids, store};
 
 pub const DEFAULT_ADMIN_PORT: u16 = 7442;
 pub const DEFAULT_LAN_PORT: u16 = 7443;
-pub const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/phonedeck/registry/main/index.json";
+pub const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/OWNER/phonedeck/main/registry/index.json";
 
 #[derive(Debug, Clone)]
 pub struct Paths {

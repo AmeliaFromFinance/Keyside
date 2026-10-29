@@ -156,6 +156,7 @@
       <div>
         <h2>{key.label || t("Untitled key")}</h2>
         {#if key.actions.length > 1}<span class="tag">{t("Multi-action")}</span>{/if}
+        <span class="ref mono" title={t("Page and key id, for the HTTP API")}>{ed.page}/{key.id}</span>
       </div>
       <button class="btn" onclick={test} disabled={!key.actions.length || testing}><Icon name="play" size={16} />{testing ? t("Running…") : t("Test run")}</button>
     </header>
@@ -498,6 +499,13 @@
   .warn {
     margin: 0;
     color: var(--warning);
+  }
+  .ref {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: var(--dim);
+    user-select: all;
   }
   .form .muted {
     margin: 0;
