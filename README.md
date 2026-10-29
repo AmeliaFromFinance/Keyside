@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/OWNER/phonedeck/actions/workflows/ci.yml"><img src="https://github.com/OWNER/phonedeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/AmeliaFromFinance/phonedeck/actions/workflows/ci.yml"><img src="https://github.com/AmeliaFromFinance/phonedeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0" /></a>
 </p>
 
@@ -65,7 +65,7 @@ Setup for each plugin is in [docs/plugins.md](docs/plugins.md).
 
 ## Get started
 
-1. **Install PhoneDeck on your PC** from the [releases page](https://github.com/OWNER/phonedeck/releases). It starts in the tray and opens the editor.
+1. **Install PhoneDeck on your PC** from the [releases page](https://github.com/AmeliaFromFinance/phonedeck/releases). It starts in the tray and opens the editor.
 2. **Pair your phone.** In the editor, choose *Pair a phone* and scan the QR code. Check the 6-digit code matches on both screens, then approve.
 3. **Build your deck.** Drag actions onto keys and press *Push to phones*.
 

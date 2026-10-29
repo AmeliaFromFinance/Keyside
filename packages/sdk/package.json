@@ -10,5 +10,5 @@
   },
   "files": ["src", "README.md", "LICENSE"],
   "keywords": ["phonedeck", "stream deck", "plugin", "obs", "streaming"],
-  "repository": { "type": "git", "url": "git+https://github.com/OWNER/phonedeck.git", "directory": "packages/sdk" }
+  "repository": { "type": "git", "url": "git+https://github.com/AmeliaFromFinance/phonedeck.git", "directory": "packages/sdk" }
 }

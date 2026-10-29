@@ -2,7 +2,7 @@
 
 ## Reporting a problem
 
-Please report security issues privately through [GitHub security advisories](https://github.com/OWNER/phonedeck/security/advisories/new), not in public issues.
+Please report security issues privately through [GitHub security advisories](https://github.com/AmeliaFromFinance/phonedeck/security/advisories/new), not in public issues.
 
 Include what you found, how to reproduce it, and what an attacker could do with it. You'll get a reply within a week. Fixes go out as soon as they're ready, and you'll be credited unless you'd rather not be.
 

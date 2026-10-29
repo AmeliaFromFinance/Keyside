@@ -1,6 +1,6 @@
 # @phonedeck/sdk
 
-Write [PhoneDeck](https://github.com/OWNER/phonedeck) plugins in TypeScript.
+Write [PhoneDeck](https://github.com/AmeliaFromFinance/phonedeck) plugins in TypeScript.
 
 ```sh
 npm create phonedeck-plugin my-plugin
@@ -26,6 +26,6 @@ Test without PhoneDeck:
 import { createTestHost } from "@phonedeck/sdk/testing";
 ```
 
-Full guide: [docs/plugin-guide.md](https://github.com/OWNER/phonedeck/blob/main/docs/plugin-guide.md)
+Full guide: [docs/plugin-guide.md](https://github.com/AmeliaFromFinance/phonedeck/blob/main/docs/plugin-guide.md)
 
 MIT licensed.
