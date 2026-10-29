@@ -201,7 +201,7 @@
     justify-content: space-between;
     min-width: 0;
     min-height: 0;
-    padding: clamp(10px, 9cqmin, 22px);
+    padding: clamp(7px, 9cqmin, 22px);
     border-radius: var(--radius);
     background: var(--surface);
     border: 1px solid var(--line-soft);
@@ -304,6 +304,10 @@
     line-height: 1;
     padding: 0.35em 0;
     color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
   .badge.filled {
     padding: 0.45em 0.7em;
@@ -343,7 +347,7 @@
   }
   .label {
     font-weight: 600;
-    font-size: clamp(12px, 11.5cqmin, 20px);
+    font-size: clamp(10px, 11.5cqmin, 20px);
     line-height: 1.2;
     width: 100%;
     overflow-wrap: break-word;
@@ -364,6 +368,12 @@
   }
   @container (max-height: 56px) {
     .sub {
+      display: none;
+    }
+  }
+  /* Narrow keys: a filled badge like ON AIR matters more than the icon. */
+  @container (max-width: 120px) {
+    .top:has(.badge.filled) .icon {
       display: none;
     }
   }

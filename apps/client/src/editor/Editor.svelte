@@ -131,10 +131,13 @@
     ed.error = t("No free cell for the recorded key. Make room and record again.");
   }
 
+  const usedPlugins = $derived(
+    new Set(ed.layout?.profiles.flatMap((pr) => pr.pages.flatMap((pg) => pg.keys.flatMap((k) => [...k.actions, ...(k.offActions ?? [])].map((a) => a.type.split("/")[0])))) ?? []),
+  );
   const pills = $derived(
     plugins
-      .filter((p) => p.status !== "disabled")
-      .slice(0, 4)
+      .filter((p) => p.status !== "disabled" && usedPlugins.has(p.id))
+      .slice(0, 3)
       .map((p) => ({ ...p, port: typeof p.values?.port === "number" ? p.values.port : null })),
   );
 </script>
@@ -280,11 +283,17 @@
   .pills {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
   .pills .chip {
     background: var(--bg);
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .port {
     color: var(--muted);

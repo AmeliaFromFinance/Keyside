@@ -150,6 +150,8 @@ impl Engine {
         }
         self.layout = new;
         self.notify(Change::Layout);
+        // Which plugin connections show depends on the layout.
+        self.notify(Change::Status);
         Ok(self.layout.rev)
     }
 
@@ -286,19 +288,24 @@ impl Engine {
     /// Replaces every status pill owned by `owner` (up to three).
     pub fn set_pills(&mut self, owner: &str, pills: Vec<Pill>) {
         let prefix = format!("{owner}#");
+        // Each pill gets its own id, so clients can tell them apart.
+        let pills: Vec<Pill> = pills.into_iter().take(3).enumerate().map(|(i, p)| Pill { id: format!("{prefix}{i}"), ..p }).collect();
         let before: Vec<Pill> = self.pills.iter().filter(|(k, _)| k.starts_with(&prefix)).map(|(_, v)| v.clone()).collect();
         if before == pills {
             return;
         }
         self.pills.retain(|k, _| !k.starts_with(&prefix));
-        for (i, p) in pills.into_iter().take(3).enumerate() {
-            self.pills.insert(format!("{prefix}{i}"), p);
+        for p in pills {
+            self.pills.insert(p.id.clone(), p);
         }
         self.notify(Change::Status);
     }
 
+    /// Connections of plugins the layout uses, and every status pill.
     pub fn status(&self) -> (Vec<ConnectionView>, Vec<Pill>) {
-        (self.connections.values().cloned().collect(), self.pills.values().cloned().collect())
+        debug_assert!(self.pills.iter().all(|(k, p)| *k == p.id));
+        let used: HashSet<&str> = all_keys(&self.layout).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).filter_map(|a| a.plugin().map(|(id, _)| id)).collect();
+        (self.connections.values().filter(|c| used.contains(c.id.as_str())).cloned().collect(), self.pills.values().cloned().collect())
     }
 
     /// Flips a toggle key and returns its new state.
@@ -481,6 +488,15 @@ mod tests {
         assert!(e.page_view(&p, &pages[0], FormFactor::PhonePortrait, Some(&allowed)).is_some());
         assert!(e.page_view(&p, &pages[1], FormFactor::PhonePortrait, Some(&allowed)).is_none());
         assert_eq!(e.page_view(&p, &pages[0], FormFactor::PhonePortrait, Some(&allowed)).unwrap().count, 1);
+    }
+
+    #[test]
+    fn status_pills_have_unique_ids() {
+        let (_t, mut e) = engine();
+        let pill = |label: &str| Pill { id: "obs".into(), label: label.into(), tone: Tone::Danger, since: None };
+        e.set_pills("obs", vec![pill("REC"), pill("LIVE")]);
+        let (_, pills) = e.status();
+        assert_eq!(pills.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["obs#0", "obs#1"]);
     }
 
     #[test]
