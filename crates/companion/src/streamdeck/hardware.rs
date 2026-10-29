@@ -64,10 +64,7 @@ mod imp {
 
     pub fn spawn(app: Arc<App>) {
         let rt = tokio::runtime::Handle::current();
-        std::thread::Builder::new()
-            .name("stream-deck-scan".into())
-            .spawn(move || scan(app, rt))
-            .ok();
+        std::thread::Builder::new().name("stream-deck-scan".into()).spawn(move || scan(app, rt)).ok();
     }
 
     struct Open {
@@ -103,6 +100,8 @@ mod imp {
                             continue;
                         }
                         let deck = match StreamDeck::connect(&hid, kind, &serial) {
+                            // Only this thread touches the device; the reader API needs an Arc.
+                            #[allow(clippy::arc_with_non_send_sync)]
                             Ok(d) => Arc::new(d),
                             Err(e) => {
                                 tracing::warn!("couldn't open {} ({serial}): {e}", name(kind));
@@ -408,7 +407,13 @@ mod imp {
                 (key.actions.clone(), false)
             };
             self.app.recorder.record(&list);
-            self.app.notify(Change::Pressed { profile: self.profile.clone(), page: self.page.clone(), key: id.to_string(), label: key.label.clone(), device: name(self.kind).into() });
+            self.app.notify(Change::Pressed {
+                profile: self.profile.clone(),
+                page: self.page.clone(),
+                key: id.to_string(),
+                label: key.label.clone(),
+                device: name(self.kind).into(),
+            });
             if list.is_empty() {
                 return;
             }

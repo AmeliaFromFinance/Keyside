@@ -149,9 +149,7 @@ fn derive(psk: &[u8], shared: &[u8], transcript: &[u8]) -> Derived {
     lp(&mut info, format!("{PROTOCOL} keys").as_bytes());
     info.extend_from_slice(&th);
     let mut okm = [0u8; 128];
-    Hkdf::<Sha256>::new(Some(psk), shared)
-        .expand(&info, &mut okm)
-        .expect("128 bytes is a valid hkdf length");
+    Hkdf::<Sha256>::new(Some(psk), shared).expand(&info, &mut okm).expect("128 bytes is a valid hkdf length");
     let mut d = Derived { th, c2s: [0; 32], s2c: [0; 32], mac_s: [0; 32], mac_c: [0; 32], sas: String::new() };
     d.c2s.copy_from_slice(&okm[0..32]);
     d.s2c.copy_from_slice(&okm[32..64]);
@@ -311,10 +309,7 @@ impl Session {
         }
         let ctr = self.send_ctr;
         let n = Self::nonce(ctr);
-        let ct = self
-            .send
-            .encrypt(&Nonce::from(n), Payload { msg: plain, aad: &[self.send_dir] })
-            .map_err(|_| ChannelError::BadFrame)?;
+        let ct = self.send.encrypt(&Nonce::from(n), Payload { msg: plain, aad: &[self.send_dir] }).map_err(|_| ChannelError::BadFrame)?;
         if ct.len() + 8 > MAX_FRAME {
             return Err(ChannelError::BadFrame);
         }
@@ -335,10 +330,7 @@ impl Session {
             return Err(ChannelError::BadFrame);
         }
         let n = Self::nonce(ctr);
-        let pt = self
-            .recv
-            .decrypt(&Nonce::from(n), Payload { msg: &frame[8..], aad: &[self.recv_dir] })
-            .map_err(|_| ChannelError::BadFrame)?;
+        let pt = self.recv.decrypt(&Nonce::from(n), Payload { msg: &frame[8..], aad: &[self.recv_dir] }).map_err(|_| ChannelError::BadFrame)?;
         self.recv_ctr += 1;
         Ok(pt)
     }
@@ -370,22 +362,11 @@ mod tests {
             let psk = unb64(c["psk"].as_str().unwrap(), None).unwrap();
             let cid = unb64(c["cid"].as_str().unwrap(), None).unwrap();
             let id = unb64(c["id"].as_str().unwrap(), None).unwrap();
-            let (client, hello) = ClientHandshake::start(
-                mode,
-                &cid,
-                &id,
-                &psk,
-                None,
-                Some(Fixed { secret: jwk_secret(&c["client_jwk"]), nonce: arr16(c["client_nonce"].as_str().unwrap()) }),
-            );
+            let (client, hello) =
+                ClientHandshake::start(mode, &cid, &id, &psk, None, Some(Fixed { secret: jwk_secret(&c["client_jwk"]), nonce: arr16(c["client_nonce"].as_str().unwrap()) }));
             assert_eq!(hello.e, c["hello_e"].as_str().unwrap());
-            let (server, ch) = ServerHandshake::respond(
-                &hello,
-                &cid,
-                &psk,
-                Some(Fixed { secret: jwk_secret(&c["server_jwk"]), nonce: arr16(c["server_nonce"].as_str().unwrap()) }),
-            )
-            .unwrap();
+            let (server, ch) =
+                ServerHandshake::respond(&hello, &cid, &psk, Some(Fixed { secret: jwk_secret(&c["server_jwk"]), nonce: arr16(c["server_nonce"].as_str().unwrap()) })).unwrap();
             assert_eq!(ch.e, c["challenge_e"].as_str().unwrap());
             assert_eq!(ch.mac, c["challenge_mac"].as_str().unwrap());
             assert_eq!(server.sas(), c["sas"].as_str().unwrap());

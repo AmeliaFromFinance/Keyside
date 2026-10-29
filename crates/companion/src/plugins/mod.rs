@@ -253,10 +253,7 @@ impl Host {
 
     pub fn list(&self) -> Vec<PluginInfo> {
         // Engine first, then plugin state: never hold both locks at once.
-        let statuses: HashMap<String, String> = self
-            .app()
-            .map(|a| a.engine.lock().status().0.into_iter().map(|c| (c.id, c.status)).collect())
-            .unwrap_or_default();
+        let statuses: HashMap<String, String> = self.app().map(|a| a.engine.lock().status().0.into_iter().map(|c| (c.id, c.status)).collect()).unwrap_or_default();
         let st = self.state.lock();
         st.installed
             .values()
@@ -337,11 +334,7 @@ impl Host {
         pkg.extract_to(&dir)?;
         let previous = self.get(&m.id);
         self.stop(&m.id);
-        let granted = if approve || source == Source::Bundled {
-            m.permissions.clone()
-        } else {
-            previous.as_ref().map(|p| p.granted.clone()).unwrap_or_default()
-        };
+        let granted = if approve || source == Source::Bundled { m.permissions.clone() } else { previous.as_ref().map(|p| p.granted.clone()).unwrap_or_default() };
         let inst = Installed {
             manifest: m.clone(),
             enabled: previous.as_ref().is_none_or(|p| p.enabled),
@@ -374,7 +367,13 @@ impl Host {
             if e.file_name().to_string_lossy().starts_with(['_', '.']) {
                 continue;
             }
-            let pkg = if p.is_dir() { package::Package::from_dir(&p) } else if p.extension().is_some_and(|x| x == "pdp") { std::fs::read(&p).map_err(Into::into).and_then(|b| package::Package::from_zip(&b)) } else { continue };
+            let pkg = if p.is_dir() {
+                package::Package::from_dir(&p)
+            } else if p.extension().is_some_and(|x| x == "pdp") {
+                std::fs::read(&p).map_err(Into::into).and_then(|b| package::Package::from_zip(&b))
+            } else {
+                continue;
+            };
             let pkg = match pkg {
                 Ok(p) => p,
                 Err(err) => {
@@ -382,10 +381,9 @@ impl Host {
                     continue;
                 }
             };
-            let newer = self.get(&pkg.manifest.id).is_none_or(|i| {
-                i.source == Source::Bundled
-                    && semver::Version::parse(&i.manifest.version).ok() < semver::Version::parse(&pkg.manifest.version).ok()
-            });
+            let newer = self
+                .get(&pkg.manifest.id)
+                .is_none_or(|i| i.source == Source::Bundled && semver::Version::parse(&i.manifest.version).ok() < semver::Version::parse(&pkg.manifest.version).ok());
             if newer && let Err(err) = self.install(&pkg, Source::Bundled, true) {
                 tracing::warn!("could not install bundled plugin {}: {err:#}", pkg.manifest.id);
             }
@@ -423,7 +421,11 @@ impl Host {
             i.enabled = enabled;
             self.save(&st)?;
         }
-        if enabled { self.start(id) } else { self.stop(id) }
+        if enabled {
+            self.start(id)
+        } else {
+            self.stop(id)
+        }
         self.refresh_engine();
         Ok(())
     }
@@ -523,11 +525,21 @@ impl Host {
             return;
         }
         if inst.needs_approval() {
-            app.engine.lock().set_connection(ConnectionView { id: id.into(), name: inst.manifest.name.clone(), status: "error".into(), detail: Some("needs permission approval".into()) });
+            app.engine.lock().set_connection(ConnectionView {
+                id: id.into(),
+                name: inst.manifest.name.clone(),
+                status: "error".into(),
+                detail: Some("needs permission approval".into()),
+            });
             return;
         }
         let Some(deno) = self.deno.clone() else {
-            app.engine.lock().set_connection(ConnectionView { id: id.into(), name: inst.manifest.name.clone(), status: "error".into(), detail: Some("Deno runtime missing".into()) });
+            app.engine.lock().set_connection(ConnectionView {
+                id: id.into(),
+                name: inst.manifest.name.clone(),
+                status: "error".into(),
+                detail: Some("Deno runtime missing".into()),
+            });
             return;
         };
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();

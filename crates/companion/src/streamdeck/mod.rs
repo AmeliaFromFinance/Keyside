@@ -23,10 +23,10 @@ use tokio::sync::mpsc;
 
 use crate::app::App;
 use crate::model::{LayoutFile, Tone};
-use crate::plugins::package::safe_path;
 use crate::plugins::Step;
-use crate::state::view::ViewPatch;
+use crate::plugins::package::safe_path;
 use crate::state::all_keys;
+use crate::state::view::ViewPatch;
 use crate::store;
 use manifest::{Runtime, SdManifest};
 
@@ -240,7 +240,9 @@ fn image_from_plugin(app: &App, uuid: &str, raw: &str) -> Option<String> {
     if raw.is_empty() {
         return None;
     }
-    if let Some(rest) = raw.strip_prefix("data:image/svg+xml;charset=utf8,").or_else(|| raw.strip_prefix("data:image/svg+xml;charset=utf-8,")).or_else(|| raw.strip_prefix("data:image/svg+xml,")) {
+    if let Some(rest) =
+        raw.strip_prefix("data:image/svg+xml;charset=utf8,").or_else(|| raw.strip_prefix("data:image/svg+xml;charset=utf-8,")).or_else(|| raw.strip_prefix("data:image/svg+xml,"))
+    {
         let svg: String = url::form_urlencoded::parse(format!("x={}", rest.replace('+', "%2B")).as_bytes()).map(|(_, v)| v.into_owned()).next().unwrap_or_default();
         let url = format!("data:image/svg+xml;base64,{}", base64::Engine::encode(&base64::engine::general_purpose::STANDARD, svg));
         return crate::plugins::valid_image(&url).then_some(url);
@@ -317,15 +319,8 @@ fn to_plugin(app: &App, uuid: &str, msg: Value) {
 }
 
 fn to_inspectors(app: &App, uuid: &str, context: Option<&str>, msg: Value) {
-    let txs: Vec<Outbox> = app
-        .streamdeck
-        .state
-        .lock()
-        .inspectors
-        .values()
-        .filter(|i| i.plugin == uuid && context.is_none_or(|c| c == i.context))
-        .filter_map(|i| i.tx.clone())
-        .collect();
+    let txs: Vec<Outbox> =
+        app.streamdeck.state.lock().inspectors.values().filter(|i| i.plugin == uuid && context.is_none_or(|c| c == i.context)).filter_map(|i| i.tx.clone()).collect();
     for tx in txs {
         send(&Some(tx), msg.clone());
     }
@@ -401,14 +396,14 @@ pub(crate) fn from_plugin(app: &App, uuid: &str, msg: &Value) {
                 }
             }
             render(app, uuid, context);
-            if event == "showAlert" || event == "showOk" {
-                if let Some(app) = app.engine_handle() {
-                    let (uuid, context) = (uuid.to_string(), context.to_string());
-                    tokio::spawn(async move {
-                        tokio::time::sleep(FLASH).await;
-                        render(&app, &uuid, &context);
-                    });
-                }
+            if (event == "showAlert" || event == "showOk")
+                && let Some(app) = app.engine_handle()
+            {
+                let (uuid, context) = (uuid.to_string(), context.to_string());
+                tokio::spawn(async move {
+                    tokio::time::sleep(FLASH).await;
+                    render(&app, &uuid, &context);
+                });
             }
         }
         "setSettings" => {
@@ -416,7 +411,12 @@ pub(crate) fn from_plugin(app: &App, uuid: &str, msg: &Value) {
                 && let Ok(settings) = store_settings(app, uuid, context, &payload)
             {
                 let action = instance_action(app, context).unwrap_or_default();
-                to_inspectors(app, uuid, Some(context), json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, context, &settings) }));
+                to_inspectors(
+                    app,
+                    uuid,
+                    Some(context),
+                    json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, context, &settings) }),
+                );
             }
         }
         "getSettings" => {
@@ -425,7 +425,11 @@ pub(crate) fn from_plugin(app: &App, uuid: &str, msg: &Value) {
             }
             let settings = app.streamdeck.state.lock().running.get(uuid).and_then(|r| r.instances.get(context).map(|(_, s)| s.clone())).unwrap_or_default();
             let action = instance_action(app, context).unwrap_or_default();
-            to_plugin(app, uuid, json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, context, &settings) }));
+            to_plugin(
+                app,
+                uuid,
+                json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, context, &settings) }),
+            );
         }
         "setGlobalSettings" => {
             if store_global(app, uuid, &payload).is_ok() {
@@ -438,11 +442,9 @@ pub(crate) fn from_plugin(app: &App, uuid: &str, msg: &Value) {
             let m: String = payload.get("message").and_then(Value::as_str).unwrap_or("").chars().take(500).collect();
             tracing::info!(plugin = %uuid, "{m}");
         }
-        "sendToPropertyInspector" => {
-            if owns() {
-                let action = instance_action(app, context).unwrap_or_default();
-                to_inspectors(app, uuid, Some(context), json!({ "event": "sendToPropertyInspector", "action": action, "context": context, "payload": payload }));
-            }
+        "sendToPropertyInspector" if owns() => {
+            let action = instance_action(app, context).unwrap_or_default();
+            to_inspectors(app, uuid, Some(context), json!({ "event": "sendToPropertyInspector", "action": action, "context": context, "payload": payload }));
         }
         _ => {}
     }
@@ -455,13 +457,20 @@ pub(crate) fn from_inspector(app: &App, token: &str, msg: &Value) {
     match msg.get("event").and_then(Value::as_str).unwrap_or("") {
         "setSettings" => {
             if let Ok(settings) = store_settings(app, &uuid, &context, &payload) {
-                to_plugin(app, &uuid, json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, &context, &settings) }));
+                to_plugin(
+                    app,
+                    &uuid,
+                    json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, &context, &settings) }),
+                );
             }
         }
         "getSettings" => {
             let settings = current_settings(app, &context);
             let tx = app.streamdeck.state.lock().inspectors.get(token).and_then(|i| i.tx.clone());
-            send(&tx, json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, &context, &settings) }));
+            send(
+                &tx,
+                json!({ "event": "didReceiveSettings", "action": action, "context": context, "device": runtime::DEVICE, "payload": event_payload(app, &context, &settings) }),
+            );
         }
         "sendToPlugin" => to_plugin(app, &uuid, json!({ "event": "sendToPlugin", "action": action, "context": context, "payload": payload })),
         "setGlobalSettings" => {
@@ -483,9 +492,7 @@ pub(crate) fn from_inspector(app: &App, token: &str, msg: &Value) {
 }
 
 fn current_settings(app: &App, instance: &str) -> Map<String, Value> {
-    split_instance(instance)
-        .and_then(|(p, pg, k, n)| app.engine.lock().key(p, pg, k).and_then(|k| k.actions.get(n)).map(|a| a.settings.clone()))
-        .unwrap_or_default()
+    split_instance(instance).and_then(|(p, pg, k, n)| app.engine.lock().key(p, pg, k).and_then(|k| k.actions.get(n)).map(|a| a.settings.clone())).unwrap_or_default()
 }
 
 /// Brings plugins up to date with the layout: willAppear, willDisappear, didReceiveSettings.
@@ -516,7 +523,10 @@ pub(crate) fn sync_one(app: &App, uuid: &str) {
     };
     for (id, (action, settings)) in &before {
         if !now.contains_key(id) {
-            send(&tx, json!({ "event": "willDisappear", "action": action, "context": id, "device": runtime::DEVICE, "payload": { "settings": settings, "coordinates": { "column": 0, "row": 0 }, "isInMultiAction": false, "controller": "Keypad" } }));
+            send(
+                &tx,
+                json!({ "event": "willDisappear", "action": action, "context": id, "device": runtime::DEVICE, "payload": { "settings": settings, "coordinates": { "column": 0, "row": 0 }, "isInMultiAction": false, "controller": "Keypad" } }),
+            );
             app.streamdeck.state.lock().views.remove(id);
             app.engine.lock().set_override(id, None);
         }
@@ -545,7 +555,10 @@ pub async fn run(app: &App, uuid: &str, steps: Vec<Step>, phase: &str) -> Result
         }
         let settings = current_settings(app, &s.instance);
         let event = if phase == "release" { "keyUp" } else { "keyDown" };
-        send(&Some(tx.clone()), json!({ "event": event, "action": s.action, "context": s.instance, "device": runtime::DEVICE, "payload": event_payload(app, &s.instance, &settings) }));
+        send(
+            &Some(tx.clone()),
+            json!({ "event": event, "action": s.action, "context": s.instance, "device": runtime::DEVICE, "payload": event_payload(app, &s.instance, &settings) }),
+        );
         // Two-state actions flip on release, as on a real Stream Deck.
         if phase == "release"
             && let Some(def) = inst.manifest.action(&s.action)
@@ -565,7 +578,9 @@ pub async fn run(app: &App, uuid: &str, steps: Vec<Step>, phase: &str) -> Result
 
 /// Keeps settings owned by Stream Deck plugins when the editor saves an older copy of a key.
 pub fn keep_settings(old: &LayoutFile, new: &mut LayoutFile) {
-    let mut current: HashMap<(String, String, String, usize, String), Map<String, Value>> = HashMap::new();
+    // (profile, page, key, step, action type) -> settings
+    type Slot = (String, String, String, usize, String);
+    let mut current: HashMap<Slot, Map<String, Value>> = HashMap::new();
     for (p, pg, k) in all_keys(old) {
         for (n, a) in k.actions.iter().enumerate() {
             if a.kind.starts_with(PREFIX) {

@@ -58,10 +58,7 @@ fn default_plugins_dir() -> Option<PathBuf> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_env("PHONEDECK_LOG").unwrap_or_else(|_| "info".into()))
-        .with_target(false)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_env("PHONEDECK_LOG").unwrap_or_else(|_| "info".into())).with_target(false).init();
     let args = parse()?;
     let opts = || Options { data_dir: args.data_dir.clone(), bundled_plugins: args.plugins.clone().or_else(default_plugins_dir) };
     let cmd: Vec<&str> = args.cmd.iter().map(String::as_str).collect();

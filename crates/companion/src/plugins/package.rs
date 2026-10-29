@@ -44,11 +44,8 @@ pub fn safe_path(p: &str) -> bool {
 }
 
 fn digest_list(files: &[(String, Vec<u8>)]) -> Vec<u8> {
-    let mut list: Vec<(&str, String)> = files
-        .iter()
-        .filter(|(n, _)| n != SIG_FILE)
-        .map(|(n, b)| (n.as_str(), Sha256::digest(b).iter().map(|x| format!("{x:02x}")).collect()))
-        .collect();
+    let mut list: Vec<(&str, String)> =
+        files.iter().filter(|(n, _)| n != SIG_FILE).map(|(n, b)| (n.as_str(), Sha256::digest(b).iter().map(|x| format!("{x:02x}")).collect())).collect();
     list.sort();
     let mut msg = SIG_CONTEXT.to_vec();
     for (n, h) in list {
@@ -74,12 +71,7 @@ impl Package {
                 let s: SigFile = serde_json::from_slice(raw).context("SIGNATURE is invalid")?;
                 let key: [u8; 32] = unb64(&s.key, Some(32)).ok().and_then(|k| k.try_into().ok()).context("bad signing key")?;
                 let sig = Signature::from_slice(&unb64(&s.sig, Some(64)).ok().context("bad signature")?).ok().context("bad signature")?;
-                VerifyingKey::from_bytes(&key)
-                    .ok()
-                    .context("bad signing key")?
-                    .verify_strict(&digest_list(&files), &sig)
-                    .ok()
-                    .context("signature does not match the files")?;
+                VerifyingKey::from_bytes(&key).ok().context("bad signing key")?.verify_strict(&digest_list(&files), &sig).ok().context("signature does not match the files")?;
                 Some(s.key)
             }
         };
@@ -176,7 +168,10 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>, total: &mut u
         }
         let name = e.file_name().to_string_lossy().to_string();
         // Source, tests and tooling files stay out of the package; only the built plugin goes in.
-        if name.starts_with('.') || ["node_modules", "src", "test", "package.json", "package-lock.json", "pnpm-lock.yaml", "tsconfig.json"].contains(&name.as_str()) || name.ends_with(".pdp") {
+        if name.starts_with('.')
+            || ["node_modules", "src", "test", "package.json", "package-lock.json", "pnpm-lock.yaml", "tsconfig.json"].contains(&name.as_str())
+            || name.ends_with(".pdp")
+        {
             continue;
         }
         if ft.is_dir() {

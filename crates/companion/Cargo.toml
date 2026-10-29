@@ -76,5 +76,10 @@ rodio = { version = "0.23", optional = true, default-features = false, features 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+[lints.clippy]
+# axum handlers return full responses as errors, and the device link holds a session inline.
+result_large_err = "allow"
+large_enum_variant = "allow"
+
 [dev-dependencies]
 tempfile = "3"

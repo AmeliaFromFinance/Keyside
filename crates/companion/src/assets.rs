@@ -93,13 +93,7 @@ impl Assets {
             bail!("asset library is full");
         }
         store::write_atomic(&self.dir.join(format!("{id}.{ext}")), bytes)?;
-        let meta = Meta {
-            id: id.clone(),
-            kind,
-            mime: mime.into(),
-            name: crate::config::clean_name(name, 80).unwrap_or_else(|| id.clone()),
-            size: bytes.len(),
-        };
+        let meta = Meta { id: id.clone(), kind, mime: mime.into(), name: crate::config::clean_name(name, 80).unwrap_or_else(|| id.clone()), size: bytes.len() };
         idx.insert(id, meta.clone());
         store::write_json(&self.dir.join("index.json"), &*idx)?;
         Ok(meta)

@@ -360,10 +360,7 @@ pub fn expand_net(entries: &[String], conn: &Map<String, Value>) -> Vec<String> 
             rest = &rest[end + 1..];
         }
         s.push_str(rest);
-        let host_ok = !s.is_empty()
-            && s.len() <= 255
-            && !s.starts_with(':')
-            && s.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b':' | b'[' | b']'));
+        let host_ok = !s.is_empty() && s.len() <= 255 && !s.starts_with(':') && s.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b':' | b'[' | b']'));
         if ok && host_ok && !out.contains(&s) {
             out.push(s);
         }

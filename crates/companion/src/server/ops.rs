@@ -69,13 +69,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
         }
         "catalog.get" => {
             need_edit(who)?;
-            let core: Vec<Value> = catalog::core_actions()
-                .as_array()
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|c| who.admin || c.get("adminOnly").is_none())
-                .collect();
+            let core: Vec<Value> = catalog::core_actions().as_array().cloned().unwrap_or_default().into_iter().filter(|c| who.admin || c.get("adminOnly").is_none()).collect();
             #[cfg(feature = "midi")]
             let midi = crate::actions::midi::ports();
             #[cfg(not(feature = "midi"))]

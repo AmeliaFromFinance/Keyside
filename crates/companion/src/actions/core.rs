@@ -207,10 +207,7 @@ async fn udp(app: &App, m: &Map<String, Value>) -> Res {
 
 pub(crate) async fn send_udp(host: &str, port: u16, data: &[u8]) -> Res {
     let sock = tokio::net::UdpSocket::bind(("0.0.0.0", 0)).await.map_err(|e| e.to_string())?;
-    tokio::time::timeout(Duration::from_secs(3), sock.send_to(data, (host, port)))
-        .await
-        .map_err(|_| "timed out".to_string())?
-        .map_err(|e| format!("send failed: {e}"))?;
+    tokio::time::timeout(Duration::from_secs(3), sock.send_to(data, (host, port))).await.map_err(|_| "timed out".to_string())?.map_err(|e| format!("send failed: {e}"))?;
     Ok(None)
 }
 

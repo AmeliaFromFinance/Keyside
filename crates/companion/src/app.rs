@@ -73,10 +73,7 @@ impl App {
         let plugins = Host::open(paths.root())?;
         let streamdeck = crate::streamdeck::Hub::open(paths.root())?;
         let tokens = Tokens::load(paths.file("tokens.json"))?;
-        let http = reqwest::Client::builder()
-            .user_agent(concat!("PhoneDeck/", env!("CARGO_PKG_VERSION")))
-            .redirect(reqwest::redirect::Policy::limited(5))
-            .build()?;
+        let http = reqwest::Client::builder().user_agent(concat!("PhoneDeck/", env!("CARGO_PKG_VERSION"))).redirect(reqwest::redirect::Policy::limited(5)).build()?;
         let (nav, _) = broadcast::channel(64);
         let app = Arc::new(Self {
             paths,

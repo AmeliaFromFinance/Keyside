@@ -19,10 +19,7 @@ impl Paths {
     pub fn new(override_dir: Option<PathBuf>) -> Result<Self> {
         let root = match override_dir {
             Some(d) => d,
-            None => directories::ProjectDirs::from("dev", "phonedeck", "PhoneDeck")
-                .context("no home directory")?
-                .data_dir()
-                .to_path_buf(),
+            None => directories::ProjectDirs::from("dev", "phonedeck", "PhoneDeck").context("no home directory")?.data_dir().to_path_buf(),
         };
         store::private_dir(&root)?;
         Ok(Self { root })
@@ -120,11 +117,8 @@ impl Identity {
 }
 
 pub fn hostname() -> String {
-    let raw = std::env::var("COMPUTERNAME")
-        .or_else(|_| std::env::var("HOSTNAME"))
-        .ok()
-        .or_else(|| std::fs::read_to_string("/etc/hostname").ok())
-        .unwrap_or_else(|| "PhoneDeck".into());
+    let raw =
+        std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).ok().or_else(|| std::fs::read_to_string("/etc/hostname").ok()).unwrap_or_else(|| "PhoneDeck".into());
     clean_name(&raw, 40).unwrap_or_else(|| "PhoneDeck".into())
 }
 

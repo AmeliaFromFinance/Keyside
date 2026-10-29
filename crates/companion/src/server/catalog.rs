@@ -64,9 +64,5 @@ pub fn core_actions() -> Value {
 
 /// Schema for one core action, used to clean settings before they are stored.
 pub fn core_schema(kind: &str) -> Option<crate::plugins::manifest::Schema> {
-    core_actions()
-        .as_array()?
-        .iter()
-        .find(|a| a["id"] == kind)
-        .and_then(|a| serde_json::from_value(a["settings"].clone()).ok())
+    core_actions().as_array()?.iter().find(|a| a["id"] == kind).and_then(|a| serde_json::from_value(a["settings"].clone()).ok())
 }

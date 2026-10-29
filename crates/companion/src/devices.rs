@@ -106,13 +106,7 @@ pub struct Devices {
 impl Devices {
     pub fn load(path: PathBuf) -> Result<Self> {
         let list: Vec<Device> = store::read_json(&path)?.unwrap_or_default();
-        Ok(Self {
-            path,
-            devices: list.into_iter().map(|d| (d.id.clone(), d)).collect(),
-            pairing: None,
-            pending: HashMap::new(),
-            pins: HashMap::new(),
-        })
+        Ok(Self { path, devices: list.into_iter().map(|d| (d.id.clone(), d)).collect(), pairing: None, pending: HashMap::new(), pins: HashMap::new() })
     }
 
     fn save(&self) -> Result<()> {

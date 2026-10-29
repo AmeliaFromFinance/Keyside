@@ -388,21 +388,8 @@ impl Engine {
         let tops: Vec<&Page> = self.visible_pages(profile, allowed).collect();
         let index = tops.iter().position(|p| p.id == page.id).unwrap_or(0);
         let (cols, rows, places) = view::placements(page, ff);
-        let keys = places
-            .into_iter()
-            .map(|(i, pos)| self.key_view(profile, page, &page.keys[i], pos))
-            .collect();
-        Some(PageView {
-            id: page.id.clone(),
-            name: page.name.clone(),
-            subtitle: page.subtitle.clone(),
-            folder: page.folder,
-            cols,
-            rows,
-            index,
-            count: tops.len(),
-            keys,
-        })
+        let keys = places.into_iter().map(|(i, pos)| self.key_view(profile, page, &page.keys[i], pos)).collect();
+        Some(PageView { id: page.id.clone(), name: page.name.clone(), subtitle: page.subtitle.clone(), folder: page.folder, cols, rows, index, count: tops.len(), keys })
     }
 
     fn key_view(&self, profile: &Profile, page: &Page, key: &Key, pos: [u8; 4]) -> KeyView {
@@ -422,11 +409,7 @@ impl Engine {
             v.badge = Some("ON".into());
             v.tone = Some(Tone::Success);
         }
-        let missing = key
-            .actions
-            .iter()
-            .filter_map(Action::plugin)
-            .find(|(id, _)| !self.installed.contains(*id));
+        let missing = key.actions.iter().filter_map(Action::plugin).find(|(id, _)| !self.installed.contains(*id));
         if missing.is_some() && !v.disabled {
             v.badge = Some("MISSING".into());
             v.tone = Some(Tone::Muted);

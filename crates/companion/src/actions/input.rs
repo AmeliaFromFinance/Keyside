@@ -51,9 +51,7 @@ pub fn parse_combo(s: &str) -> Result<Vec<KeyName>, String> {
             "alt" | "option" => KeyName::Alt,
             "meta" | "win" | "cmd" | "super" => KeyName::Meta,
             _ if !last => return Err(format!("\"{p}\" is not a modifier")),
-            p if p.chars().count() == 1 && p.chars().all(|c| c.is_ascii_alphanumeric() || "`-=[];',./\\".contains(c)) => {
-                KeyName::Char(p.chars().next().unwrap_or(' '))
-            }
+            p if p.chars().count() == 1 && p.chars().all(|c| c.is_ascii_alphanumeric() || "`-=[];',./\\".contains(c)) => KeyName::Char(p.chars().next().unwrap_or(' ')),
             p if p.starts_with('f') && p[1..].parse::<u8>().is_ok_and(|n| (1..=20).contains(&n)) => KeyName::F(p[1..].parse().unwrap_or(1)),
             p => match NAMED.iter().find(|n| **n == p) {
                 Some(n) => KeyName::Named(n),
@@ -160,8 +158,26 @@ mod imp {
             KeyName::Meta => Key::Meta,
             KeyName::Char(c) => Key::Unicode(*c),
             KeyName::F(n) => [
-                Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6, Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
-                Key::F13, Key::F14, Key::F15, Key::F16, Key::F17, Key::F18, Key::F19, Key::F20,
+                Key::F1,
+                Key::F2,
+                Key::F3,
+                Key::F4,
+                Key::F5,
+                Key::F6,
+                Key::F7,
+                Key::F8,
+                Key::F9,
+                Key::F10,
+                Key::F11,
+                Key::F12,
+                Key::F13,
+                Key::F14,
+                Key::F15,
+                Key::F16,
+                Key::F17,
+                Key::F18,
+                Key::F19,
+                Key::F20,
             ]
             .get(*n as usize - 1)
             .copied()

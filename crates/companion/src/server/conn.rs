@@ -139,7 +139,13 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
         last_slide: HashMap::new(),
     };
     c.reset_profile();
-    let max_in = if c.who.admin { 2 * 1024 * 1024 } else if c.who.can_edit() { 1024 * 1024 } else { 64 * 1024 };
+    let max_in = if c.who.admin {
+        2 * 1024 * 1024
+    } else if c.who.can_edit() {
+        1024 * 1024
+    } else {
+        64 * 1024
+    };
 
     let welcome = {
         let id = app.identity.read().cid.clone();
@@ -556,13 +562,7 @@ impl Conn {
             (key.actions.clone(), false)
         };
         self.app.recorder.record(&list);
-        self.app.notify(Change::Pressed {
-            profile: self.profile.clone(),
-            page: self.page.clone(),
-            key: id.to_string(),
-            label: key.label.clone(),
-            device: self.who.name.clone(),
-        });
+        self.app.notify(Change::Pressed { profile: self.profile.clone(), page: self.page.clone(), key: id.to_string(), label: key.label.clone(), device: self.who.name.clone() });
         if list.is_empty() {
             return;
         }

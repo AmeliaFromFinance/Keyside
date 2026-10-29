@@ -120,13 +120,8 @@ async fn resume(app: Arc<App>, mut ws: WebSocket, ip: IpAddr, hello: Hello, cid:
     let Ok((hs, ch)) = ServerHandshake::respond(&hello, cid, &secret, None) else { return reject(ws, ip, "bad-hello").await };
     let Some(session) = finish_handshake(&mut ws, hs, &ch).await else { return reject(ws, ip, "bad-proof").await };
     succeeded(ip);
-    let who = Who {
-        admin: false,
-        device: device.id.clone(),
-        name: device.name.clone(),
-        scope: device.scope,
-        pages: (device.scope == Scope::Moderator).then(|| device.pages.clone()),
-    };
+    let who =
+        Who { admin: false, device: device.id.clone(), name: device.name.clone(), scope: device.scope, pages: (device.scope == Scope::Moderator).then(|| device.pages.clone()) };
     conn::run(app, Link::Secure(ws, session), who, device.pin.is_some()).await;
 }
 
@@ -194,13 +189,8 @@ async fn pair(app: Arc<App>, mut ws: WebSocket, ip: IpAddr, hello: Hello, cid: &
     if ws.send(Message::Binary(frame.into())).await.is_err() {
         return;
     }
-    let who = Who {
-        admin: false,
-        device: device.id.clone(),
-        name: device.name.clone(),
-        scope: device.scope,
-        pages: (device.scope == Scope::Moderator).then(|| device.pages.clone()),
-    };
+    let who =
+        Who { admin: false, device: device.id.clone(), name: device.name.clone(), scope: device.scope, pages: (device.scope == Scope::Moderator).then(|| device.pages.clone()) };
     // The person just set the PIN on the PC; the new device still has to enter it.
     conn::run(app, Link::Secure(ws, session), who, device.pin.is_some()).await;
 }

@@ -25,20 +25,14 @@ fn open_editor(handle: &AppHandle) {
     }
     let app = handle.state::<Companion>().0.clone();
     let Ok(url) = phonedeck::editor_url(&app).parse() else { return };
-    let built = WebviewWindowBuilder::new(handle, "editor", WebviewUrl::External(url))
-        .title("PhoneDeck")
-        .inner_size(1360.0, 860.0)
-        .min_inner_size(960.0, 600.0)
-        .build();
+    let built = WebviewWindowBuilder::new(handle, "editor", WebviewUrl::External(url)).title("PhoneDeck").inner_size(1360.0, 860.0).min_inner_size(960.0, 600.0).build();
     if let Err(e) = built {
         tracing::error!("couldn't open the editor window: {e}");
     }
 }
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_env("PHONEDECK_LOG").unwrap_or_else(|_| "info".into()))
-        .init();
+    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_env("PHONEDECK_LOG").unwrap_or_else(|_| "info".into())).init();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_editor(app)))

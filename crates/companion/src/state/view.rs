@@ -108,21 +108,11 @@ pub struct PageView {
 /// unless the page has its own arrangement.
 pub fn placements(page: &Page, ff: FormFactor) -> (u8, u8, Vec<(usize, [u8; 4])>) {
     if let Some(v) = page.variants.get(&ff) {
-        let keys = page
-            .keys
-            .iter()
-            .enumerate()
-            .filter_map(|(i, k)| v.at.get(&k.id).map(|p| (i, *p)))
-            .collect();
+        let keys = page.keys.iter().enumerate().filter_map(|(i, k)| v.at.get(&k.id).map(|p| (i, *p))).collect();
         return (v.cols, v.rows, keys);
     }
     let transpose = ff == FormFactor::PhoneLandscape && page.rows > page.cols;
-    let keys = page
-        .keys
-        .iter()
-        .enumerate()
-        .map(|(i, k)| (i, if transpose { [k.y, k.x, k.h(), k.w()] } else { [k.x, k.y, k.w(), k.h()] }))
-        .collect();
+    let keys = page.keys.iter().enumerate().map(|(i, k)| (i, if transpose { [k.y, k.x, k.h(), k.w()] } else { [k.x, k.y, k.w(), k.h()] })).collect();
     if transpose { (page.rows, page.cols, keys) } else { (page.cols, page.rows, keys) }
 }
 

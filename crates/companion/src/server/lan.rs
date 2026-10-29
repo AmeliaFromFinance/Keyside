@@ -1,6 +1,7 @@
 //! LAN listener for paired devices. One port serves:
 //! - HTTPS (browsers): the web deck and the device socket,
 //! - plain HTTP (native apps): the device socket only.
+//!
 //! The device socket is end-to-end encrypted either way, so plain HTTP leaks nothing.
 
 use std::collections::HashMap;
@@ -211,12 +212,7 @@ pub async fn start(app: Arc<App>, bind: IpAddr, port: u16, tls: Arc<rustls::Serv
         }
     });
     let api = super::api::router().layer(middleware::from_fn_with_state(app.clone(), api_guard));
-    let router = Router::new()
-        .route("/ws", get(device_ws))
-        .nest("/api/v1", api)
-        .fallback(fallback)
-        .layer(DefaultBodyLimit::max(64 * 1024))
-        .with_state(app.clone());
+    let router = Router::new().route("/ws", get(device_ws)).nest("/api/v1", api).fallback(fallback).layer(DefaultBodyLimit::max(64 * 1024)).with_state(app.clone());
     tokio::spawn(async move {
         if let Err(e) = axum::serve(LanListener { rx, local }, router.into_make_service_with_connect_info::<Peer>()).await {
             tracing::error!("deck listener stopped: {e}");

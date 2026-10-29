@@ -17,7 +17,11 @@ const BURST: f64 = 400.0;
 #[derive(Debug)]
 pub enum Incoming {
     /// A call from the plugin. Send the reply with `Peer::reply` when `id` is set.
-    Call { id: Option<Value>, method: String, params: Value },
+    Call {
+        id: Option<Value>,
+        method: String,
+        params: Value,
+    },
     /// The plugin broke the protocol or limits and should be stopped.
     Violation(String),
     Closed,

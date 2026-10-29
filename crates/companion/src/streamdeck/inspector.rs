@@ -8,12 +8,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use axum::Router;
 use serde_json::{Value, json};
 
 use super::{Inspector, PREFIX};
@@ -39,10 +39,7 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.context("starting the settings panel server")?;
     let port = listener.local_addr()?.port();
     let _ = app.streamdeck.inspector_port.set(port);
-    let router = Router::new()
-        .route("/__phonedeck/boot.js", get(boot))
-        .route("/p/{uuid}/{*path}", get(file))
-        .with_state(app.clone());
+    let router = Router::new().route("/__phonedeck/boot.js", get(boot)).route("/p/{uuid}/{*path}", get(file)).with_state(app.clone());
     let v6 = tokio::net::TcpListener::bind(("::1", port)).await.ok();
     let r2 = router.clone();
     tokio::spawn(async move {
