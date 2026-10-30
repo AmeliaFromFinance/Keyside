@@ -47,7 +47,11 @@ Two-state actions flip state on release, as on a Stream Deck. Dials, touch strip
 
 ## Physical Stream Decks
 
-Plug one in and it shows your active layout, drawn the same way as on your phone. Folders and back keys work as usual. When Keyside quits, the deck goes back to its Elgato logo. Turn it off under **Settings > Use Stream Deck hardware plugged into this PC**.
+The first time you plug one in, Keyside makes a layout for it, named after the model and sized to its keys (a Stream Deck Mini gets 3 × 2). The deck always shows that layout, whatever your phones show. Edit it like any other layout: the editor draws it in the deck's shape.
+
+To have a deck follow the active layout instead, open **Manage layouts** and press **Unlink** on its layout. Deleting the layout does the same, and Keyside won't make a new one for that deck.
+
+Folders and back keys work as usual. When Keyside quits, the deck goes back to its Elgato logo. Turn it off under **Settings > Use Stream Deck hardware plugged into this PC**.
 
 On Linux, give your user access to the device first:
 

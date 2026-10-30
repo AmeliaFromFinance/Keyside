@@ -16,7 +16,8 @@
     address: string;
   }
 
-  let { onmanage }: { onmanage?: () => void } = $props();
+  /** `foldable` lets the title fold the panel away. Pairing requests still show when folded. */
+  let { onmanage, foldable = false, expanded = $bindable(true) }: { onmanage?: () => void; foldable?: boolean; expanded?: boolean } = $props();
 
   let qr = $state("");
   let url = $state("");
@@ -93,9 +94,16 @@
   const pages = $derived(ed.layout?.profiles.find((p) => p.id === ed.profile)?.pages.filter((p) => !p.folder) ?? []);
 </script>
 
-<section class="pair">
+<section class="pair" class:folded={foldable && !expanded}>
   <header>
-    <h2>{t("Pair a phone")}</h2>
+    {#if foldable}
+      <button class="title" aria-expanded={expanded} onclick={() => (expanded = !expanded)}>
+        <span class="chev" class:open={expanded}><Icon name="chevron-right" size={18} /></span>
+        <h2>{t("Pair a phone")}</h2>
+      </button>
+    {:else}
+      <h2>{t("Pair a phone")}</h2>
+    {/if}
     {#if qr && left > 0}<span class="exp">{t("Code expires in")} <b class="mono">{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</b></span>{/if}
   </header>
 
@@ -110,7 +118,9 @@
     </div>
   {/each}
 
-  {#if qr && left > 0}
+  {#if foldable && !expanded}
+    <!-- Folded: only the title and any waiting requests. -->
+  {:else if qr && left > 0}
     <div class="code">
       <div class="qr" aria-label={t("Pairing QR code")}>{@html qr}</div>
       <div class="info">
@@ -151,6 +161,7 @@
   {/if}
   {#if error}<p class="bad">{error}</p>{/if}
 
+  {#if !foldable || expanded}
   <h3>{t("Paired devices")} · {devices.length}</h3>
   {#each devices as d (d.id)}
     <button class="dev" onclick={() => (open = d.id)} onpointerenter={() => peek(d)} onfocus={() => peek(d)} title={t("Show details")}>
@@ -168,6 +179,7 @@
     <p class="muted">{t("No devices yet.")}</p>
   {/each}
   {#if onmanage && devices.length}<button class="btn ghost small" onclick={onmanage}>{t("Manage devices")}</button>{/if}
+  {/if}
 </section>
 
 <Sheet open={!!opened} title={opened?.name ?? ""} onclose={() => (open = null)}>
@@ -191,6 +203,28 @@
   h2 {
     margin: 0;
     font-size: 1.15rem;
+  }
+  .pair.folded {
+    padding-block: 12px;
+  }
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .chev {
+    display: flex;
+    color: var(--muted);
+    transition: transform 150ms ease;
+  }
+  .chev.open {
+    transform: rotate(90deg);
   }
   h3 {
     margin: 8px 0 0;

@@ -39,11 +39,19 @@
 {#each ed.layout?.profiles ?? [] as p (p.id)}
   <div class="prof">
     <label class="field"><span>{t("Name")}</span><input value={p.name} maxlength="40" oninput={(e) => change(() => (p.name = e.currentTarget.value))} /></label>
-    <label class="field">
-      <span>{t("Switch to it when these apps are in front")}</span>
-      <input value={(p.apps ?? []).join(", ")} placeholder="obs64.exe, Photoshop" onchange={(e) => apps(p.id, e.currentTarget.value)} />
-      <small>{t("Program names, separated by commas. Leave empty to switch by hand.")}</small>
-    </label>
+    {#if p.deck}
+      <p class="deck">
+        <Icon name="layout-grid" size={18} />
+        <span>{t("Shown on your {model} ({cols} × {rows}).", { model: p.deck.model, cols: p.deck.cols, rows: p.deck.rows })}</span>
+        <button class="btn small" onclick={() => change(() => delete p.deck)}>{t("Unlink")}</button>
+      </p>
+    {:else}
+      <label class="field">
+        <span>{t("Switch to it when these apps are in front")}</span>
+        <input value={(p.apps ?? []).join(", ")} placeholder="obs64.exe, Photoshop" onchange={(e) => apps(p.id, e.currentTarget.value)} />
+        <small>{t("Program names, separated by commas. Leave empty to switch by hand.")}</small>
+      </label>
+    {/if}
     <div class="row">
       <label class="check"><input type="radio" name="default" checked={ed.layout?.defaultProfile === p.id} onchange={() => change((l) => (l.defaultProfile = p.id))} />{t("Default layout")}</label>
       <button class="btn danger" disabled={(ed.layout?.profiles.length ?? 0) <= 1} onclick={() => remove(p.id)}><Icon name="trash-2" size={18} />{t("Delete")}</button>
@@ -64,6 +72,20 @@
     padding: 16px;
     border-radius: var(--radius);
     background: var(--bg);
+  }
+  .deck {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--muted);
+  }
+  .deck span {
+    flex: 1;
+  }
+  .small {
+    min-height: 32px;
+    padding: 0 12px;
   }
   .row {
     display: flex;

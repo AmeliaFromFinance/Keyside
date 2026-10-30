@@ -33,6 +33,17 @@ pub struct Profile {
     pub apps: Vec<String>,
     pub home_page: String,
     pub pages: Vec<Page>,
+    /// The physical Stream Deck this layout is for. That deck shows it instead of the active layout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deck: Option<DeckLink>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DeckLink {
+    pub serial: String,
+    pub model: String,
+    pub cols: u8,
+    pub rows: u8,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -326,6 +337,13 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
         }
         if p.pages.is_empty() || p.pages.len() > MAX_PAGES {
             return bad("a profile needs 1 to 50 pages");
+        }
+        if let Some(d) = &p.deck {
+            text("Stream Deck serial", &d.serial, 64)?;
+            text("Stream Deck model", &d.model, 40)?;
+            if !(1..=16).contains(&d.cols) || !(1..=16).contains(&d.rows) {
+                return bad("Stream Deck grid is invalid");
+            }
         }
         let page_ids: HashSet<&str> = p.pages.iter().map(|pg| pg.id.as_str()).collect();
         if page_ids.len() != p.pages.len() {

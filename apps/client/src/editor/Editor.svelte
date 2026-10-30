@@ -11,6 +11,7 @@
   import Share from "./Share.svelte";
   import StreamDeck from "./StreamDeck.svelte";
   import Profiles from "./Profiles.svelte";
+  import Splitter from "./Splitter.svelte";
   import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection } from "./state.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
@@ -30,6 +31,27 @@
   let plugins = $state<Array<{ id: string; name: string; status: string; values: Record<string, unknown> }>>([]);
   let devicesOnline = $state(0);
   let reviewCount = $state(0);
+
+  // Column widths and folds, remembered on this computer.
+  const PANES = { left: 340, right: 440, leftOpen: true, rightOpen: true, pairOpen: true, pair: 0 };
+  let panes = $state(readPanes());
+  let rightH = $state(0);
+  let pairH = $state(0);
+  function readPanes(): typeof PANES {
+    try {
+      return { ...PANES, ...JSON.parse(localStorage.getItem("editorPanes") ?? "{}") };
+    } catch {
+      return { ...PANES };
+    }
+  }
+  $effect(() => {
+    const json = JSON.stringify(panes);
+    try {
+      localStorage.setItem("editorPanes", json);
+    } catch {
+      /* storage blocked */
+    }
+  });
 
   $effect(() => everySecond((n) => (now = n)));
   $effect(() => {
@@ -228,21 +250,44 @@
   {/if}
   {#if reviewCount && admin}<div class="banner warn" role="status"><Icon name="shield" size={18} />{t("{n} imported steps wait for your review.", { n: reviewCount })}<button class="btn small" onclick={() => (panel = "review")}>{t("Review")}</button></div>{/if}
 
-  <div class="panes" class:palette-open={paletteOpen}>
-    <div class="left">
-      <Palette {admin} />
-      <footer class="serving">
-        {#if admin}<span>{t("Companion on")}</span><span class="mono">{deck.companion?.name}</span>{/if}
-      </footer>
+  <div class="panes" class:palette-open={paletteOpen} style:--left="{panes.leftOpen ? panes.left : 44}px" style:--right="{panes.rightOpen ? panes.right : 44}px">
+    <div class="left" class:folded={!panes.leftOpen}>
+      {#if panes.leftOpen}
+        <div class="scroll">
+          <Palette {admin} />
+          <footer class="serving">
+            {#if admin}<span>{t("Companion on")}</span><span class="mono">{deck.companion?.name}</span>{/if}
+          </footer>
+        </div>
+        <Splitter edge="right" value={panes.left} min={240} max={600} label={t("Resize the button palette")} onchange={(v) => (panes.left = v)} onreset={() => (panes.left = PANES.left)}>
+          <button class="fold" title={t("Hide the button palette")} aria-label={t("Hide the button palette")} onclick={() => (panes.leftOpen = false)}><Icon name="chevron-left" size={14} /></button>
+        </Splitter>
+      {:else}
+        <button class="rail" title={t("Show the button palette")} onclick={() => (panes.leftOpen = true)}><Icon name="chevron-right" size={18} /><span>{t("Button palette")}</span></button>
+      {/if}
     </div>
     {#if loaded && ed.layout}
       <Canvas />
     {:else}
       <div class="loading">{t("Loading layout…")}</div>
     {/if}
-    <div class="right">
-      {#if loaded}<Inspector {admin} />{/if}
-      {#if admin && loaded}<PairPanel onmanage={() => (panel = "devices")} />{/if}
+    <div class="right" class:folded={!panes.rightOpen} bind:clientHeight={rightH}>
+      {#if panes.rightOpen}
+        <Splitter edge="left" value={panes.right} min={320} max={760} label={t("Resize the side panel")} onchange={(v) => (panes.right = v)} onreset={() => (panes.right = PANES.right)}>
+          <button class="fold" title={t("Hide the side panel")} aria-label={t("Hide the side panel")} onclick={() => (panes.rightOpen = false)}><Icon name="chevron-right" size={14} /></button>
+        </Splitter>
+        <div class="ins">{#if loaded}<Inspector {admin} />{/if}</div>
+        {#if admin && loaded}
+          <div class="pairbox" class:sized={panes.pairOpen && panes.pair > 0} style:height={panes.pairOpen && panes.pair > 0 ? `${panes.pair}px` : undefined} bind:clientHeight={pairH}>
+            {#if panes.pairOpen}
+              <Splitter edge="top" value={panes.pair || pairH} min={140} max={Math.max(160, rightH - 160)} label={t("Resize Pair a phone")} onchange={(v) => (panes.pair = v)} onreset={() => (panes.pair = 0)} />
+            {/if}
+            <PairPanel foldable bind:expanded={panes.pairOpen} onmanage={() => (panel = "devices")} />
+          </div>
+        {/if}
+      {:else}
+        <button class="rail" title={t("Show the side panel")} onclick={() => (panes.rightOpen = true)}><Icon name="chevron-left" size={18} /><span>{t("Key settings")}</span></button>
+      {/if}
     </div>
   </div>
 </div>
@@ -410,20 +455,80 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 340px 1fr 440px;
+    grid-template-columns: var(--left) 1fr var(--right);
   }
   .left,
   .right {
+    position: relative;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: auto;
+    min-width: 0;
   }
   .left {
     border-right: 1px solid var(--line-soft);
   }
   .right {
     border-left: 1px solid var(--line-soft);
+  }
+  .scroll,
+  .ins {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .ins > :global(.inspector) {
+    flex: 1;
+  }
+  .pairbox {
+    position: relative;
+    flex: none;
+    max-height: 70%;
+    overflow: auto;
+  }
+  .pairbox.sized {
+    max-height: none;
+  }
+  /* Fold button on the column edge. */
+  .fold {
+    position: relative;
+    z-index: 1;
+    width: 22px;
+    height: 44px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    border: 1px solid var(--line);
+    background: var(--raised);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .fold:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  .rail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .rail span {
+    writing-mode: vertical-rl;
+  }
+  .rail:hover {
+    color: var(--text);
+    background: var(--hover);
   }
   .serving {
     margin-top: auto;
@@ -447,9 +552,14 @@
 
   @media (max-width: 1199px) {
     .panes {
-      grid-template-columns: 1fr 380px;
+      grid-template-columns: 1fr var(--right);
     }
     .left {
+      display: none;
+    }
+    /* The palette is a drawer here, so it doesn't fold or resize. */
+    .left :global(.split),
+    .left .rail {
       display: none;
     }
     .palette-open .left {
@@ -477,7 +587,12 @@
     .right {
       border-left: none;
       border-top: 1px solid var(--line-soft);
-      overflow: visible;
+    }
+    .right :global(.split) {
+      display: none;
+    }
+    .rail span {
+      writing-mode: horizontal-tb;
     }
     .layout {
       border: none;

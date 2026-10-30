@@ -20,6 +20,8 @@ export interface Profile {
   apps?: string[];
   homePage: string;
   pages: Page[];
+  /** The physical Stream Deck this layout is for. That deck shows it instead of the active layout. */
+  deck?: { serial: string; model: string; cols: number; rows: number };
 }
 
 export interface Page {

@@ -34,6 +34,8 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Equibop: found in `~/.local/bin` and other usual folders even when they aren't on the desktop's PATH, and a crashing Equibop is no longer reported as not installed.
 - Linux AppImage: programs, links and sign-in pages Keyside opens no longer inherit the AppImage's library settings, which could stop them from starting.
 - Deck: tap the connection bar to fold it into one slim row with a status dot per app. The phone remembers the choice.
+- Editor: drag the edges of the button palette, the side panel and Pair a phone to resize them. The small arrow on each edge, or the Pair a phone title, folds them away. Sizes are remembered.
+- Stream Decks: a newly plugged-in deck gets its own layout sized to its keys, like 3 × 2 for a Mini, and keeps showing it when the active layout changes. Unlink it in Manage layouts to follow the active layout again.
 - Hotkey: click the box and press the shortcut to record it. The pencil still lets you type one.
 - Linux: hotkeys and typed text work on Wayland desktops like Hyprland and Sway, without getting in the way of fcitx5 or IBus. Media keys control the playing app and system volume directly.
 - Hotkey, Type text and Media key keys show why when they can't send keys, instead of doing nothing.

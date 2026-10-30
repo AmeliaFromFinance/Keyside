@@ -1,5 +1,6 @@
-//! Physical Elgato Stream Decks plugged into this PC. Each one shows the active profile's
-//! pages like any other deck, with keys drawn here as images.
+//! Physical Elgato Stream Decks plugged into this PC. Each one gets its own layout the first
+//! time it's plugged in, sized to its keys, and shows the active layout if that's deleted.
+//! Keys are drawn here as images.
 
 use std::sync::Arc;
 
@@ -11,6 +12,45 @@ pub fn spawn(app: Arc<App>) {
     imp::spawn(app);
     #[cfg(not(feature = "hardware"))]
     let _ = app;
+}
+
+/// Gives a deck seen for the first time its own layout, sized to its keys. Decks seen before
+/// are left alone, so a layout someone deleted stays deleted. True when one was made.
+pub fn layout_for_new_deck(app: &App, model: &str, serial: &str, cols: u8, rows: u8) -> bool {
+    use crate::model::{DeckLink, Page, Profile};
+    let file = app.paths.file("known-decks.json");
+    let mut known: Vec<String> = crate::store::read_json(&file).ok().flatten().unwrap_or_default();
+    if known.iter().any(|k| k == serial) {
+        return false;
+    }
+    known.push(serial.to_string());
+    let _ = crate::store::write_json(&file, &known);
+
+    let mut e = app.engine.lock();
+    let mut layout = e.layout().clone();
+    if layout.profiles.iter().any(|p| p.deck.as_ref().is_some_and(|d| d.serial == serial)) {
+        return false;
+    }
+    let mut name = model.to_string();
+    let mut n = 2;
+    while layout.profiles.iter().any(|p| p.name == name) {
+        name = format!("{model} {n}");
+        n += 1;
+    }
+    let page = Page { id: "main".into(), name: "Main".into(), subtitle: None, folder: false, cols, rows, keys: Vec::new(), variants: Default::default() };
+    layout.profiles.push(Profile {
+        id: format!("deck-{}", crate::ids::random_b64(6)),
+        name: name.clone(),
+        apps: Vec::new(),
+        home_page: "main".into(),
+        pages: vec![page],
+        deck: Some(DeckLink { serial: serial.into(), model: model.into(), cols, rows }),
+    });
+    if crate::model::validate(&layout).is_err() || e.replace_layout(layout).is_err() {
+        return false;
+    }
+    e.toast(format!("Made the layout \"{name}\" for your {model}"), crate::model::Tone::Success);
+    true
 }
 
 /// Hands the decks back on quit: keys go blank and show the Elgato logo again.
@@ -139,6 +179,8 @@ mod imp {
                         };
                         let _ = deck.set_brightness(BRIGHTNESS);
                         let _ = deck.clear_all_button_images();
+                        let (rows, cols) = kind.key_layout();
+                        super::layout_for_new_deck(&app, name(kind), &serial, cols, rows);
                         let (cmd_tx, cmd_rx) = std_mpsc::channel();
                         let (ev_tx, ev_rx) = mpsc::channel(64);
                         tracing::info!("{} connected", name(kind));
@@ -209,6 +251,7 @@ mod imp {
         app: Arc<App>,
         kind: Kind,
         device: String,
+        serial: String,
         profile: String,
         page: String,
         stack: Vec<String>,
@@ -227,6 +270,7 @@ mod imp {
                 app,
                 kind,
                 device: format!("hw:{serial}"),
+                serial,
                 profile: String::new(),
                 page: String::new(),
                 stack: Vec::new(),
@@ -242,9 +286,16 @@ mod imp {
             c
         }
 
-        fn reset(&mut self) {
+        /// The layout made for this deck, if there is one.
+        fn own_profile(&self) -> Option<String> {
             let e = self.app.engine.lock();
-            self.profile = e.active_profile().to_string();
+            e.layout().profiles.iter().find(|p| p.deck.as_ref().is_some_and(|d| d.serial == self.serial)).map(|p| p.id.clone())
+        }
+
+        fn reset(&mut self) {
+            let own = self.own_profile();
+            let e = self.app.engine.lock();
+            self.profile = own.unwrap_or_else(|| e.active_profile().to_string());
             self.page = e.profile(&self.profile).map(|p| p.home_page.clone()).unwrap_or_default();
             self.stack.clear();
         }
@@ -273,7 +324,8 @@ mod imp {
                         Some(Event::Gone) | None => break,
                     },
                     c = changes.recv() => match c {
-                        Ok(Change::Profile) => {
+                        // A deck with its own layout keeps it when the active one changes.
+                        Ok(Change::Profile) if self.own_profile().is_none() => {
                             self.reset();
                             self.draw();
                         }
@@ -310,7 +362,13 @@ mod imp {
                 let e = self.app.engine.lock();
                 e.page(&self.profile, &self.page).is_some()
             };
-            if !ok {
+            // Also switch when this deck's own layout was added or removed.
+            let own = self.own_profile();
+            let moved = match &own {
+                Some(id) => *id != self.profile,
+                None => self.app.engine.lock().profile(&self.profile).is_some_and(|p| p.deck.is_some()),
+            };
+            if !ok || moved {
                 self.reset();
             }
         }
@@ -462,5 +520,29 @@ mod imp {
                 tracing::debug!("hardware key ran in {:?}", started.elapsed());
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn new_decks_get_one_layout_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = crate::app::App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+        let before = app.engine.lock().layout().profiles.len();
+        assert!(super::layout_for_new_deck(&app, "Stream Deck Mini", "AB12", 3, 2));
+        let made = app.engine.lock().layout().profiles.last().cloned().unwrap();
+        assert_eq!((made.name.as_str(), made.pages[0].cols, made.pages[0].rows), ("Stream Deck Mini", 3, 2));
+        assert_eq!(made.deck.unwrap().serial, "AB12");
+        assert!(!super::layout_for_new_deck(&app, "Stream Deck Mini", "AB12", 3, 2), "only once per deck");
+
+        // A second Mini gets its own, and a deleted layout isn't made again.
+        assert!(super::layout_for_new_deck(&app, "Stream Deck Mini", "CD34", 3, 2));
+        assert_eq!(app.engine.lock().layout().profiles.last().unwrap().name, "Stream Deck Mini 2");
+        let mut l = app.engine.lock().layout().clone();
+        l.profiles.retain(|p| p.deck.is_none());
+        app.engine.lock().replace_layout(l).unwrap();
+        assert!(!super::layout_for_new_deck(&app, "Stream Deck Mini", "AB12", 3, 2));
+        assert_eq!(app.engine.lock().layout().profiles.len(), before);
     }
 }

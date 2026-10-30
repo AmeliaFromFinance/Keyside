@@ -51,6 +51,11 @@
   const armedName = $derived(ed.armed ? (actionDef(ed.armed)?.name ?? ed.armed.replace("kind:", "")) : "");
   const variant = $derived(!!pg?.variants?.[ed.ff]);
   const tabs = $derived((profile()?.pages ?? []).filter((p) => !p.folder || p.id === ed.page));
+  /** Set when this layout is for a physical Stream Deck: fixed grid, one arrangement. */
+  const hw = $derived(profile()?.deck);
+  $effect(() => {
+    if (hw && ed.ff !== "phone-portrait") ed.ff = "phone-portrait";
+  });
 
   function place_(x: number, y: number, id: string | null) {
     if (!pg) return;
@@ -426,7 +431,9 @@
       <button class="tab add" aria-label={t("Add page")} title={t("Add page")} onclick={() => addPage()}><Icon name="plus" size={18} /></button>
     </div>
     <div class="controls">
-      {#if pg && place}
+      {#if hw}
+        <span class="fixed"><Icon name="layout-grid" size={16} />{hw.model} · {hw.cols} × {hw.rows}</span>
+      {:else if pg && place}
         <label>
           <span>{t("Grid")}</span>
           <select value={`${place.cols}x${place.rows}`} onchange={(e) => setGrid(...(e.currentTarget.value.split("x").map(Number) as [number, number]))}>
@@ -437,12 +444,14 @@
           </select>
         </label>
       {/if}
-      <label>
-        <span>{t("Preview")}</span>
-        <select bind:value={ed.ff}>
-          {#each factors as [ff, name] (ff)}<option value={ff}>{t(name)}</option>{/each}
-        </select>
-      </label>
+      {#if !hw}
+        <label>
+          <span>{t("Preview")}</span>
+          <select bind:value={ed.ff}>
+            {#each factors as [ff, name] (ff)}<option value={ff}>{t(name)}</option>{/each}
+          </select>
+        </label>
+      {/if}
     </div>
   </div>
 
@@ -451,6 +460,9 @@
       <div
         bind:this={deviceEl}
         class="device ff-{ed.ff}"
+        class:hw
+        style:--hw-ratio={hw ? `${hw.cols} / ${hw.rows + 0.5}` : undefined}
+        style:--hw-width={hw ? `${hw.cols * 130}px` : undefined}
         class:dragging={!!drag}
         role="presentation"
         onpointerdown={pdown}
@@ -630,6 +642,19 @@
   }
   .device.dragging {
     cursor: grabbing;
+  }
+  /* A physical Stream Deck: its own shape instead of a phone's. */
+  .device.hw {
+    aspect-ratio: var(--hw-ratio);
+    height: auto;
+    width: min(100%, var(--hw-width));
+    border-radius: 18px;
+  }
+  .fixed {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
   }
   .device.ff-phone-landscape {
     aspect-ratio: 16 / 9;
