@@ -114,12 +114,11 @@ fn runnable(p: &Path) -> bool {
     p.is_file()
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
     #[test]
-    #[cfg(unix)]
     fn leaves_appimage_settings_behind() {
         let env = |k: &str| -> Option<OsString> {
             match k {
@@ -136,7 +135,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(unix)]
     fn finds_programs_on_path() {
         assert!(find("sh").is_some());
         assert!(find("definitely-not-a-program-keyside").is_none());
