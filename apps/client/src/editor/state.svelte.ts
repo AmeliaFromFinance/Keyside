@@ -570,7 +570,7 @@ export function placeKeys(source: Key[], x?: number, y?: number): boolean {
   return true;
 }
 
-/** Pastes at a cell, keeping the copied keys' arrangement when it fits there. */
+/** Pastes at a cell, keeping the arrangement of the copied keys when it fits there. */
 export function pasteKey(x?: number, y?: number) {
   placeKeys(clipboard.keys, x, y);
 }
