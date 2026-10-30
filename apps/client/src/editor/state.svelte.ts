@@ -3,6 +3,7 @@
 import type { Action, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
 import { req, listen, deck } from "../lib/deck.svelte.ts";
 import { t } from "../lib/i18n.svelte.ts";
+import { dashboardPage, type DashPlugin } from "./dashboard.ts";
 
 export interface FieldSchema {
   type: "string" | "number" | "integer" | "boolean" | "object";
@@ -575,6 +576,27 @@ export function addPage(folder = false): string | undefined {
   );
   if (!folder) ed.page = id;
   return id;
+}
+
+/** Adds a "Stream dashboard" page with live figures for the apps that are connected now. */
+export async function addDashboard() {
+  const pr = profile();
+  if (!pr) return;
+  let list: Array<DashPlugin & { status: string }>;
+  try {
+    list = await req("plugins.list");
+  } catch (e) {
+    return notify(e instanceof Error ? e.message : String(e));
+  }
+  const pg = dashboardPage(
+    list.filter((p) => p.status === "connected"),
+    newId("p", pr.pages.map((p) => p.id)),
+    t,
+  );
+  if (!pg) return notify(t("Connect OBS, Twitch, YouTube or Streamer.bot first, then add the dashboard."));
+  change(() => pr.pages.push(pg));
+  ed.page = pg.id;
+  clearSelection();
 }
 
 export function deletePage(id: string) {

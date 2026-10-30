@@ -13,6 +13,7 @@ const repo = "https://github.com/AmeliaFromFinance/keyside";
 
 const pages: Array<{ src: string; slug: string; title: string }> = [
   { src: "docs/plugins.md", slug: "plugins", title: "Plugin setup" },
+  { src: "docs/stream-tools.md", slug: "stream-tools", title: "Stream tools" },
   { src: "docs/remote-access.md", slug: "remote-access", title: "Remote access" },
   { src: "docs/stream-deck-plugins.md", slug: "stream-deck-plugins", title: "Stream Deck plugins" },
   { src: "docs/plugin-guide.md", slug: "plugin-guide", title: "Writing plugins" },

@@ -11,6 +11,7 @@
     change,
     addKey,
     addPage,
+    addDashboard,
     moveKey,
     deleteKeys,
     duplicateKeys,
@@ -263,6 +264,20 @@
 
   const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
 
+  /** The + next to the page tabs: an empty page or a ready-made stream dashboard. */
+  function addMenu(el: HTMLElement) {
+    const r = el.getBoundingClientRect();
+    menu = {
+      x: r.left,
+      y: r.bottom + 4,
+      items: [
+        { label: t("Empty page"), icon: "plus", run: () => addPage() },
+        // A Stream Deck keeps its own fixed grid, which the dashboard may not fit.
+        { label: t("Stream dashboard"), icon: "gauge", disabled: !!hw, run: () => void addDashboard() },
+      ],
+    };
+  }
+
   /** Other pages of this layout, as menu entries that move keys there. */
   function pageItems(ids: string[]): MenuItem[] {
     return (profile()?.pages ?? [])
@@ -428,7 +443,7 @@
           {#if p.folder}<Icon name="folder" size={16} />{/if}{p.name}
         </button>
       {/each}
-      <button class="tab add" aria-label={t("Add page")} title={t("Add page")} onclick={() => addPage()}><Icon name="plus" size={18} /></button>
+      <button class="tab add" aria-label={t("Add page")} title={t("Add page")} onclick={(e) => addMenu(e.currentTarget)}><Icon name="plus" size={18} /></button>
     </div>
     <div class="controls">
       {#if hw}

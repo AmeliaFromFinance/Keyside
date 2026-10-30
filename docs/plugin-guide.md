@@ -156,6 +156,25 @@ Next to `start(host)`, the definition can have `connectionChanged(host)` for whe
 
 `console.log` goes to the log too, since the plugin's output is reserved for talking to Keyside.
 
+### Chat and alerts
+
+A feed item needs `text` and may have `author` and `color` (`#rrggbb`). Chat plugins should also say what the line is and who wrote it, so [chat triggers](stream-tools.md#chat-triggers) work with them:
+
+```ts
+host.feed("chat", { author: "Moss", text: "!brb", kind: "chat", source: "twitch", roles: ["mod", "sub"] });
+host.feed("events", { author: "Fern", text: "redeemed Hydrate", kind: "redeem", source: "twitch", reward: "Hydrate", input: "with ice" });
+```
+
+| Field | Holds |
+| --- | --- |
+| `kind` | `chat` for messages, `redeem` for channel point redemptions. `follow`, `sub`, `cheer`, `raid` or `alert` for other lines |
+| `source` | `twitch`, `youtube` or `kick`. Without it, your plugin prefix |
+| `roles` | Any of `broadcaster`, `mod`, `vip` and `sub` (channel members count as `sub`) |
+| `reward` | The reward title, for redemptions |
+| `input` | What the viewer typed with a redemption |
+
+Items without these fields still work: lines in a feed called `chat` count as chat from a viewer without roles.
+
 ## Testing
 
 `@keyside/sdk/testing` runs your plugin in memory:
