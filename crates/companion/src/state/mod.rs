@@ -529,6 +529,7 @@ impl Engine {
         }
         for id in &key.styles {
             if let Some(st) = self.layout.styles.iter().find(|s| s.id == *id)
+                && !st.when.var.is_empty()
                 && view::eval(&st.when, get)
             {
                 view::apply_style(&mut v, &st.style);

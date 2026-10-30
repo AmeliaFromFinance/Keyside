@@ -284,9 +284,10 @@ impl Key {
             .chain(self.states.iter_mut().flat_map(|s| s.actions.iter_mut()))
     }
 
-    /// Has a step that acts for as long as the key is held, like push-to-talk.
+    /// A normal press has a step that acts for as long as the key is held, like push-to-talk.
+    /// Long press and double tap steps may: they fire while the key is still down.
     pub fn acts_while_held(&self) -> bool {
-        self.all_actions().any(acts_while_held)
+        self.step_lists().filter(|(l, _)| !matches!(l, StepList::Long | StepList::Double)).any(|(_, steps)| steps.iter().any(acts_while_held))
     }
 
     /// Hold to confirm, repeat and "while held" steps all need the key to fire the moment
@@ -504,7 +505,10 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
             return bad("every style needs a name");
         }
         text("style name", &st.name, 40)?;
-        check_condition("style", &st.when)?;
+        // A style without a variable yet is kept but never applies.
+        if !st.when.var.is_empty() {
+            check_condition("style", &st.when)?;
+        }
         if let Some(Value::String(v)) = &st.when.value {
             text("style value", v, 200)?;
         }
@@ -789,6 +793,11 @@ mod tests {
         let ptt: Action = serde_json::from_value(serde_json::json!({ "type": "dev.keyside.discord/mute", "settings": { "mode": "hold" } })).unwrap();
         l.profiles[0].pages[0].keys[0].actions.push(ptt);
         assert!(validate(&l).is_err(), "talk while held");
+        // Held steps are fine as the long press itself: it fires while the key is down.
+        let mut l = sample();
+        l.profiles[0].pages[0].keys[0].long_actions = l.profiles[0].pages[0].keys[0].actions.clone();
+        l.profiles[0].pages[0].keys[0].long_actions[0] = serde_json::from_value(serde_json::json!({ "type": "dev.keyside.discord/mute", "settings": { "mode": "hold" } })).unwrap();
+        validate(&l).unwrap();
     }
 
     #[test]
@@ -811,6 +820,9 @@ mod tests {
         l2.styles.pop();
         l2.styles[0].name = " ".into();
         assert!(validate(&l2).is_err(), "needs a name");
+        l2.styles[0].name = "Unfinished".into();
+        l2.styles[0].when.var = String::new();
+        validate(&l2).unwrap();
     }
 
     #[test]

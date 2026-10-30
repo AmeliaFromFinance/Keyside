@@ -1,6 +1,6 @@
 // Editor state: a draft of the layout that only reaches devices on "Push to phones".
 
-import type { Action, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
+import type { Action, Condition, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
 import { req, listen, deck } from "../lib/deck.svelte.ts";
 import { t } from "../lib/i18n.svelte.ts";
 
@@ -77,6 +77,10 @@ export const ed = $state({
   picking: false,
   /** Plugin to open in the Plugins panel. */
   setup: null as string | null,
+  /** Opens the key styles manager. */
+  styling: false,
+  /** Current variable values, while the layout has styles or keys that follow a variable. */
+  vars: {} as Record<string, unknown>,
   error: "",
   pushing: false,
   conflict: false,
@@ -590,10 +594,102 @@ export function deletePage(id: string) {
   if (ed.page === id) ed.page = pr.homePage;
 }
 
+/** Every step on a key, in all of its lists. */
+export function keySteps(k: Key): Action[] {
+  return [...k.actions, ...(k.offActions ?? []), ...(k.longActions ?? []), ...(k.doubleActions ?? []), ...(k.states ?? []).flatMap((s) => s.actions)];
+}
+
+/** Plugin steps that act for as long as the key is held, like "Talk while held". */
+export function actsWhileHeld(a: Action): boolean {
+  return a.type.includes("/") && (a.settings.mode === "hold" || a.settings.op === "hold");
+}
+
+/** Why a key can't have long press or double tap steps, or "" when it can. */
+export function plainPressReason(k: Key): string {
+  if (k.hold) return t("Hold to confirm is on.");
+  if (k.repeat) return t("Repeat while held is on.");
+  const press = [...k.actions, ...(k.offActions ?? []), ...(k.states ?? []).flatMap((s) => s.actions)];
+  if (press.some(actsWhileHeld)) return t("A step acts while the key is held.");
+  return "";
+}
+
+function num(v: unknown): number | undefined {
+  if (typeof v === "number") return v;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return Number(v);
+  return undefined;
+}
+
+function shown(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (v === true) return "on";
+  if (v === false) return "off";
+  return String(v);
+}
+
+function truthy(v: unknown): boolean {
+  if (typeof v === "string") return v !== "" && v !== "0" && v.toLowerCase() !== "false";
+  if (typeof v === "number") return v !== 0;
+  return !!v;
+}
+
+/** Same as the companion: loose equality, numbers compared as numbers. */
+export function looseEq(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const x = num(a);
+  const y = num(b);
+  if (x !== undefined && y !== undefined && !(typeof a === "string" && typeof b === "string")) return x === y;
+  return shown(a) === shown(b);
+}
+
+export function matches(c: Condition, vars: Record<string, unknown>): boolean {
+  const cur = vars[c.var];
+  switch (c.op) {
+    case "truthy":
+      return truthy(cur);
+    case "falsy":
+      return !truthy(cur);
+    case "eq":
+      return looseEq(cur, c.value);
+    case "ne":
+      return !looseEq(cur, c.value);
+    case "gt":
+    case "lt": {
+      const a = num(cur);
+      const b = num(c.value);
+      return a !== undefined && b !== undefined && (c.op === "gt" ? a > b : a < b);
+    }
+    case "contains":
+      return shown(cur).toLowerCase().includes(shown(c.value).toLowerCase());
+  }
+}
+
+/** Deletes a style and takes it off every key that used it. */
+export function deleteStyle(id: string) {
+  change((l) => {
+    l.styles = (l.styles ?? []).filter((s) => s.id !== id);
+    if (!l.styles.length) delete l.styles;
+    for (const p of l.profiles)
+      for (const pg of p.pages)
+        for (const k of pg.keys) {
+          if (!k.styles) continue;
+          k.styles = k.styles.filter((s) => s !== id);
+          if (!k.styles.length) delete k.styles;
+        }
+  });
+}
+
 /** Draws a key from the draft, then adds live state (badges, timers, values) from the companion. */
 export function previewView(k: Key, live: KeyView | undefined, pos?: [number, number, number, number]): KeyView {
   const [x, y, w, h] = pos ?? [k.x, k.y, k.w ?? 1, k.h ?? 1];
   const v: KeyView = { id: k.id, kind: k.kind, x, y, w, h, label: k.label, sub: k.sub, icon: k.icon, color: k.color, hold: k.hold };
+  const states = k.kind === "multi" ? (k.states ?? []) : [];
+  if (states.length) {
+    const followed = k.follow ? states.findIndex((s) => s.value !== undefined && s.value !== "" && looseEq(ed.vars[k.follow!], s.value)) : -1;
+    const i = Math.min(states.length - 1, live?.state ?? (followed >= 0 ? followed : 0));
+    const st = states[i];
+    Object.assign(v, { state: i, label: st.label, sub: st.sub, icon: st.icon ?? k.icon, color: st.color ?? k.color, meta: `${i + 1}/${states.length}` });
+  }
   if (k.kind === "folder") {
     v.icon ??= "folder";
     const target = profile()?.pages.find((p) => p.id === k.target);
@@ -601,7 +697,14 @@ export function previewView(k: Key, live: KeyView | undefined, pos?: [number, nu
   }
   if (k.kind === "back") v.icon ??= "arrow-left";
   if (k.actions.length > 1) v.meta = `${k.actions.length} steps`;
-  if ([...k.actions, ...(k.offActions ?? [])].some((a) => a.review)) {
+  for (const id of k.styles ?? []) {
+    const st = ed.layout?.styles?.find((s) => s.id === id);
+    if (!st?.when.var || !matches(st.when, ed.vars)) continue;
+    const look = st.style;
+    if (look.label) v.label = look.label;
+    for (const f of ["sub", "icon", "color", "badge", "tone", "badgeTone", "meta"] as const) if (look[f]) (v as any)[f] = look[f];
+  }
+  if (keySteps(k).some((a) => a.review)) {
     v.badge = "REVIEW";
     v.tone = "warning";
     v.disabled = true;
@@ -615,7 +718,7 @@ export function previewView(k: Key, live: KeyView | undefined, pos?: [number, nu
     // Live text only counts when a plugin changed it, not when the draft differs from what was pushed.
     const was = saved?.profiles.find((p) => p.id === ed.profile)?.pages.find((p) => p.id === ed.page)?.keys.find((x) => x.id === k.id) ?? k;
     if (live.sub && live.sub !== was.sub && k.kind !== "folder") v.sub = live.sub;
-    if (live.label !== was.label && !was.label.includes("{")) v.label = live.label;
+    if (live.label !== was.label && !was.label.includes("{") && !states.length && !k.styles?.length) v.label = live.label;
   }
   return v;
 }
@@ -633,10 +736,14 @@ let poll: ReturnType<typeof setInterval> | null = null;
 
 /** Keeps live key state for the page being edited. */
 export function startLive() {
+  let tick = 0;
   const fetchLive = async () => {
     if (!ed.page) return;
     try {
       ed.live = await req<PageView | null>("deck.preview", { profile: ed.profile, page: ed.page, formFactor: "phone-portrait" });
+      // Variables only matter for drawing styles and followed states, so they're fetched less often.
+      const wanted = !!ed.layout?.styles?.length || !!page()?.keys.some((k) => k.follow);
+      if (wanted && tick++ % 3 === 0) ed.vars = await req<Record<string, unknown>>("variables.list");
     } catch {
       /* not connected right now */
     }

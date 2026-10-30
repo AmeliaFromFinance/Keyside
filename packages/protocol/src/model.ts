@@ -2,7 +2,7 @@
 
 export type Tone = "default" | "accent" | "danger" | "success" | "warning" | "info" | "muted";
 export type FormFactor = "phone-portrait" | "phone-landscape" | "tablet" | "desktop";
-export type KeyKind = "button" | "toggle" | "folder" | "back" | "slider" | "widget";
+export type KeyKind = "button" | "toggle" | "folder" | "back" | "slider" | "widget" | "multi";
 export type Scope = "deck" | "moderator" | "editor";
 
 export interface LayoutFile {
@@ -11,6 +11,16 @@ export interface LayoutFile {
   rev: number;
   defaultProfile: string;
   profiles: Profile[];
+  /** Named looks that keys share. Keys list the ids of the ones they use. */
+  styles?: Style[];
+}
+
+/** When the condition holds, keys using the style change their look. */
+export interface Style {
+  id: string;
+  name: string;
+  when: Condition;
+  style: FeedbackStyle;
 }
 
 export interface Profile {
@@ -68,6 +78,28 @@ export interface Key {
   feedback?: Feedback[];
   slider?: { min: number; max: number; step?: number };
   widget?: Widget;
+  /** Multi-state keys: 2 to 8 states. Each press runs the current one and moves to the next. */
+  states?: KeyState[];
+  /** Multi-state keys: show the state whose value this variable has. */
+  follow?: string;
+  /** Run instead of the normal steps when held for longMs (default 500). */
+  longActions?: Action[];
+  longMs?: number;
+  /** Run instead of the normal steps on two taps within doubleMs (default 300). */
+  doubleActions?: Action[];
+  doubleMs?: number;
+  /** Ids of layout styles, applied in order before the key's own feedback. */
+  styles?: string[];
+}
+
+export interface KeyState {
+  label: string;
+  sub?: string;
+  icon?: string;
+  color?: KeyColor;
+  actions: Action[];
+  /** Value of the followed variable that means this state. */
+  value?: string | number | boolean;
 }
 
 export type KeyColor = "default" | "teal" | "violet" | "green" | "amber" | "red" | "blue";
@@ -99,9 +131,11 @@ export interface Condition {
   value?: string | number | boolean;
 }
 
+export type FeedbackStyle = Partial<Pick<KeyView, "label" | "sub" | "icon" | "color" | "badge" | "tone" | "badgeTone" | "meta" | "disabled">>;
+
 export interface Feedback {
   when: Condition;
-  style: Partial<Pick<KeyView, "label" | "sub" | "icon" | "badge" | "tone" | "badgeTone" | "meta" | "disabled">>;
+  style: FeedbackStyle;
 }
 
 /** What a client draws for one key. */
@@ -132,6 +166,8 @@ export interface KeyView {
   /** Epoch ms a running timer counts from. Clients tick it locally. */
   since?: number;
   hold?: number;
+  /** Multi-state keys: the state showing, counted from 0. */
+  state?: number;
   disabled?: boolean;
   /** Widget lines, newest last. */
   lines?: FeedItem[];
