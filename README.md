@@ -46,9 +46,9 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | App | What you get |
 | --- | --- |
 | OBS Studio | Scenes (with live thumbnails), mute, volume, record and pause, chapters, split files, stream, replay buffer, virtual camera, studio mode, transitions, sources, filters, audio monitoring, media, text, screenshots, stream health, scene collections, profiles, hotkeys |
-| Meld Studio | Scenes, staging, layers, effects, mute, monitoring, volume, record, stream, screenshots, clips, virtual camera |
+| Meld Studio | Scenes, staging, layers, effects, mute, monitoring, volume, record, stream, screenshots, clips, replays, virtual camera |
 | Streamlabs Desktop | Scenes, mute, volume, record, stream, replay buffer |
-| Streamer.bot | Run actions and custom triggers with arguments, set globals, globals as variables, chat and alerts |
+| Streamer.bot | Run actions and custom triggers with arguments, set globals, globals as variables, chat and alerts from Twitch, YouTube and Kick |
 | Twitch | Chat and alerts, markers, clips, ads, chat modes, title and category, shoutouts, raids, polls, predictions, channel point rewards, shield mode |
 | YouTube Live | Chat, Super Chats, members, viewer count, stream health, send messages, change the title |
 | StreamElements | Tips and alerts in the feed, skip, pause, mute and replay alerts |

@@ -77,6 +77,8 @@ export const ed = $state({
 
 let past: string[] = [];
 let future: string[] = [];
+/** The layout as the companion has it, to tell plugin overrides from unsaved edits. */
+let saved: LayoutFile | null = null;
 
 function draftKey() {
   return `keyside.draft.${deck.companion?.id ?? "local"}`;
@@ -95,6 +97,7 @@ export async function load(keepDraft = true) {
       /* storage blocked */
     }
   }
+  saved = layout;
   ed.layout = draft ?? layout;
   ed.dirty = !!draft;
   ed.conflict = false;
@@ -168,7 +171,9 @@ export async function push() {
   ed.pushing = true;
   ed.error = "";
   try {
-    const r = await req<{ rev: number }>("layout.save", { layout: $state.snapshot(ed.layout), baseRev: ed.baseRev });
+    const pushed = $state.snapshot(ed.layout) as LayoutFile;
+    const r = await req<{ rev: number }>("layout.save", { layout: pushed, baseRev: ed.baseRev });
+    saved = pushed;
     ed.baseRev = r.rev;
     ed.layout.rev = r.rev;
     ed.dirty = false;
@@ -326,8 +331,10 @@ export function previewView(k: Key, live: KeyView | undefined, pos?: [number, nu
       if (live[f] !== undefined) (v as any)[f] = live[f];
     }
     if (live.meta && !v.meta) v.meta = live.meta;
-    if (live.sub && live.sub !== k.sub && k.kind !== "folder") v.sub = live.sub;
-    if (live.label !== k.label && !k.label.includes("{")) v.label = live.label;
+    // Live text only counts when a plugin changed it, not when the draft differs from what was pushed.
+    const was = saved?.profiles.find((p) => p.id === ed.profile)?.pages.find((p) => p.id === ed.page)?.keys.find((x) => x.id === k.id) ?? k;
+    if (live.sub && live.sub !== was.sub && k.kind !== "folder") v.sub = live.sub;
+    if (live.label !== was.label && !was.label.includes("{")) v.label = live.label;
   }
   return v;
 }

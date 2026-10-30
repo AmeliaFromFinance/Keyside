@@ -20,7 +20,7 @@ fn req<'a>(m: &'a Map<String, Value>, k: &str) -> Result<&'a str, String> {
 }
 
 fn num(m: &Map<String, Value>, k: &str) -> Option<f64> {
-    m.get(k).and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())))
+    m.get(k).and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))).filter(|n: &f64| n.is_finite())
 }
 
 /// Fills {variables} in user text. `encode` escapes each value for where it lands.

@@ -75,7 +75,8 @@
   }
 
   $effect(() => {
-    for (const [name, f] of fields) if (f["x-options"] === "dynamic" && !dynamic[name] && !loading[name] && type) void loadOptions(name);
+    // A failed load waits for the Refresh button, so a plugin that's off isn't asked over and over.
+    for (const [name, f] of fields) if (f["x-options"] === "dynamic" && !dynamic[name] && !loading[name] && !failed[name] && type) void loadOptions(name);
   });
 
   function entries(v: unknown): Array<[string, string]> {

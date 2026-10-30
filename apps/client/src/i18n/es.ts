@@ -214,6 +214,7 @@ export default {
   "Nothing to review.": "Nada que revisar.",
   "Nothing yet": "Nada aún",
   "OSC message": "Mensaje OSC",
+  "Offline": "Sin conexión",
   "Offline, retrying": "Sin conexión, reintentando",
   "On press": "Al pulsar",
   "Only these sites": "Solo estos sitios",

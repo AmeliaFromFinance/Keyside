@@ -5,6 +5,7 @@
 
   let { open = $bindable(false), title, wide = false, onclose, children }: { open?: boolean; title: string; wide?: boolean; onclose?: () => void; children: Snippet } = $props();
   let dialog: HTMLDialogElement;
+  const headingId = `sheet-${Math.random().toString(36).slice(2, 8)}`;
 
   $effect(() => {
     if (open && !dialog.open) dialog.showModal();
@@ -12,9 +13,9 @@
   });
 </script>
 
-<dialog bind:this={dialog} class:wide onclose={() => ((open = false), onclose?.())} onclick={(e) => e.target === dialog && (open = false)}>
+<dialog bind:this={dialog} class:wide aria-labelledby={headingId} onclose={() => ((open = false), onclose?.())} onclick={(e) => e.target === dialog && (open = false)}>
   <header>
-    <h2>{title}</h2>
+    <h2 id={headingId}>{title}</h2>
     <button class="btn icon ghost" aria-label={t("Close")} onclick={() => (open = false)}><Icon name="x" /></button>
   </header>
   <div class="body">

@@ -120,10 +120,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("Keyside couldn't start");
 
-    app.run(|_app, event| {
+    app.run(|app, event| match event {
         // Closing the editor keeps Keyside running in the tray. Quit comes from the tray menu.
-        if let RunEvent::ExitRequested { code: None, api, .. } = event {
-            api.prevent_exit();
-        }
+        RunEvent::ExitRequested { code: None, api, .. } => api.prevent_exit(),
+        // Plugin processes would outlive the app otherwise.
+        RunEvent::Exit => tauri::async_runtime::block_on(keyside::shutdown(&app.state::<Companion>().0)),
+        _ => {}
     });
 }

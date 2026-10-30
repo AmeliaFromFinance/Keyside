@@ -75,6 +75,13 @@
     lockArming = false;
     if (lockTimer) clearTimeout(lockTimer);
   }
+  /** Keyboard users hold Enter or Space, like a finger on the button. */
+  function lockKey(e: KeyboardEvent, isDown: boolean) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (isDown && !e.repeat) lockDown();
+    else if (!isDown) lockUp();
+  }
 
   const page = $derived(deck.page);
   const online = $derived(deck.conn.s === "open");
@@ -108,7 +115,9 @@
           onpointerdown={lockDown}
           onpointerup={lockUp}
           onpointerleave={lockUp}
-          onpointercancel={lockUp}><Icon name={localLock ? "lock" : "lock-open"} /></button
+          onpointercancel={lockUp}
+          onkeydown={(e) => lockKey(e, true)}
+          onkeyup={(e) => lockKey(e, false)}><Icon name={localLock ? "lock" : "lock-open"} /></button
         >
         <button class="btn icon tool" aria-label={t("Settings")} onclick={() => (settings = true)}><Icon name="sliders-horizontal" /></button>
       </div>
@@ -122,6 +131,8 @@
             {t("Connected to")} <span class="mono name">{deck.companion?.name}</span>
           {:else if deck.conn.s === "connecting"}
             {t("Connecting…")}
+          {:else if deck.conn.s === "closed" && !deck.conn.retry}
+            {t("Offline")}
           {:else}
             {t("Offline, retrying")}
           {/if}

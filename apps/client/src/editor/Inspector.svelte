@@ -263,7 +263,7 @@
           {t("Hold to confirm")}
         </label>
         {#if key.hold}
-          <label class="field inline"><input type="number" min="200" max="10000" step="100" value={key.hold} oninput={(e) => edit((k) => (k.hold = Math.min(10000, Math.max(200, Number(e.currentTarget.value)))))} /><span>ms</span></label>
+          <label class="field inline"><input type="number" min="200" max="10000" step="100" value={key.hold} onchange={(e) => edit((k) => (k.hold = Math.min(10000, Math.max(200, Number(e.currentTarget.value) || 1000))))} /><span>ms</span></label>
         {/if}
       </div>
       {#if key.kind === "button"}
@@ -273,7 +273,7 @@
             {t("Repeat while held")}
           </label>
           {#if key.repeat}
-            <label class="field inline"><span>{t("every")}</span><input type="number" min="100" max="10000" step="50" value={key.repeat} oninput={(e) => edit((k) => (k.repeat = Math.min(10000, Math.max(100, Number(e.currentTarget.value)))))} /><span>ms</span></label>
+            <label class="field inline"><span>{t("every")}</span><input type="number" min="100" max="10000" step="50" value={key.repeat} onchange={(e) => edit((k) => (k.repeat = Math.min(10000, Math.max(100, Number(e.currentTarget.value) || 500))))} /><span>ms</span></label>
           {/if}
         </div>
       {/if}

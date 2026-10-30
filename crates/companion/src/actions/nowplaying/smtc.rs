@@ -1,4 +1,4 @@
-//! Windows' system media controls, which Spotify, browsers and most players report to.
+//! The Windows system media controls, which Spotify, browsers and most players report to.
 
 use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSession as Session, GlobalSystemMediaTransportControlsSessionManager as Manager,

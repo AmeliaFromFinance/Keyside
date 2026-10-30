@@ -6,7 +6,14 @@ import { Reconnecting } from "../../_lib/socket.ts";
 import { clamp01, want } from "../../_lib/util.ts";
 import { WebChannel } from "./webchannel.ts";
 
-const COMMANDS: Record<string, string> = { screenshot: "meld.screenshot", clip: "meld.recordClip", vcam: "meld.toggleVirtualCameraAction" };
+const COMMANDS: Record<string, string> = {
+  screenshot: "meld.screenshot",
+  "screenshot-vertical": "meld.screenshot.vertical",
+  clip: "meld.recordClip",
+  "replay-show": "meld.replay.show",
+  "replay-dismiss": "meld.replay.dismiss",
+  vcam: "meld.toggleVirtualCameraAction",
+};
 const ID = /^[0-9A-Fa-f]{32}$/;
 
 interface Item {

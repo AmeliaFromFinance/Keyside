@@ -26,7 +26,7 @@ export interface Harness {
   status(): { state: string; detail?: string; pills?: unknown[] } | undefined;
   options(action: string, field: string, settings?: Settings): Promise<Array<{ value: string; label: string }>>;
   setConnection(values: Settings): Promise<void>;
-  /** Latest view sent for a key, merged across updates. */
+  /** Latest view sent for a key. */
   view(instance: string): Record<string, unknown> | null | undefined;
   variable(name: string): unknown;
   /** Waits for batched key and variable updates to go out. */
@@ -108,10 +108,7 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
     setConnection: (values) => notify("connection.changed", { connection: values }),
     view(instance) {
       let v: Record<string, unknown> | null | undefined;
-      for (const s of sent) {
-        if (s.method !== "key.set" || s.params.instance !== instance) continue;
-        v = s.params.view === null ? null : { ...(v ?? {}), ...s.params.view };
-      }
+      for (const s of sent) if (s.method === "key.set" && s.params.instance === instance) v = s.params.view;
       return v;
     },
     variable(name) {

@@ -27,6 +27,9 @@ export class Connection {
   #pending = new Map<number, { ok: (v: any) => void; fail: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   #retry = 0;
   #stopped = false;
+  /** Bumped by stop() and every connect, so a connect that was overtaken gives up. */
+  #gen = 0;
+  #connecting = false;
   #pingTimer: ReturnType<typeof setInterval> | null = null;
   #retryTimer: ReturnType<typeof setTimeout> | null = null;
   onMessage: Handler = () => {};
@@ -49,7 +52,10 @@ export class Connection {
 
   stop() {
     this.#stopped = true;
+    this.#gen++;
+    this.#connecting = false;
     if (this.#retryTimer) clearTimeout(this.#retryTimer);
+    this.#retryTimer = null;
     this.#teardown();
   }
 
@@ -114,22 +120,36 @@ export class Connection {
   }
 
   async #connect() {
-    if (this.#stopped) return;
+    if (this.#stopped || this.#connecting || this.#ws) return;
+    const gen = ++this.#gen;
+    this.#connecting = true;
     this.onState({ s: "connecting", attempt: this.#retry });
     const ws = await this.#openAny(this.#urls());
-    if (!ws) return this.#closed("unreachable", true);
+    if (gen !== this.#gen) {
+      // stop() or a newer connect ran meanwhile.
+      ws?.close();
+      return;
+    }
+    if (!ws) {
+      this.#connecting = false;
+      return this.#closed("unreachable", true);
+    }
     this.#ws = ws;
     try {
       if (this.#target.kind === "admin") {
-        ws.onmessage = (e) => this.#deliver(JSON.parse(String(e.data)));
+        ws.onmessage = (e) => this.#ws === ws && this.#deliver(JSON.parse(String(e.data)));
       } else {
         await this.#handshake(ws);
         if (this.#target.kind === "device") void companions.touch(this.#target.companion.cid);
       }
     } catch (e) {
+      this.#connecting = false;
+      if (this.#ws !== ws) return;
       const reason = e instanceof Error ? e.message : String(e);
       return this.#closed(reason, !["pairing-expired", "unknown-device", "wrong-companion", "bad-proof", "denied"].includes(reason));
     }
+    this.#connecting = false;
+    if (this.#ws !== ws) return;
     ws.onclose = () => {
       if (this.#ws === ws) this.#closed("disconnected", true);
     };
@@ -172,6 +192,7 @@ export class Connection {
     this.#session = res.session;
     const session = res.session;
     ws.onmessage = async (e) => {
+      if (this.#ws !== ws) return;
       if (typeof e.data === "string") {
         const m = JSON.parse(e.data);
         if (m.t === "error") this.#closed(m.reason, false);
@@ -181,9 +202,10 @@ export class Connection {
       try {
         m = await session.open<any>(new Uint8Array(e.data as ArrayBuffer));
       } catch {
-        this.#closed("bad-frame", true);
+        if (this.#ws === ws) this.#closed("bad-frame", true);
         return;
       }
+      if (this.#ws !== ws) return;
       try {
         await this.#deviceMessage(m);
       } catch (err) {
@@ -246,24 +268,48 @@ export class Connection {
     if (this.#stopped) return;
     this.onState({ s: "closed", reason, retry });
     if (!retry || this.#target.kind === "pair") return;
+    if (this.#retryTimer) clearTimeout(this.#retryTimer);
     const delay = Math.min(10_000, 500 * 2 ** this.#retry++);
-    this.#retryTimer = setTimeout(() => void this.#connect(), delay);
+    this.#retryTimer = setTimeout(() => {
+      this.#retryTimer = null;
+      void this.#connect();
+    }, delay);
   }
 
   /** Retries right away, for example when the app comes back to the foreground. */
   nudge() {
-    if (!this.#ws && !this.#stopped) {
+    if (!this.#ws && !this.#connecting && !this.#stopped) {
       if (this.#retryTimer) clearTimeout(this.#retryTimer);
+      this.#retryTimer = null;
       this.#retry = 0;
       void this.#connect();
     }
   }
 
-  send(m: ClientMsg) {
+  /** Sends when connected. Returns false when the message couldn't go out. */
+  send(m: ClientMsg): boolean {
     const ws = this.#ws;
-    if (!ws || ws.readyState !== 1) return;
-    if (this.#target.kind === "admin") ws.send(JSON.stringify(m));
-    else if (this.#session) void this.#session.seal(m).then((f) => ws.readyState === 1 && ws.send(f));
+    if (!ws || ws.readyState !== 1) return false;
+    if (this.#target.kind === "admin") {
+      ws.send(JSON.stringify(m));
+      return true;
+    }
+    if (!this.#session) return false;
+    this.#session.seal(m).then(
+      (f) => ws.readyState === 1 && ws.send(f),
+      (e) => {
+        if (m.t === "req") this.#fail(m.id, e instanceof Error ? e.message : String(e));
+      },
+    );
+    return true;
+  }
+
+  #fail(id: number, message: string) {
+    const p = this.#pending.get(id);
+    if (!p) return;
+    clearTimeout(p.timer);
+    this.#pending.delete(id);
+    p.fail(new Error(message));
   }
 
   req<T = any>(op: string, args?: unknown, timeout = 30_000): Promise<T> {
@@ -274,7 +320,7 @@ export class Connection {
         fail(new Error("The companion did not answer in time"));
       }, timeout);
       this.#pending.set(id, { ok, fail, timer });
-      this.send({ t: "req", id, op, args });
+      if (!this.send({ t: "req", id, op, args })) this.#fail(id, "Not connected");
     });
   }
 }

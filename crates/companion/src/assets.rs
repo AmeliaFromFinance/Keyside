@@ -74,7 +74,7 @@ pub fn sniff(b: &[u8]) -> Option<(Kind, &'static str, &'static str)> {
 impl Assets {
     pub fn open(dir: PathBuf) -> Result<Self> {
         store::private_dir(&dir)?;
-        let index: BTreeMap<String, Meta> = store::read_json(&dir.join("index.json"))?.unwrap_or_default();
+        let index: BTreeMap<String, Meta> = store::read_json_or_reset(&dir.join("index.json"))?.unwrap_or_default();
         Ok(Self { dir, index: Mutex::new(index) })
     }
 

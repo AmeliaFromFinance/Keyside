@@ -120,7 +120,7 @@
     },
     {
       "id": "command",
-      "name": "Screenshot, clip or camera",
+      "name": "Screenshot, clip, replay or camera",
       "icon": "camera",
       "settings": {
         "type": "object",
@@ -128,8 +128,8 @@
           "command": {
             "type": "string",
             "title": "Do",
-            "enum": ["screenshot", "clip", "vcam"],
-            "enumNames": ["Take a screenshot", "Save a clip", "Turn the virtual camera on or off"],
+            "enum": ["screenshot", "screenshot-vertical", "clip", "replay-show", "replay-dismiss", "vcam"],
+            "enumNames": ["Take a screenshot", "Take a vertical screenshot", "Save a clip", "Show replay of the last clip", "Dismiss replays", "Turn the virtual camera on or off"],
             "default": "screenshot"
           }
         }

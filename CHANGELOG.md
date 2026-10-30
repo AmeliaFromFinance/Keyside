@@ -2,6 +2,26 @@
 
 All notable changes to Keyside. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- Streamer.bot: works with versions that don't send a Hello, with authentication that isn't enforced, and reads globals in the shape Streamer.bot sends. Kick chat and alerts.
+- Meld Studio: keys for vertical screenshots and for showing or dismissing the replay of the last clip.
+- OBS: scenes are listed in the order OBS shows them.
+- Spotify: podcast episodes show up as now playing.
+- StreamElements: more alert types in the feed, including Super Chats and YouTube members.
+- Twitch: ad schedule times are read in either format Twitch sends.
+- Plugins get a shutdown message so `stop()` runs, and plugin processes end when Keyside quits.
+- A key that repeats while held stops when the phone disconnects or changes page mid-press. Push-to-talk keys are released too.
+- Stream Deck plugin settings can no longer make the stored layout invalid.
+- Hotkey and typing steps added from another device wait for review on the PC.
+- The editor keeps dynamic dropdowns from retrying nonstop while a plugin is off, shows the label you're typing, and recovers when the layout fails to load.
+- Phones send their screen size again after reconnecting, so tablets keep their layout.
+- A damaged settings, devices or tokens file is set aside instead of keeping Keyside from starting.
+- User variables are saved shortly after they change instead of on every slider move.
+- Keyboard: Enter, Space and arrow keys work on sliders and the lock button, and disabled keys can't be pressed from the keyboard.
+- Android: pairing keys are left out of device backups.
+- Plugin SDK: `key.set` always replaces the view, and the published package ships compiled JavaScript so `npm test` works in a new plugin.
+
 ## [0.1.0] - 2026-10-29
 
 First release.

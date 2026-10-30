@@ -166,7 +166,7 @@ impl Host {
             staged: Mutex::new(HashMap::new()),
             oauth: Mutex::new(HashMap::new()),
         };
-        let installed: BTreeMap<String, Installed> = store::read_json(&host.index)?.unwrap_or_default();
+        let installed: BTreeMap<String, Installed> = store::read_json_or_reset(&host.index)?.unwrap_or_default();
         host.state.lock().installed = installed.into_iter().filter(|(_, i)| manifest::validate(&i.manifest).is_ok()).collect();
         if host.deno.is_none() {
             tracing::warn!("Deno runtime not found; plugins can't run. Set KEYSIDE_DENO or install Deno.");
@@ -323,20 +323,39 @@ impl Host {
                 bail!("prefix \"{}\" is already used by {}", m.prefix, other.manifest.name);
             }
             if let Some(old) = st.installed.get(&m.id)
-                && let (Some(a), Some(b)) = (&old.signer, &pkg.signer)
-                && a != b
+                && old.signer.is_some()
+                && old.signer != pkg.signer
                 && source != Source::Bundled
             {
-                bail!("this update is signed by a different key than the installed version");
+                bail!(if pkg.signer.is_some() {
+                    "this update is signed by a different key than the installed version"
+                } else {
+                    "the installed version is signed and this update isn't"
+                });
             }
         }
         let dir = self.package_dir(&m.id, &m.version);
-        if dir.exists() {
-            std::fs::remove_dir_all(&dir)?;
+        // Unpack next to the old files first, then stop the plugin and swap. The running
+        // process may still hold its files for a moment, so removing them is retried.
+        let staging = self.packages.join(&m.id).join(format!(".{}.new", m.version));
+        if staging.exists() {
+            std::fs::remove_dir_all(&staging)?;
         }
-        pkg.extract_to(&dir)?;
+        pkg.extract_to(&staging)?;
         let previous = self.get(&m.id);
         self.stop(&m.id);
+        if dir.exists() {
+            let mut tries = 0;
+            while let Err(e) = std::fs::remove_dir_all(&dir) {
+                tries += 1;
+                if tries > 10 {
+                    let _ = std::fs::remove_dir_all(&staging);
+                    return Err(e).context("replacing the old plugin files");
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+        std::fs::rename(&staging, &dir).context("moving the plugin into place")?;
         let granted = if approve || source == Source::Bundled { m.permissions.clone() } else { previous.as_ref().map(|p| p.granted.clone()).unwrap_or_default() };
         let inst = Installed {
             manifest: m.clone(),
@@ -691,11 +710,10 @@ async fn supervise(app: Arc<App>, id: String, generation: u64, deno: PathBuf, mu
         let name = inst.manifest.name.clone();
         app.engine.lock().set_connection(ConnectionView { id: id.clone(), name: name.clone(), status: "connecting".into(), detail: None });
 
-        let outcome = tokio::select! {
-            r = run_once(&app, &inst, generation, &deno) => r,
-            _ = &mut stop => {
-                return;
-            }
+        let outcome = match run_once(&app, &inst, generation, &deno, &mut stop).await {
+            Ok(Run::Stopped) => return,
+            Ok(Run::Ended) => Ok(()),
+            Err(e) => Err(e),
         };
         if !current(&app) {
             return;
@@ -740,7 +758,14 @@ async fn supervise(app: Arc<App>, id: String, generation: u64, deno: PathBuf, mu
     }
 }
 
-async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path) -> Result<()> {
+enum Run {
+    /// The process ended on its own.
+    Ended,
+    /// The host asked it to stop and it's gone.
+    Stopped,
+}
+
+async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path, stop: &mut tokio::sync::oneshot::Receiver<()>) -> Result<Run> {
     let m = &inst.manifest;
     let host = &app.plugins;
     let pkg = host.package_dir(&m.id, &m.version);
@@ -781,7 +806,7 @@ async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path
             Some(r) if r.generation == generation => r.peer = Some(peer.clone()),
             _ => {
                 let _ = child.start_kill();
-                return Ok(());
+                return Ok(Run::Stopped);
             }
         }
     }
@@ -793,7 +818,14 @@ async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path
         "locale": app.settings.read().locale,
         "dataDir": data.display().to_string(),
     });
-    peer.request("initialize", init, Duration::from_secs(20)).await.map_err(anyhow::Error::msg).context("plugin did not start")?;
+    let started = tokio::select! {
+        r = peer.request("initialize", init, Duration::from_secs(20)) => r,
+        _ = &mut *stop => {
+            let _ = child.start_kill();
+            return Ok(Run::Stopped);
+        }
+    };
+    started.map_err(anyhow::Error::msg).context("plugin did not start")?;
     sync_one(app, &m.id).await;
 
     loop {
@@ -827,11 +859,18 @@ async fn run_once(app: &Arc<App>, inst: &Installed, generation: u64, deno: &Path
                 let status = status?;
                 bail!("exited with {status}");
             }
+            _ = &mut *stop => {
+                // Let the plugin's stop() run (close sockets, say goodbye), then make sure it's gone.
+                peer.notify("shutdown", json!({})).await;
+                let _ = tokio::time::timeout(Duration::from_secs(1), child.wait()).await;
+                let _ = child.start_kill();
+                return Ok(Run::Stopped);
+            }
         }
     }
     let _ = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
     let _ = child.start_kill();
-    Ok(())
+    Ok(Run::Ended)
 }
 
 fn text_ok(s: &Option<String>, max: usize) -> bool {
@@ -1009,7 +1048,7 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             } else {
                 let data = params.get("data").cloned().ok_or("missing data")?;
                 let b = host.state.lock().running.get(&m.id).and_then(|r| r.ipc.clone()).ok_or("bridge not open")?;
-                b.send(data).await.map_err(|e| e.to_string())?;
+                b.send(data).map_err(|e| e.to_string())?;
                 Ok(Value::Null)
             }
         }

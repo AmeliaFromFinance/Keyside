@@ -15,13 +15,26 @@ const MAX_FRAME: u32 = 1024 * 1024;
 #[derive(Clone)]
 pub struct Bridge {
     tx: mpsc::Sender<(u32, Value)>,
+    /// Relay tasks. Dropping the last handle ends them, so a replaced or stopped bridge
+    /// doesn't keep reading from Discord.
+    _tasks: Arc<Tasks>,
+}
+
+struct Tasks(Vec<tokio::task::JoinHandle<()>>);
+
+impl Drop for Tasks {
+    fn drop(&mut self) {
+        for t in &self.0 {
+            t.abort();
+        }
+    }
 }
 
 impl Bridge {
     pub async fn open_discord(app: Arc<App>, plugin: String) -> Result<Self> {
         let (reader, writer) = connect().await.context("Discord is not running")?;
         let (tx, mut rx) = mpsc::channel::<(u32, Value)>(64);
-        tokio::spawn(async move {
+        let writer_task = tokio::spawn(async move {
             let mut w = writer;
             while let Some((op, payload)) = rx.recv().await {
                 let body = payload.to_string().into_bytes();
@@ -34,7 +47,7 @@ impl Bridge {
                 }
             }
         });
-        tokio::spawn(async move {
+        let reader_task = tokio::spawn(async move {
             let mut r = reader;
             loop {
                 let mut head = [0u8; 8];
@@ -55,15 +68,19 @@ impl Bridge {
             }
             super::ipc_deliver(&app, &plugin, "ipc.closed", json!({ "bridge": "discord" })).await;
         });
-        Ok(Self { tx })
+        Ok(Self { tx, _tasks: Arc::new(Tasks(vec![writer_task, reader_task])) })
     }
 
-    /// `data` is {"op": number, "payload": object}.
-    pub async fn send(&self, data: Value) -> Result<()> {
+    /// `data` is {"op": number, "payload": object}. Doesn't wait: a Discord that stopped
+    /// reading must not hold up the plugin's other calls.
+    pub fn send(&self, data: Value) -> Result<()> {
         let op = data.get("op").and_then(Value::as_u64).filter(|o| *o <= 4).context("invalid op")? as u32;
         let payload = data.get("payload").cloned().unwrap_or(Value::Null);
         anyhow::ensure!(payload.to_string().len() < MAX_FRAME as usize, "payload too large");
-        self.tx.send((op, payload)).await.map_err(|_| anyhow::anyhow!("bridge closed"))
+        self.tx.try_send((op, payload)).map_err(|e| match e {
+            mpsc::error::TrySendError::Full(_) => anyhow::anyhow!("Discord isn't keeping up"),
+            mpsc::error::TrySendError::Closed(_) => anyhow::anyhow!("bridge closed"),
+        })
     }
 }
 

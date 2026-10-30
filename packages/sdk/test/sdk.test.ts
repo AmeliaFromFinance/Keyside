@@ -12,8 +12,8 @@ const plugin = definePlugin({
     count: {
       press({ key, settings }) {
         const n = setting(settings, "step", 1);
-        key.set({ label: `+${n}` });
-        key.set({ badge: "ON" });
+        key.set({ label: "old" });
+        key.set({ label: `+${n}`, badge: "ON" });
       },
       options: (field) => (field === "scene" ? [{ value: "a", label: "Scene A" }] : []),
     },
@@ -32,7 +32,7 @@ test("runs actions, batches key updates and answers options", async () => {
   await h.press("k1", "count", { step: 2 });
   await h.settle();
   assert.deepEqual(h.view("k1"), { label: "+2", badge: "ON" });
-  assert.equal(h.sent.filter((s) => s.method === "key.set").length, 1, "two updates in one tick go out once");
+  assert.equal(h.sent.filter((s) => s.method === "key.set").length, 1, "two updates in one tick go out once, the last one wins");
   assert.equal(h.variable("ready"), true);
   assert.deepEqual(await h.options("count", "scene"), [{ value: "a", label: "Scene A" }]);
   await assert.rejects(h.press("k1", "fail"), /nope/);

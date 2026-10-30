@@ -51,11 +51,10 @@ impl Guard {
     fn take(ip: IpAddr) -> Option<Self> {
         let mut c = counts().lock();
         let total: usize = c.values().sum();
-        let n = c.entry(ip).or_default();
-        if *n >= MAX_PER_IP || total >= MAX_TOTAL {
+        if total >= MAX_TOTAL || c.get(&ip).is_some_and(|n| *n >= MAX_PER_IP) {
             return None;
         }
-        *n += 1;
+        *c.entry(ip).or_default() += 1;
         Some(Self(ip))
     }
 }

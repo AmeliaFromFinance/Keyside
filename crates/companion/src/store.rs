@@ -16,6 +16,20 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
     }
 }
 
+/// Like `read_json`, but a file that no longer parses is set aside as `<name>.invalid` and
+/// treated as missing, so one damaged file can't keep Keyside from starting.
+pub fn read_json_or_reset<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
+    match read_json(path) {
+        Err(e) if path.is_file() => {
+            let aside = path.with_extension("invalid");
+            let _ = std::fs::rename(path, &aside);
+            tracing::warn!("{e:#}; kept the file as {} and started without it", aside.display());
+            Ok(None)
+        }
+        other => other,
+    }
+}
+
 pub fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     write_atomic(path, &serde_json::to_vec_pretty(value)?)
 }

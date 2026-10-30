@@ -48,7 +48,7 @@ export interface Key {
   /** The label and icon set in the layout, for picking variants (mic -> mic-off). */
   readonly label: string;
   readonly icon?: string;
-  /** Replaces this key's state. Fields you leave out show the layout's own values. */
+  /** Replaces this key's state, so pass everything you want shown. Fields you leave out show the layout's own values. */
   set(view: KeyView): void;
   /** Back to the layout's own look. */
   clear(): void;
@@ -162,6 +162,7 @@ class Runtime implements Host {
   #vars = new Map<string, VarValue>();
   #timer: ReturnType<typeof setTimeout> | null = null;
   #ipc = new Map<string, { fn: (d: unknown) => void; closed?: () => void }>();
+  #stopped = false;
 
   constructor(def: PluginDefinition, wire: Wire) {
     this.#def = def;
@@ -222,8 +223,7 @@ class Runtime implements Host {
       icon: inst.icon,
       set(view: KeyView) {
         if (!rt.#instances.has(inst.id)) return;
-        const prev = rt.#views.get(inst.id);
-        rt.#views.set(inst.id, prev ? { ...prev, ...view } : { ...view });
+        rt.#views.set(inst.id, { ...view });
         rt.#schedule();
       },
       clear() {
@@ -362,7 +362,7 @@ class Runtime implements Host {
         this.#ipc.get(params.bridge)?.closed?.();
         return null;
       case "shutdown":
-        await this.#def.stop?.();
+        await this.#stop();
         return null;
       default:
         throw new Error(`unknown method ${method}`);
@@ -388,6 +388,10 @@ class Runtime implements Host {
         } else {
           run.catch((e) => this.log.error(errorText(e)));
         }
+        if (msg.method === "shutdown") {
+          await run.catch(() => {});
+          break;
+        }
       } else if (msg.id !== undefined) {
         const p = this.#pending.get(msg.id);
         this.#pending.delete(msg.id);
@@ -395,6 +399,14 @@ class Runtime implements Host {
         else p?.ok(msg.result);
       }
     }
+    await this.#stop();
+  }
+
+  async #stop() {
+    if (this.#stopped) return;
+    this.#stopped = true;
+    if (this.#timer) clearTimeout(this.#timer);
+    this.#timer = null;
     await this.#def.stop?.();
   }
 }
@@ -426,7 +438,9 @@ function stdioWire(): Wire {
   const enc = new TextEncoder();
   return {
     write(line) {
-      Deno.stdout.writeSync(enc.encode(line + "\n"));
+      // writeSync may write only part of a big frame (a key image, say).
+      let buf = enc.encode(line + "\n");
+      while (buf.length) buf = buf.subarray(Deno.stdout.writeSync(buf));
     },
     async *lines() {
       const reader = Deno.stdin.readable.pipeThrough(new TextDecoderStream()).getReader();

@@ -80,6 +80,8 @@ function handle(m: any) {
       deck.companion = m.companion;
       deck.self = m.device;
       deck.locked = m.locked;
+      // Every connection starts out as a portrait phone on the companion.
+      lastFF = "";
       sendViewport();
       break;
     case "locked":
@@ -128,8 +130,7 @@ let lastFF = "";
 export function sendViewport() {
   const ff = formFactor();
   if (ff === lastFF && deck.page) return;
-  lastFF = ff;
-  conn?.send({ t: "viewport", formFactor: ff, width: innerWidth, height: innerHeight });
+  if (conn?.send({ t: "viewport", formFactor: ff, width: innerWidth, height: innerHeight })) lastFF = ff;
 }
 
 export function press(key: string, phase: "down" | "up" | "cancel") {
@@ -158,7 +159,11 @@ const images = new Map<string, Promise<string | null>>();
 export function assetImage(id: string): Promise<string | null> {
   let p = images.get(id);
   if (!p) {
-    p = req<string | null>("asset.image", { id }).catch(() => null);
+    p = req<string | null>("asset.image", { id }).catch(() => {
+      // Try again next time, the connection may have dropped mid-request.
+      images.delete(id);
+      return null;
+    });
     images.set(id, p);
   }
   return p;

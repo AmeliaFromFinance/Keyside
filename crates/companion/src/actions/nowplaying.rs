@@ -111,7 +111,11 @@ pub fn spawn(app: Arc<App>) {
                 && t.art_key != art_key
             {
                 art_key = t.art_key.clone();
-                art = if art_key.is_empty() { None } else { be.art(t, &app.http).await.and_then(|b| cover(&b)) };
+                art = match if art_key.is_empty() { None } else { be.art(t, &app.http).await } {
+                    // Decoding a big cover takes a moment, so it runs off the async threads.
+                    Some(bytes) => tokio::task::spawn_blocking(move || cover(&bytes)).await.ok().flatten(),
+                    None => None,
+                };
             }
             if now.is_none() {
                 art = None;
@@ -186,12 +190,18 @@ pub(crate) async fn fetch_art(url: &str, http: &reqwest::Client) -> Option<Vec<u
     if !url.starts_with("https://") {
         return None;
     }
-    let r = http.get(url).timeout(Duration::from_secs(5)).send().await.ok()?.error_for_status().ok()?;
+    let mut r = http.get(url).timeout(Duration::from_secs(5)).send().await.ok()?.error_for_status().ok()?;
     if r.content_length().is_some_and(|n| n as usize > MAX) {
         return None;
     }
-    let b = r.bytes().await.ok()?;
-    (b.len() <= MAX).then(|| b.to_vec())
+    let mut out = Vec::new();
+    while let Some(chunk) = r.chunk().await.ok()? {
+        if out.len() + chunk.len() > MAX {
+            return None;
+        }
+        out.extend_from_slice(&chunk);
+    }
+    Some(out)
 }
 
 #[cfg(test)]

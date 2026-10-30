@@ -14,7 +14,7 @@ Only the latest release gets security fixes.
 
 **Encryption.** Every message between a device and the PC is end-to-end encrypted (P-256 key exchange, AES-256-GCM, a fresh key per connection). Replayed or reordered messages are rejected. This holds even over plain HTTP. See [docs/protocol.md](docs/protocol.md).
 
-**Access levels.** Each device is either deck only, editor, or moderator (chosen pages only). Revoking a device in the editor disconnects it straight away. Steps that start programs can only be added on the PC itself.
+**Access levels.** Each device is either deck only, editor, or moderator (chosen pages only). Revoking a device in the editor disconnects it straight away. Steps that start programs can only be added on the PC itself, and hotkey or typing steps added from another device stay off until you approve them on the PC.
 
 **The editor.** The full editor only listens on `127.0.0.1`. It checks the `Host` header (against DNS rebinding) and the request origin (against other websites in your browser), and sign-in needs a link only the desktop app or `keyside open` can produce.
 

@@ -34,12 +34,13 @@ pub fn load_or_create(dir: &Path, ips: &[IpAddr], hostname: &str) -> Result<Tls>
     };
 
     if !reuse {
+        // Keep addresses seen before, so moving between known networks reuses the certificate.
         let mut all_ips: Vec<IpAddr> = meta.map(|m| m.ips).unwrap_or_default();
-        for ip in ips {
-            if !all_ips.contains(ip) {
-                all_ips.push(*ip);
-            }
+        all_ips.retain(|ip| !ips.contains(ip));
+        if all_ips.len() + ips.len() > MAX_SAN_IPS {
+            all_ips.drain(..(all_ips.len() + ips.len()).saturating_sub(MAX_SAN_IPS).min(all_ips.len()));
         }
+        all_ips.extend_from_slice(ips);
         let (cert, key) = generate(&all_ips, hostname)?;
         store::write_private(&key_path, &key)?;
         store::write_atomic(&cert_path, &cert)?;
@@ -60,6 +61,7 @@ pub fn load_or_create(dir: &Path, ips: &[IpAddr], hostname: &str) -> Result<Tls>
 }
 
 const VALID_SECS: u64 = 3 * 365 * 86_400;
+const MAX_SAN_IPS: usize = 32;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Meta {

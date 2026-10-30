@@ -97,7 +97,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
         "steps.test" => {
             need_edit(who)?;
             let list: Vec<Action> = serde_json::from_value(a.get("actions").cloned().unwrap_or(Value::Null)).map_err(|_| OpError::invalid("invalid steps"))?;
-            if list.len() > 100 || list.iter().any(|x| !model::valid_action_type(&x.kind) || (actions::is_admin_only(x) && !who.admin)) {
+            if list.len() > 100 || list.iter().any(|x| !model::valid_action_type(&x.kind) || (actions::needs_pc(x) && !who.admin)) {
                 return Err(OpError::forbidden());
             }
             let ctx = Ctx { device: who.device.clone(), profile: "test".into(), page: "test".into(), key: "test".into(), local: who.admin };
@@ -107,7 +107,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
         "action.test" => {
             need_edit(who)?;
             let action: Action = serde_json::from_value(a.get("action").cloned().unwrap_or(Value::Null)).map_err(|_| OpError::invalid("invalid action"))?;
-            if !model::valid_action_type(&action.kind) || (actions::is_admin_only(&action) && !who.admin) {
+            if !model::valid_action_type(&action.kind) || (actions::needs_pc(&action) && !who.admin) {
                 return Err(OpError::forbidden());
             }
             let ctx = Ctx { device: who.device.clone(), profile: "test".into(), page: "test".into(), key: "test".into(), local: who.admin };
@@ -465,6 +465,22 @@ fn check_editor_changes(old: &LayoutFile, new: &LayoutFile) -> Result<(), OpErro
     Ok(())
 }
 
+/// Keyboard steps a remote editor added stay off until they're approved on the PC.
+fn mark_for_review(old: &LayoutFile, new: &mut LayoutFile) {
+    let approved: Vec<Action> = all_keys(old).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).filter(|a| !a.review).cloned().collect();
+    for p in &mut new.profiles {
+        for pg in &mut p.pages {
+            for k in &mut pg.keys {
+                for a in k.actions.iter_mut().chain(k.off_actions.iter_mut()) {
+                    if !a.review && actions::PC_REVIEW.contains(&a.kind.as_str()) && !approved.iter().any(|o| o.same_as(a)) {
+                        a.review = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Drops unknown or invalid settings so stored layouts only hold what each action defines.
 fn clean_layout(app: &App, l: &mut LayoutFile) {
     for p in &mut l.profiles {
@@ -496,6 +512,7 @@ async fn save_layout(app: &Arc<App>, who: &Who, a: &Value) -> R {
         }
         if !who.admin {
             check_editor_changes(e.layout(), &new)?;
+            mark_for_review(e.layout(), &mut new);
         }
         crate::streamdeck::keep_settings(e.layout(), &mut new);
         let rev = e.replace_layout(new).map_err(OpError::failed)?;
@@ -549,6 +566,29 @@ mod tests {
         form["editorZoom"] = Value::Null;
         assert!(handle(&app, &admin, "settings.set", form).await.is_ok());
         assert_eq!(app.settings.read().editor_zoom, Some(1.1));
+    }
+
+    #[test]
+    fn keyboard_steps_from_remote_editors_wait_for_review() {
+        let old = crate::state::default_layout();
+        let mut new = old.clone();
+        let mut s = Map::new();
+        s.insert("keys".into(), json!("ctrl+alt+t"));
+        new.profiles[0].pages[0].keys[0].actions.push(Action { kind: "core.keys".into(), settings: s, review: false });
+        assert!(check_editor_changes(&old, &new).is_ok());
+        mark_for_review(&old, &mut new);
+        assert!(new.profiles[0].pages[0].keys[0].actions.last().unwrap().review);
+        // Once approved on the PC, moving the step around keeps it approved.
+        let approved = new.clone();
+        let mut moved = approved.clone();
+        let step = moved.profiles[0].pages[0].keys[0].actions.pop().unwrap();
+        moved.profiles[0].pages[0].keys[0].actions.insert(0, Action { review: false, ..step });
+        let mut base = approved.clone();
+        for a in &mut base.profiles[0].pages[0].keys[0].actions {
+            a.review = false;
+        }
+        mark_for_review(&base, &mut moved);
+        assert!(!moved.profiles[0].pages[0].keys[0].actions[0].review);
     }
 
     #[test]

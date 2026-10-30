@@ -52,6 +52,8 @@ export interface PluginPermissions {
   udp?: boolean;
   /** Local app bridges the companion opens on the plugin's behalf. */
   ipc?: Array<"discord">;
+  /** Exact commands the plugin may run, such as ["equibop", "--toggle-mic"]. Bundled plugins only. */
+  run?: string[][];
 }
 
 export interface PluginManifest {
@@ -59,6 +61,8 @@ export interface PluginManifest {
   name: string;
   version: string;
   author: string;
+  /** Short name for variables and feeds: "obs" gives {obs.scene}. */
+  prefix: string;
   description?: string;
   homepage?: string;
   license?: string;
@@ -80,6 +84,9 @@ export interface Instance {
   id: string;
   action: string;
   settings: Record<string, unknown>;
+  /** Label and icon chosen in the editor. */
+  label?: string;
+  icon?: string;
 }
 
 export interface Option {
@@ -89,7 +96,7 @@ export interface Option {
 
 /** Host -> plugin requests and notifications. */
 export interface HostToPlugin {
-  initialize: { params: { hostVersion: string; pluginId: string; connection: Record<string, unknown>; locale: string; dataDir: string }; result: void };
+  initialize: { params: { hostVersion: string; pluginId: string; prefix: string; connection: Record<string, unknown>; locale: string; dataDir: string }; result: void };
   "connection.changed": { params: { connection: Record<string, unknown> }; result: void };
   "instances.sync": { params: { instances: Instance[] }; result: void };
   /** Consecutive actions of the same plugin on one key arrive together, so they can be batched. */
@@ -118,4 +125,6 @@ export interface PluginToHost {
   /** Browser sign-in. The host sets redirect_uri and state and returns the code. */
   "oauth.authorize": { params: { url: string }; result: { code: string; redirectUri: string } };
   "udp.send": { params: { host: string; port: number; data: string }; result: void };
+  /** Runs one of the commands listed under permissions.run. `code` is null if it keeps running. */
+  run: { params: { argv: string[] }; result: { code: number | null } };
 }

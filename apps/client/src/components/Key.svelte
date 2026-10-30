@@ -98,14 +98,17 @@
   }
 
   function key(e: KeyboardEvent, isDown: boolean) {
-    if (e.key !== "Enter" && e.key !== " ") return;
+    const arrows = view.kind === "slider" && ["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(e.key);
+    if (e.key !== "Enter" && e.key !== " " && !arrows) return;
     e.preventDefault();
     if (preview) {
       if (isDown) onselect?.(view.id);
       return;
     }
+    if (disabled || view.disabled) return;
     if (view.kind === "slider") {
-      if (isDown) onslide?.(view.id, Math.min(1, Math.max(0, (view.value ?? 0) + (e.shiftKey ? -0.1 : 0.1))));
+      const down = e.key === "ArrowDown" || e.key === "ArrowLeft" || (!arrows && e.shiftKey);
+      if (isDown) onslide?.(view.id, Math.min(1, Math.max(0, (view.value ?? 0) + (down ? -0.1 : 0.1))));
       return;
     }
     if (isDown && !pressed) {
@@ -167,7 +170,7 @@
 
   {#if view.lines}
     <ol class="lines" aria-live="polite">
-      {#each view.lines as line (line.at + line.text)}
+      {#each view.lines as line (line.at)}
         <li>
           {#if line.author}<b style:color={line.color}>{line.author}</b>{/if}
           {line.text}

@@ -11,8 +11,7 @@ export default definePlugin({
     hello: {
       press({ key, settings }) {
         presses++;
-        key.set({ badge: String(presses) });
-        key.set({ sub: setting(settings, "message", "Hello") });
+        key.set({ badge: String(presses), sub: setting(settings, "message", "Hello") });
       },
     },
   },

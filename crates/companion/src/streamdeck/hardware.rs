@@ -18,7 +18,7 @@ pub mod render;
 
 #[cfg(feature = "hardware")]
 mod imp {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use std::hash::{Hash, Hasher};
     use std::sync::Arc;
     use std::sync::mpsc as std_mpsc;
@@ -46,7 +46,7 @@ mod imp {
     enum Event {
         Down(u8),
         Up(u8),
-        HoldDone(String, u64),
+        HoldDone(String, u64, u8),
         Gone,
     }
 
@@ -186,7 +186,7 @@ mod imp {
         cmds: std_mpsc::Sender<Cmd>,
         events: mpsc::Sender<Event>,
         sent: HashMap<u8, u64>,
-        fired: HashSet<String>,
+        presses: actions::Presses<u8>,
         holds: HashMap<String, u64>,
         hold_gen: u64,
         clocks: bool,
@@ -204,7 +204,7 @@ mod imp {
                 cmds,
                 events,
                 sent: HashMap::new(),
-                fired: HashSet::new(),
+                presses: actions::Presses::default(),
                 holds: HashMap::new(),
                 hold_gen: 0,
                 clocks: false,
@@ -235,10 +235,10 @@ mod imp {
                     ev = events.recv() => match ev {
                         Some(Event::Down(i)) => self.down(i),
                         Some(Event::Up(i)) => self.up(i),
-                        Some(Event::HoldDone(key, generation)) => {
+                        Some(Event::HoldDone(key, generation, button)) => {
                             if self.holds.get(&key) == Some(&generation) {
                                 self.holds.remove(&key);
-                                self.fire(&key);
+                                self.fire(&key, button);
                             }
                         }
                         Some(Event::Gone) | None => break,
@@ -272,6 +272,7 @@ mod imp {
                     }
                 }
             }
+            self.presses.release_all(&self.app);
             tracing::info!("{} disconnected", name(self.kind));
         }
 
@@ -370,9 +371,7 @@ mod imp {
                 }
                 KeyKind::Slider | KeyKind::Widget => {}
                 _ => {
-                    if key.repeat.is_some() {
-                        self.app.held.lock().insert(key_path(&self.profile, &self.page, &key.id));
-                    }
+                    self.presses.down(&self.app, i, key_path(&self.profile, &self.page, &key.id), key.repeat.is_some());
                     match key.hold.filter(|h| *h > 0) {
                         Some(ms) => {
                             self.hold_gen += 1;
@@ -382,21 +381,19 @@ mod imp {
                             let id = key.id.clone();
                             tokio::spawn(async move {
                                 tokio::time::sleep(Duration::from_millis(ms as u64)).await;
-                                let _ = tx.send(Event::HoldDone(id, generation)).await;
+                                let _ = tx.send(Event::HoldDone(id, generation, i)).await;
                             });
                         }
-                        None => self.fire(&key.id),
+                        None => self.fire(&key.id, i),
                     }
                 }
             }
         }
 
         fn up(&mut self, i: u8) {
-            let Some(key) = self.key_at(i) else { return };
-            self.app.held.lock().remove(&key_path(&self.profile, &self.page, &key.id));
-            self.holds.remove(&key.id);
-            if self.fired.remove(&key.id) {
-                tokio::spawn(actions::release(self.app.clone(), self.ctx(&key.id), key.actions));
+            self.presses.up(&self.app, &i);
+            if let Some(key) = self.key_at(i) {
+                self.holds.remove(&key.id);
             }
         }
 
@@ -404,7 +401,7 @@ mod imp {
             Ctx { device: self.device.clone(), profile: self.profile.clone(), page: self.page.clone(), key: key.to_string(), local: true }
         }
 
-        fn fire(&mut self, id: &str) {
+        fn fire(&mut self, id: &str, button: u8) {
             let Some(key) = self.app.engine.lock().key(&self.profile, &self.page, id).cloned() else { return };
             let (list, off) = if key.kind == KeyKind::Toggle {
                 let on = self.app.engine.lock().flip_toggle(&key_path(&self.profile, &self.page, id));
@@ -423,18 +420,15 @@ mod imp {
             if list.is_empty() {
                 return;
             }
-            let path = key_path(&self.profile, &self.page, id);
-            if !self.app.running.lock().insert(path.clone()) {
-                return;
-            }
-            self.fired.insert(id.to_string());
+            let Some(running) = actions::Running::claim(&self.app, key_path(&self.profile, &self.page, id)) else { return };
             let app = self.app.clone();
             let ctx = self.ctx(id);
+            self.presses.fired(&button, ctx.clone(), key.actions);
             let started = Instant::now();
             let repeat = key.repeat;
             tokio::spawn(async move {
-                actions::run_key(app.clone(), ctx, list, off, repeat).await;
-                app.running.lock().remove(&path);
+                actions::run_key(app, ctx, list, off, repeat).await;
+                drop(running);
                 tracing::debug!("hardware key ran in {:?}", started.elapsed());
             });
         }

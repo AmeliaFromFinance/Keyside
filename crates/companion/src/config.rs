@@ -83,7 +83,7 @@ impl Default for Settings {
 
 impl Settings {
     pub fn load(paths: &Paths) -> Result<Self> {
-        let mut s: Settings = store::read_json(&paths.file("settings.json"))?.unwrap_or_default();
+        let mut s: Settings = store::read_json_or_reset(&paths.file("settings.json"))?.unwrap_or_default();
         s.name = clean_name(&s.name, 40).unwrap_or_else(hostname);
         Ok(s)
     }

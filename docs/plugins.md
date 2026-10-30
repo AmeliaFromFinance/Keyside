@@ -22,6 +22,8 @@ Tip: turn on **Show a live thumbnail** on a scene key to see the scene on the ke
 1. In Streamer.bot: **Servers/Clients > WebSocket Server**. Turn it on (default port `8080`).
 2. If you set a password there, enter it in Keyside.
 
+Chat and alerts from the Twitch, YouTube and Kick accounts connected to Streamer.bot show up in the **Chat** and **Alerts** feeds.
+
 Your global variables show up as `{sb.name}`. To push a value from a Streamer.bot action, add a **WebSocket Server Broadcast** sub-action with:
 
 ```json
@@ -153,6 +155,8 @@ VBAN text can't report state back, so toggle keys follow what Keyside last sent.
 Meld's API has no password, so only allow remote connections on a network you trust.
 
 Scenes, layers, effects and audio tracks are picked from lists. Meld gives each one an id, so a key keeps working after you rename the scene, but not after you delete and remake it.
+
+**Screenshot, clip, replay or camera** keys take screenshots, save a clip, show or dismiss the replay of the last clip, and toggle the virtual camera.
 
 ## StreamElements
 

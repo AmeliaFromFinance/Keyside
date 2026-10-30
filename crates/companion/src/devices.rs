@@ -22,7 +22,7 @@ pub enum Scope {
     Deck,
     /// Like deck, limited to chosen pages.
     Moderator,
-    /// Deck plus layout editing. Can't add actions that run programs.
+    /// Deck plus layout editing. Can't add actions that run programs; keyboard steps wait for review.
     Editor,
 }
 
@@ -105,7 +105,7 @@ pub struct Devices {
 
 impl Devices {
     pub fn load(path: PathBuf) -> Result<Self> {
-        let list: Vec<Device> = store::read_json(&path)?.unwrap_or_default();
+        let list: Vec<Device> = store::read_json_or_reset(&path)?.unwrap_or_default();
         Ok(Self { path, devices: list.into_iter().map(|d| (d.id.clone(), d)).collect(), pairing: None, pending: HashMap::new(), pins: HashMap::new() })
     }
 

@@ -12,7 +12,7 @@ pub const MAX_GRID: u8 = 12;
 pub const MAX_PROFILES: usize = 20;
 pub const MAX_PAGES: usize = 50;
 pub const MAX_ACTIONS: usize = 32;
-pub const MAX_ACTION_SETTINGS: usize = 16 * 1024;
+pub const MAX_ACTION_SETTINGS: usize = 64 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

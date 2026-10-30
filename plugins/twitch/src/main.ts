@@ -90,6 +90,14 @@ async function api(method: string, path: string, body?: unknown, retry = true): 
   }
 }
 
+/** Twitch sends ad times as Unix seconds in some fields and RFC3339 in others. Epoch ms, or 0. */
+export function stamp(v: unknown): number {
+  if (v === null || v === undefined || v === "" || v === 0 || v === "0") return 0;
+  const n = Number(v);
+  if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
+  return Date.parse(String(v)) || 0;
+}
+
 const q = (o: Record<string, string | number>) => `?${new URLSearchParams(Object.entries(o).map(([k, v]) => [k, String(v)]))}`;
 
 async function signIn(gen: number) {
@@ -177,7 +185,7 @@ async function refresh() {
   if (followers) host.setVar("followers", Number(followers.total ?? 0));
   const a = schedule?.data?.[0];
   if (a) {
-    ads.next = a.next_ad_at ? Number(a.next_ad_at) * 1000 : 0;
+    ads.next = stamp(a.next_ad_at);
     ads.snoozes = Number(a.snooze_count ?? 0);
   }
   render();
@@ -538,7 +546,7 @@ const handlers: Record<string, (s: Record<string, unknown>) => Promise<unknown>>
     const r = (await api("POST", `/channels/ads/schedule/snooze${q({ broadcaster_id: u.id })}`)).data?.[0];
     if (r) {
       ads.snoozes = Number(r.snooze_count ?? 0);
-      ads.next = r.next_ad_at ? Number(r.next_ad_at) * 1000 : ads.next;
+      ads.next = stamp(r.next_ad_at) || ads.next;
       render();
     }
   },

@@ -40,6 +40,10 @@ pub enum Nav {
 /// Built-ins that can start programs. Only the desktop editor may add them.
 pub const ADMIN_ONLY: &[&str] = &["core.launch"];
 
+/// Built-ins that type on the keyboard, which can do anything a person at the PC can. Added
+/// from another device, they wait for review on the PC like imported steps do.
+pub const PC_REVIEW: &[&str] = &["core.keys", "core.text"];
+
 /// Built-ins that stay enabled when a layout is imported. Everything else waits for review.
 pub const SAFE_ON_IMPORT: &[&str] = &["core.wait", "core.page", "core.profile", "core.timer", "core.var", IF, ELSE, END];
 
@@ -77,6 +81,11 @@ fn holds(app: &App, a: &Action) -> bool {
 
 pub fn is_admin_only(a: &Action) -> bool {
     ADMIN_ONLY.contains(&a.kind.as_str())
+}
+
+/// Steps a remote editor can't run or approve on its own.
+pub fn needs_pc(a: &Action) -> bool {
+    is_admin_only(a) || PC_REVIEW.contains(&a.kind.as_str())
 }
 
 /// Runs a list of steps in order. Back-to-back steps for the same plugin go out together,
@@ -165,6 +174,85 @@ pub async fn run_key(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool, r
         tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
         if !app.held.lock().contains(&path) {
             break;
+        }
+    }
+}
+
+/// Marks a key as running until dropped, so a second press waits for the first to finish.
+/// Dropping (even by a panic in a step) frees the key again.
+pub struct Running {
+    app: Arc<App>,
+    path: String,
+}
+
+impl Running {
+    /// None when the key is already running.
+    pub fn claim(app: &Arc<App>, path: String) -> Option<Self> {
+        app.running.lock().insert(path.clone()).then(|| Self { app: app.clone(), path })
+    }
+}
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        self.app.running.lock().remove(&self.path);
+    }
+}
+
+/// What a press left behind. Kept so the release matches it even if the page changed meanwhile.
+pub struct Press {
+    /// Entry in `App::held` while a repeating key is down.
+    held: Option<String>,
+    /// Context and steps of the press that fired, for the release.
+    fired: Option<(Ctx, Vec<Action>)>,
+}
+
+/// Presses in flight on one device, by whatever that device calls a key.
+pub struct Presses<K: std::hash::Hash + Eq> {
+    map: std::collections::HashMap<K, Press>,
+}
+
+impl<K: std::hash::Hash + Eq + Clone> Default for Presses<K> {
+    fn default() -> Self {
+        Self { map: std::collections::HashMap::new() }
+    }
+}
+
+impl<K: std::hash::Hash + Eq + Clone> Presses<K> {
+    /// A key went down. `path` is marked held when the key repeats.
+    pub fn down(&mut self, app: &App, k: K, path: String, repeats: bool) {
+        let held = repeats.then(|| {
+            app.held.lock().insert(path.clone());
+            path
+        });
+        self.map.insert(k, Press { held, fired: None });
+    }
+
+    /// The key's steps started, so its release should be reported.
+    pub fn fired(&mut self, k: &K, ctx: Ctx, actions: Vec<Action>) {
+        if let Some(p) = self.map.get_mut(k) {
+            p.fired = Some((ctx, actions));
+        }
+    }
+
+    /// The key came back up (or the device went away).
+    pub fn up(&mut self, app: &Arc<App>, k: &K) {
+        if let Some(p) = self.map.remove(k) {
+            Self::finish(app, p);
+        }
+    }
+
+    pub fn release_all(&mut self, app: &Arc<App>) {
+        for (_, p) in self.map.drain() {
+            Self::finish(app, p);
+        }
+    }
+
+    fn finish(app: &Arc<App>, p: Press) {
+        if let Some(path) = p.held {
+            app.held.lock().remove(&path);
+        }
+        if let Some((ctx, actions)) = p.fired {
+            tokio::spawn(release(app.clone(), ctx, actions));
         }
     }
 }

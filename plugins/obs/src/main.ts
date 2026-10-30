@@ -122,6 +122,13 @@ async function identify(hello: any) {
   sock.send(JSON.stringify({ op: OP.Identify, d }));
 }
 
+/** obs-websocket lists scenes bottom-up. Put them in the order OBS shows. */
+function sceneNames(list: unknown): string[] {
+  return (Array.isArray(list) ? [...list] : [])
+    .sort((a: any, b: any) => Number(b.sceneIndex ?? 0) - Number(a.sceneIndex ?? 0))
+    .map((s: any) => String(s.sceneName));
+}
+
 /** Full state refresh after connecting or switching scene collection. */
 async function sync() {
   const [scenes, studio, rec, stream, replay, vcam, colls, profiles, trans, inputs, dir] = await batch([
@@ -138,7 +145,7 @@ async function sync() {
     { requestType: "GetRecordDirectory" },
   ]);
   if (scenes) {
-    st.scenes = (scenes.scenes ?? []).map((s: any) => s.sceneName);
+    st.scenes = sceneNames(scenes.scenes);
     st.program = scenes.currentProgramSceneName ?? "";
     st.preview = scenes.currentPreviewSceneName ?? "";
   }
@@ -219,7 +226,7 @@ function onEvent(type: string, d: any) {
       else void request("GetCurrentPreviewScene").then((r) => ((st.preview = r.currentPreviewSceneName ?? r.sceneName ?? ""), render()), () => {});
       break;
     case "SceneListChanged":
-      st.scenes = (d.scenes ?? []).map((s: any) => s.sceneName);
+      st.scenes = sceneNames(d.scenes);
       break;
     case "SceneNameChanged":
       st.scenes = st.scenes.map((s) => (s === d.oldSceneName ? d.sceneName : s));

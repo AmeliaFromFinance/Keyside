@@ -14,6 +14,7 @@ let sock: Reconnecting;
 const waiting = new Waiters<any>();
 let actions: Array<{ id: string; name: string; enabled: boolean }> = [];
 let ready = false;
+let greeted = false;
 let globalsTimer: ReturnType<typeof setInterval> | null = null;
 /** Globals by their Streamer.bot name, for add and toggle. */
 const globals = new Map<string, unknown>();
@@ -100,8 +101,15 @@ function onEvent(source: string, type: string, d: any) {
   if (!setting(host.connection, "chat", true)) return;
   const user = d?.user ?? {};
   const msg = d?.message ?? {};
-  const who = text(msg.displayName) || text(user.name) || text(user.login) || text(d?.displayName) || text(d?.userName) || text(d?.user_name);
-  if (type === "ChatMessage" || (source === "YouTube" && type === "Message") || (source === "Kick" && type === "ChatMessage")) {
+  const who =
+    text(msg.displayName) ||
+    text(user.name) ||
+    text(user.login) ||
+    text(d?.displayName) ||
+    text(d?.userName) ||
+    text(d?.user_name) ||
+    text(d?.from_broadcaster_user_name);
+  if (type === "ChatMessage" || (source === "YouTube" && type === "Message")) {
     const body = text(msg.message) || text(d?.text) || text(d?.message);
     if (body) host.feed("chat", { author: who, text: body.slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(msg.color ?? "") ? msg.color : undefined });
     return;
@@ -117,6 +125,10 @@ function onEvent(source: string, type: string, d: any) {
     NewSubscriber: "subscribed",
     SuperChat: "sent a Super Chat",
     NewSponsor: "became a member",
+    Subscription: "subscribed",
+    Resubscription: "resubscribed",
+    GiftSubscription: "gifted a sub",
+    MassGiftSubscription: "gifted subs",
   };
   if (alerts[type] && who) {
     const extra = d?.bits ? ` ${d.bits} bits` : d?.viewers ? ` with ${d.viewers}` : d?.gifts ? ` (${d.gifts})` : "";
@@ -127,7 +139,10 @@ function onEvent(source: string, type: string, d: any) {
 function onMessage(raw: string) {
   const m = JSON.parse(raw);
   if (m.request === "Hello") {
-    void hello(m);
+    if (!greeted) {
+      greeted = true;
+      void hello(m);
+    }
     return;
   }
   if (m.id !== undefined && m.status !== undefined) {
@@ -138,15 +153,30 @@ function onMessage(raw: string) {
   if (m.event) onEvent(String(m.event.source ?? ""), String(m.event.type ?? ""), m.data ?? {});
 }
 
+/** Streamer.bot 0.2.4 and older don't send Hello. Ask for the info instead. */
+async function helloFallback(s: Reconnecting) {
+  if (greeted || s !== sock || !sock.ready) return;
+  const r = await request("GetInfo").catch(() => null);
+  if (greeted || s !== sock || !r?.info) return;
+  greeted = true;
+  await hello({ info: r.info });
+}
+
 async function hello(m: any) {
   try {
     if (m.authentication) {
       const password = String(host.connection.password ?? "");
-      if (!password) throw new Error("Streamer.bot asks for a password. Add it in the plugin settings.");
-      const secret = b64(await sha256(password + m.authentication.salt));
-      await request("Authenticate", { authentication: b64(await sha256(secret + m.authentication.challenge)) }).catch(() => {
-        throw new Error("Wrong Streamer.bot password.");
-      });
+      if (password) {
+        const secret = b64(await sha256(password + m.authentication.salt));
+        await request("Authenticate", { authentication: b64(await sha256(secret + m.authentication.challenge)) }).catch(() => {
+          throw new Error("Wrong Streamer.bot password.");
+        });
+      } else {
+        // Auth may be on without "Enforce". Then ordinary requests still work.
+        await request("GetInfo").catch(() => {
+          throw new Error("Streamer.bot asks for a password. Add it in the plugin settings.");
+        });
+      }
     }
     ready = true;
     sock.healthy();
@@ -156,9 +186,13 @@ async function hello(m: any) {
       Object.assign(events, {
         Twitch: ["ChatMessage", "Follow", "Sub", "ReSub", "GiftSub", "GiftBomb", "Cheer", "Raid"],
         YouTube: ["Message", "NewSubscriber", "SuperChat", "NewSponsor"],
+        Kick: ["ChatMessage", "Follow", "Subscription", "Resubscription", "GiftSubscription", "MassGiftSubscription"],
       });
     }
-    await request("Subscribe", { events }).catch(() => request("Subscribe", { events: { General: ["Custom"] } }));
+    // One request per source, so an event this version doesn't know can't block the rest.
+    for (const [source, types] of Object.entries(events)) {
+      await request("Subscribe", { events: { [source]: types } }).catch(() => {});
+    }
     await loadGlobals();
     host.setVar("connected", true);
     host.status("connected", m.info?.version ? `Streamer.bot ${m.info.version}` : undefined);
@@ -199,7 +233,10 @@ async function setRemote(s: Record<string, unknown>) {
   if (!helper) throw new Error(`Add the "${helperName}" action to Streamer.bot first. The plugin setup guide has it.`);
   if (s.op === "add" || s.op === "toggle") {
     const r = await request("GetGlobal", { variable: name, persisted: s.persisted !== false }).catch(() => null);
-    if (r && "value" in r) globals.set(name, r.value);
+    // Streamer.bot answers { variables: { "<name>": { name, value, lastWrite } } }.
+    const entry = r?.variables?.[name] ?? Object.values<any>(r?.variables ?? {})[0];
+    if (entry && "value" in entry) globals.set(name, entry.value);
+    else if (r && "value" in r) globals.set(name, r.value);
   }
   const value = nextValue(s.op, globals.get(name), String(s.value ?? ""));
   await request("DoAction", { action: { id: helper.id, name: helper.name }, args: { keysideName: name, keysideValue: value, keysidePersisted: s.persisted !== false } });
@@ -212,11 +249,15 @@ function connect() {
   globals.clear();
   sock = new Reconnecting(url, {
     open() {
+      greeted = false;
       host.status("connecting");
+      const s = sock;
+      setTimeout(() => void helloFallback(s), 1500);
     },
     message: onMessage,
     close(reason) {
       ready = false;
+      greeted = false;
       waiting.failAll(new Error("Streamer.bot disconnected"));
       host.setVar("connected", false);
       host.status("offline", `Can't reach Streamer.bot (${reason}). Is its WebSocket server on?`);

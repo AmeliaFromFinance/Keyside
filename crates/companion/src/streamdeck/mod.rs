@@ -32,7 +32,7 @@ use manifest::{Runtime, SdManifest};
 
 pub const PREFIX: &str = "sd.";
 const STAGE_TTL: Duration = Duration::from_secs(600);
-const MAX_SETTINGS: usize = 64 * 1024;
+const MAX_SETTINGS: usize = crate::model::MAX_ACTION_SETTINGS;
 const MAX_IMAGE: u64 = 300 * 1024;
 const FLASH: Duration = Duration::from_millis(1500);
 
@@ -140,7 +140,7 @@ impl Hub {
     pub fn open(root: &Path) -> Result<Self> {
         let root = root.join("streamdeck");
         store::private_dir(&root)?;
-        let installed: BTreeMap<String, Installed> = store::read_json(&root.join("plugins.json"))?.unwrap_or_default();
+        let installed: BTreeMap<String, Installed> = store::read_json_or_reset(&root.join("plugins.json"))?.unwrap_or_default();
         Ok(Self {
             root,
             state: Mutex::new(State { installed, ..Default::default() }),
@@ -676,8 +676,13 @@ fn install(app: &App, pkg: manifest::SdPackage, unsandboxed: bool) -> Result<()>
         #[cfg(not(unix))]
         let _ = exec;
     }
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::rename(&tmp, &dir)?;
+    // The old process may still hold its files for a moment after stop().
+    let mut tries = 0;
+    while dir.exists() && std::fs::remove_dir_all(&dir).is_err() && tries < 10 {
+        tries += 1;
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    std::fs::rename(&tmp, &dir).context("moving the plugin into place")?;
     hub.images.lock().clear();
     {
         let mut st = hub.state.lock();
@@ -811,6 +816,13 @@ pub async fn start_all(app: &Arc<App>) -> Result<()> {
 
 pub fn start(app: &Arc<App>, uuid: &str) {
     runtime::start(app, uuid);
+}
+
+pub fn stop_all(app: &App) {
+    let ids: Vec<String> = app.streamdeck.state.lock().running.keys().cloned().collect();
+    for id in ids {
+        stop(app, &id);
+    }
 }
 
 pub fn stop(app: &App, uuid: &str) {

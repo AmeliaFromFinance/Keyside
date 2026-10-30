@@ -44,19 +44,52 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     actions::appaudio::spawn(app.clone());
     focus::spawn(app.clone());
 
-    // Keep plugins in step with layout changes.
+    // Keep plugins in step with layout changes, and save user variables a little after they change.
     let mut rx = app.engine.lock().subscribe();
     let a = app.clone();
     tokio::spawn(async move {
+        let mut save_at: Option<tokio::time::Instant> = None;
         loop {
-            match rx.recv().await {
-                Ok(Change::Layout) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => a.plugins.sync_all().await,
-                Ok(_) => {}
-                Err(_) => break,
+            let due = async {
+                match save_at {
+                    Some(t) => tokio::time::sleep_until(t).await,
+                    None => std::future::pending().await,
+                }
+            };
+            tokio::select! {
+                c = rx.recv() => match c {
+                    Ok(Change::Layout) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => a.plugins.sync_all().await,
+                    Ok(Change::Vars) => {
+                        save_at.get_or_insert(tokio::time::Instant::now() + std::time::Duration::from_millis(500));
+                    }
+                    Ok(_) => {}
+                    Err(_) => break,
+                },
+                _ = due => {
+                    save_at = None;
+                    save_vars(&a).await;
+                }
             }
         }
     });
     Ok(app)
+}
+
+async fn save_vars(app: &App) {
+    let Some((path, vars)) = app.engine.lock().take_unsaved_vars() else { return };
+    let r = tokio::task::spawn_blocking(move || store::write_json(&path, &vars)).await;
+    if let Ok(Err(e)) = r {
+        tracing::warn!("could not save variables: {e:#}");
+    }
+}
+
+/// Stops every plugin process. Call before the process exits, or they live on without it.
+pub async fn shutdown(app: &App) {
+    save_vars(app).await;
+    app.plugins.stop_all();
+    streamdeck::stop_all(app);
+    // Plugins get a shutdown message and a moment to leave before they're killed.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 }
 
 pub fn editor_url(app: &App) -> String {

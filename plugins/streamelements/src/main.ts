@@ -58,19 +58,26 @@ export function describe(a: any): { who: string; text: string } | null {
   const who = clip(d.displayName || d.username || d.name, 60);
   const msg = d.message ? `: ${clip(d.message, 300)}` : "";
   switch (a?.type) {
+    case "follow":
     case "follower":
       return { who, text: "followed" };
     case "subscriber":
+    case "sponsor":
       if (d.gifted && d.sender) return { who: clip(d.sender, 60), text: `gifted a sub to ${who}` };
       return { who, text: Number(d.amount) > 1 ? `subscribed for ${Number(d.amount)} months${msg}` : `subscribed${msg}` };
+    case "communityGiftPurchase":
+      return { who, text: Number(d.amount) > 0 ? `gifted ${Number(d.amount)} subs` : "gifted subs" };
     case "tip":
-      return { who, text: `tipped ${money(d.amount, d.currency)}${msg}` };
+    case "superchat":
+      return { who, text: `${a.type === "tip" ? "tipped" : "sent a Super Chat"} ${money(d.amount, d.currency)}${msg}` };
     case "cheer":
       return { who, text: `cheered ${Number(d.amount) || 0} bits${msg}` };
     case "raid":
-      return { who, text: `raided with ${Number(d.amount) || 0} viewers` };
+    case "host":
+      return { who, text: `${a.type === "raid" ? "raided" : "hosted"} with ${Number(d.amount) || 0} viewers` };
     case "redemption":
-      return { who, text: `redeemed ${clip(d.redemption || d.item || "a reward", 80)}` };
+    case "channelPointsRedemption":
+      return { who, text: `redeemed ${clip(d.redemption || d.item || d.reward?.title || "a reward", 80)}` };
     case "merch":
     case "purchase":
       return { who, text: "bought merch" };
@@ -92,8 +99,8 @@ function onActivity(a: any) {
   host.feed("events", { author: shown.who, text: shown.text });
   const d = a.data ?? {};
   if (a.type === "tip") host.setVar("last_tip", `${shown.who} ${money(d.amount, d.currency)}`.trim());
-  if (a.type === "follower") host.setVar("last_follower", shown.who);
-  if (a.type === "subscriber") host.setVar("last_sub", shown.who);
+  if (a.type === "follower" || a.type === "follow") host.setVar("last_follower", shown.who);
+  if (a.type === "subscriber" || a.type === "sponsor") host.setVar("last_sub", shown.who);
   if (a.type === "cheer") host.setVar("last_cheer", `${shown.who} ${Number(d.amount) || 0}`);
   render();
 }

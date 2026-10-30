@@ -114,9 +114,11 @@ Throw an error to show it as a toast on the phone.
 
 Add `batch(steps, phase)` to the definition to handle several steps of one key in one go, like OBS does for "mute all".
 
+Next to `start(host)`, the definition can have `connectionChanged(host)` for when the connection settings were edited, and `stop()` for when Keyside stops the plugin. Close your sockets there.
+
 ### Keys
 
-`host.keys(action?)` lists your placed keys. `key.set(view)` changes how a key looks, `key.clear()` resets it. `key.label` and `key.icon` are what the person chose in the editor.
+`host.keys(action?)` lists your placed keys and `host.key(id)` finds one. `key.set(view)` changes how a key looks, `key.clear()` resets it. `key.label` and `key.icon` are what the person chose in the editor.
 
 | Field | Shows |
 | --- | --- |
@@ -130,7 +132,7 @@ Add `batch(steps, phase)` to the definition to handle several steps of one key i
 | `image` | PNG, JPEG, WebP, GIF or SVG data URL, up to 350 KB |
 | `disabled` | Greyed out and not pressable |
 
-Updates are batched, so calling `set` often is fine.
+`set` replaces the whole view, so pass every field you want shown. Updates are batched, so calling it often is fine.
 
 ### Host
 
@@ -146,8 +148,10 @@ Updates are batched, so calling `set` often is fine.
 | `host.authorize(url)` | Browser sign-in with a redirect back to Keyside. Returns the code and redirect URI |
 | `host.udp(host, port, bytes)` | Sends a UDP datagram |
 | `host.run(argv)` | Runs one of the commands listed under `run` |
+| `host.ipc.open/send/on` | Talks to a local app through a bridge from `ipc` |
 | `host.log.info(...)` | Writes to the Keyside log |
 | `host.dataDir` | A folder only this plugin can read and write |
+| `host.pluginId`, `host.prefix`, `host.locale` | Your id and prefix, and the language the editor uses |
 
 `console.log` goes to the log too, since the plugin's output is reserved for talking to Keyside.
 

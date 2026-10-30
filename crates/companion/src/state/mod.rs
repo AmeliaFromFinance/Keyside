@@ -65,6 +65,8 @@ pub struct Engine {
     active_profile: String,
     installed: HashSet<String>,
     tx: broadcast::Sender<Change>,
+    /// User variables changed since the last save. Saved by `flush_vars`, off the lock.
+    vars_dirty: bool,
 }
 
 /// Instance ids name one action on one key: "profile/page/key/n", or ".../o<n>" for off actions.
@@ -89,7 +91,7 @@ pub struct Instance {
 
 impl Engine {
     pub fn load(paths: Paths) -> Result<(Self, broadcast::Receiver<Change>)> {
-        let layout = match store::read_json::<LayoutFile>(&paths.file("layout.json"))? {
+        let layout = match store::read_json_or_reset::<LayoutFile>(&paths.file("layout.json"))? {
             Some(l) if model::validate(&l).is_ok() => l,
             Some(_) => {
                 let bad = paths.file("layout.invalid.json");
@@ -99,7 +101,7 @@ impl Engine {
             }
             None => default_layout(),
         };
-        let user_vars: HashMap<String, Value> = store::read_json(&paths.file("variables.json"))?.unwrap_or_default();
+        let user_vars: HashMap<String, Value> = store::read_json_or_reset(&paths.file("variables.json"))?.unwrap_or_default();
         let (tx, rx) = broadcast::channel(1024);
         let active_profile = layout.default_profile.clone();
         Ok((
@@ -116,6 +118,7 @@ impl Engine {
                 active_profile,
                 installed: HashSet::new(),
                 tx,
+                vars_dirty: false,
             },
             rx,
         ))
@@ -218,11 +221,20 @@ impl Engine {
         }
         self.vars.insert(name.to_string(), value);
         if name.starts_with("user.") {
-            let user: BTreeMap<_, _> = self.vars_with_prefix("user.");
-            let _ = store::write_json(&self.paths.file("variables.json"), &user);
+            self.vars_dirty = true;
         }
         self.notify(Change::Vars);
         true
+    }
+
+    /// The user variables to save, if any changed. Writing happens outside the engine lock,
+    /// since sliders can change a variable many times a second.
+    pub fn take_unsaved_vars(&mut self) -> Option<(std::path::PathBuf, BTreeMap<String, Value>)> {
+        if !self.vars_dirty {
+            return None;
+        }
+        self.vars_dirty = false;
+        Some((self.paths.file("variables.json"), self.vars_with_prefix("user.")))
     }
 
     pub fn set_override(&mut self, instance: &str, patch: Option<ViewPatch>) {
@@ -254,8 +266,9 @@ impl Engine {
     }
 
     pub fn push_feed(&mut self, feed: &str, mut item: FeedItem) {
-        item.at = crate::devices::now() * 1000;
         let q = self.feeds.entry(feed.to_string()).or_default();
+        // Strictly increasing, since clients tell lines apart by it.
+        item.at = crate::server::conn::now_ms().max(q.back().map_or(0, |last| last.at + 1));
         q.push_back(item);
         while q.len() > FEED_KEEP {
             q.pop_front();
@@ -341,6 +354,10 @@ impl Engine {
             return false;
         };
         if !action.kind.starts_with(prefix) {
+            return false;
+        }
+        // Keep the layout valid, or it would be thrown away on the next start.
+        if serde_json::to_vec(&settings).map(|v| v.len()).unwrap_or(usize::MAX) > model::MAX_ACTION_SETTINGS {
             return false;
         }
         action.settings = settings;

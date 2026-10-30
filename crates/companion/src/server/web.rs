@@ -67,7 +67,12 @@ pub async fn serve(uri: Uri, frame: Option<String>) -> Response {
             return r;
         }
     };
-    let mut resp = Response::new(Body::from(file.data.into_owned()));
+    // Embedded files are static in release builds, so serve them without copying.
+    let body = match file.data {
+        std::borrow::Cow::Borrowed(b) => Body::from(axum::body::Bytes::from_static(b)),
+        std::borrow::Cow::Owned(v) => Body::from(v),
+    };
+    let mut resp = Response::new(body);
     let h = resp.headers_mut();
     h.insert(header::CONTENT_TYPE, HeaderValue::from_static(mime(&name)));
     let cache = if name.starts_with("assets/") { "public, max-age=31536000, immutable" } else { "no-cache" };

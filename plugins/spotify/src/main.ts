@@ -83,7 +83,7 @@ function schedule(ms: number, gen: number) {
 
 async function poll(gen: number) {
   try {
-    const p = await api("GET", "/me/player");
+    const p = await api("GET", "/me/player?additional_types=track,episode");
     if (!p || !p.item) player = null;
     else {
       const id = String(p.item.id ?? "");

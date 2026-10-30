@@ -26,11 +26,15 @@ function open(): Promise<IDBDatabase> {
 
 async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await open();
-  return new Promise((resolve, reject) => {
-    const r = fn(db.transaction(STORE, mode).objectStore(STORE));
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  });
+  try {
+    return await new Promise((resolve, reject) => {
+      const r = fn(db.transaction(STORE, mode).objectStore(STORE));
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  } finally {
+    db.close();
+  }
 }
 
 export const companions = {

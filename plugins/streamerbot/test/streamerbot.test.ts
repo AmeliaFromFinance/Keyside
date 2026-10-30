@@ -7,7 +7,7 @@ import { fakeServer, eventually } from "../../_lib/fake.ts";
 
 const sha = (s: string) => createHash("sha256").update(s).digest("base64");
 
-async function fakeBot(password: string | null) {
+async function fakeBot(password: string | null, hello = true) {
   return fakeServer(
     (ws, m) => {
       const ok = (extra: object = {}) => ws.send(JSON.stringify({ id: m.id, status: "ok", ...extra }));
@@ -16,17 +16,31 @@ async function fakeBot(password: string | null) {
           return m.authentication === sha(sha(`${password}salt`) + "chal") ? ok() : ws.send(JSON.stringify({ id: m.id, status: "error", error: "bad" }));
         case "GetActions":
           return ok({ actions: [{ id: "g1", name: "Hydrate", enabled: true }, { id: "g2", name: "Old", enabled: false }, { id: "g3", name: "Keyside: Set global", enabled: true }] });
+        case "GetInfo":
+          return ok({ info: { version: "0.2.4" } });
         case "GetGlobal":
-          return m.variable === "Death Count" ? ok({ variable: "Death Count", value: 9 }) : ws.send(JSON.stringify({ id: m.id, status: "error", error: "not found" }));
+          return m.variable === "Death Count"
+            ? ok({ variables: { "Death Count": { name: "Death Count", value: 9, lastWrite: "2025-01-01T00:00:00" } }, count: 1 })
+            : ws.send(JSON.stringify({ id: m.id, status: "error", error: "not found" }));
         case "GetGlobals":
           return ok({ variables: { "Death Count": { name: "Death Count", value: 7 } } });
         default:
           return ok();
       }
     },
-    (ws) => ws.send(JSON.stringify({ request: "Hello", info: { version: "1.0.0" }, ...(password ? { authentication: { salt: "salt", challenge: "chal" } } : {}) })),
+    (ws) => hello && ws.send(JSON.stringify({ request: "Hello", info: { version: "1.0.0" }, ...(password ? { authentication: { salt: "salt", challenge: "chal" } } : {}) })),
   );
 }
+
+test("connects to older versions that don't send Hello", async () => {
+  const sb = await fakeBot(null, false);
+  const h = createTestHost(plugin, { connection: { host: "127.0.0.1", port: sb.port } });
+  await h.start();
+  await eventually(() => h.status()?.state === "connected", 5000);
+  assert.match(String(h.status()?.detail), /0\.2\.4/);
+  await h.stop();
+  await sb.close();
+});
 
 test("runs actions by name and shows their state", async () => {
   const sb = await fakeBot("pw");

@@ -11,7 +11,7 @@
   import Share from "./Share.svelte";
   import StreamDeck from "./StreamDeck.svelte";
   import Profiles from "./Profiles.svelte";
-  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page } from "./state.svelte.ts";
+  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKey } from "./state.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
@@ -36,7 +36,11 @@
   $effect(() => {
     if (deck.conn.s === "open" && !loaded) {
       loaded = true;
-      void load().then(refreshMeta);
+      load().then(refreshMeta, (e) => {
+        // Let the next connection try again instead of showing "Loading" forever.
+        loaded = false;
+        ed.error = e instanceof Error ? e.message : String(e);
+      });
     }
     if (deck.conn.s !== "open") loaded = false;
   });
@@ -78,12 +82,7 @@
       e.preventDefault();
       void push();
     } else if ((e.key === "Delete" || e.key === "Backspace") && ed.key) {
-      const pg = page();
-      const id = ed.key;
-      if (pg) {
-        change(() => (pg.keys = pg.keys.filter((k) => k.id !== id)));
-        ed.key = null;
-      }
+      deleteKey(ed.key);
     } else if (e.key === "Escape") {
       ed.armed = null;
       ed.moving = null;

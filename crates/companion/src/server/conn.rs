@@ -1,6 +1,6 @@
 //! One connected client: a paired device (secure channel) or the local editor (loopback).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -94,7 +94,7 @@ struct Conn {
     locked: bool,
     holds: HashMap<String, u64>,
     hold_gen: u64,
-    fired: HashSet<String>,
+    presses: actions::Presses<String>,
     itx: mpsc::Sender<Internal>,
     tokens: f64,
     last_tokens: Instant,
@@ -132,7 +132,7 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
         locked,
         holds: HashMap::new(),
         hold_gen: 0,
-        fired: HashSet::new(),
+        presses: actions::Presses::default(),
         itx,
         tokens: 60.0,
         last_tokens: Instant::now(),
@@ -233,6 +233,7 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
             }
         }
     }
+    c.presses.release_all(&app);
     finish(&app, &c.who);
 }
 
@@ -519,9 +520,7 @@ impl Conn {
             KeyKind::Slider | KeyKind::Widget if key.actions.is_empty() => {}
             KeyKind::Slider => {}
             _ => {
-                if key.repeat.is_some() {
-                    self.app.held.lock().insert(key_path(&self.profile, &self.page, id));
-                }
+                self.presses.down(&self.app, id.to_string(), key_path(&self.profile, &self.page, id), key.repeat.is_some());
                 match key.hold.filter(|h| *h > 0) {
                     Some(ms) => {
                         self.hold_gen += 1;
@@ -542,15 +541,9 @@ impl Conn {
     }
 
     async fn up(&mut self, id: &str, cancel: bool) -> anyhow::Result<()> {
-        self.app.held.lock().remove(&key_path(&self.profile, &self.page, id));
+        self.presses.up(&self.app, &id.to_string());
         if self.holds.remove(id).is_some() && !cancel {
             self.link.send(&json!({ "t": "toast", "text": "Keep holding to confirm", "tone": Tone::Warning, "at": now_ms(), "local": true })).await?;
-        }
-        if self.fired.remove(id)
-            && let Some(key) = self.key(id)
-        {
-            let ctx = self.ctx(id);
-            tokio::spawn(actions::release(self.app.clone(), ctx, key.actions));
         }
         Ok(())
     }
@@ -572,30 +565,28 @@ impl Conn {
         if list.is_empty() {
             return;
         }
-        let path = key_path(&self.profile, &self.page, id);
-        if !self.app.running.lock().insert(path.clone()) {
-            return;
-        }
-        self.fired.insert(id.to_string());
+        let Some(running) = actions::Running::claim(&self.app, key_path(&self.profile, &self.page, id)) else { return };
         let app = self.app.clone();
         let ctx = self.ctx(id);
+        self.presses.fired(&id.to_string(), ctx.clone(), key.actions);
         let repeat = key.repeat;
         tokio::spawn(async move {
-            actions::run_key(app.clone(), ctx, list, off, repeat).await;
-            app.running.lock().remove(&path);
+            actions::run_key(app, ctx, list, off, repeat).await;
+            drop(running);
         });
     }
 
     async fn slide(&mut self, id: &str, value: f64) {
-        let now = Instant::now();
-        if self.last_slide.get(id).is_some_and(|t| now.duration_since(*t) < Duration::from_millis(33)) {
-            return;
-        }
-        self.last_slide.insert(id.to_string(), now);
         let Some(key) = self.key(id) else { return };
         if key.kind != KeyKind::Slider {
             return;
         }
+        let now = Instant::now();
+        if self.last_slide.get(id).is_some_and(|t| now.duration_since(*t) < Duration::from_millis(33)) {
+            return;
+        }
+        self.last_slide.retain(|_, t| now.duration_since(*t) < Duration::from_secs(60));
+        self.last_slide.insert(id.to_string(), now);
         for (n, a) in key.actions.iter().enumerate() {
             if a.review {
                 continue;

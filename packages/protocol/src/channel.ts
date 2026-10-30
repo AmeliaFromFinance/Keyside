@@ -139,18 +139,18 @@ export class Session {
 
   /** Encrypts in call order, even when called concurrently. */
   seal(msg: unknown): Promise<Bytes> {
-    const ctr = this.#sendCtr++;
-    if (ctr >= MAX_COUNTER) return Promise.reject(new HandshakeError("session exhausted"));
+    // Size is checked before a counter is used up: a skipped counter would desync the peer.
     const plain = utf8(JSON.stringify(msg));
+    if (plain.length + 8 + 16 > MAX_FRAME) return Promise.reject(new RangeError("message too large"));
+    if (this.#sendCtr >= MAX_COUNTER) return Promise.reject(new HandshakeError("session exhausted"));
+    const ctr = this.#sendCtr++;
     const job = this.#sendTail.then(async () => {
       const ct = await subtle().encrypt(
         { name: "AES-GCM", iv: nonce(ctr), additionalData: Uint8Array.of(this.#sendDir) },
         this.#sendKey,
         plain,
       );
-      const frame = concat(u64be(ctr), new Uint8Array(ct));
-      if (frame.length > MAX_FRAME) throw new RangeError("message too large");
-      return frame;
+      return concat(u64be(ctr), new Uint8Array(ct));
     });
     this.#sendTail = job.catch(() => undefined);
     return job;

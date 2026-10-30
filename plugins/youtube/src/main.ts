@@ -44,7 +44,11 @@ async function api(method: string, path: string, body?: unknown, retry = true): 
 }
 
 function later(fn: () => void, ms: number, gen: number) {
-  timers.push(setTimeout(() => gen === generation && fn(), ms));
+  const t = setTimeout(() => {
+    timers = timers.filter((x) => x !== t);
+    if (gen === generation) fn();
+  }, ms);
+  timers.push(t);
 }
 
 async function signIn(gen: number) {

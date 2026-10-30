@@ -8,7 +8,17 @@
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts"
   },
-  "files": ["src", "README.md", "LICENSE"],
+  "publishConfig": {
+    "exports": {
+      ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "./testing": { "types": "./dist/testing.d.ts", "default": "./dist/testing.js" }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build"
+  },
+  "files": ["dist", "src", "README.md", "LICENSE"],
   "keywords": ["keyside", "stream deck", "plugin", "obs", "streaming"],
   "repository": { "type": "git", "url": "git+https://github.com/AmeliaFromFinance/keyside.git", "directory": "packages/sdk" }
 }

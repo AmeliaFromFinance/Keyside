@@ -43,7 +43,7 @@ fn hash(t: &str) -> String {
 
 impl Tokens {
     pub fn load(path: PathBuf) -> Result<Self> {
-        Ok(Self { list: store::read_json(&path)?.unwrap_or_default(), path })
+        Ok(Self { list: store::read_json_or_reset(&path)?.unwrap_or_default(), path })
     }
 
     fn save(&self) -> Result<()> {
