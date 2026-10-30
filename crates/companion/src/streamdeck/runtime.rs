@@ -231,8 +231,11 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
                 return;
             }
         };
-        if let Some(err) = child.stderr.take() {
+        // The last error line the plugin printed, so a crash can say why.
+        let last_error = Arc::new(parking_lot::Mutex::new(None::<String>));
+        let reader = child.stderr.take().map(|err| {
             let id = uuid.clone();
+            let last_error = last_error.clone();
             tokio::spawn(async move {
                 use tokio::io::AsyncBufReadExt;
                 let mut lines = tokio::io::BufReader::new(err).lines();
@@ -242,9 +245,13 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
                     if n <= 500 {
                         tracing::info!(plugin = %id, "{}", l.chars().take(500).collect::<String>());
                     }
+                    let l = l.trim();
+                    if l.starts_with("error") || l.contains("Error") {
+                        *last_error.lock() = Some(l.chars().take(160).collect());
+                    }
                 }
-            });
-        }
+            })
+        });
         let status = tokio::select! {
             s = child.wait() => s,
             _ = &mut stop => {
@@ -257,6 +264,10 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
             return;
         }
         tracing::warn!(plugin = %uuid, "Stream Deck plugin exited: {status:?}");
+        if let Some(r) = reader {
+            let _ = tokio::time::timeout(Duration::from_millis(500), r).await;
+        }
+        let why = last_error.lock().take();
         let crashes = {
             let mut st = app.streamdeck.state.lock();
             let Some(r) = st.running.get_mut(&uuid) else { return };
@@ -268,7 +279,8 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
             }
             r.crashes.len()
         };
-        app.engine.lock().set_connection(ConnectionView { id: inst.plugin_id(), name: inst.manifest.name.clone(), status: "connecting".into(), detail: Some("Restarting".into()) });
+        let detail = why.as_deref().map_or_else(|| "Restarting".to_string(), |w| format!("Restarting after: {w}"));
+        app.engine.lock().set_connection(ConnectionView { id: inst.plugin_id(), name: inst.manifest.name.clone(), status: "connecting".into(), detail: Some(detail) });
         if crashes >= CRASH_LIMIT {
             {
                 let mut st = app.streamdeck.state.lock();
@@ -279,7 +291,12 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
             }
             super::stop(&app, &uuid);
             super::refresh_engine(&app);
-            app.engine.lock().toast(format!("{} kept stopping and was turned off", inst.manifest.name), Tone::Danger);
+            let msg = match &why {
+                Some(w) => format!("{} kept stopping and was turned off: {w}", inst.manifest.name),
+                None => format!("{} kept stopping and was turned off", inst.manifest.name),
+            };
+            app.engine.lock().set_connection(ConnectionView { id: inst.plugin_id(), name: inst.manifest.name.clone(), status: "error".into(), detail: why.clone() });
+            app.engine.lock().toast(msg, Tone::Danger);
             return;
         }
         tokio::select! {
@@ -287,6 +304,98 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
             _ = &mut stop => return,
         }
     }
+}
+
+/// Node built-ins plugins import without the "node:" prefix.
+const NODE_BUILTINS: &[&str] = &[
+    "assert",
+    "assert/strict",
+    "async_hooks",
+    "buffer",
+    "child_process",
+    "cluster",
+    "console",
+    "constants",
+    "crypto",
+    "dgram",
+    "diagnostics_channel",
+    "dns",
+    "dns/promises",
+    "domain",
+    "events",
+    "fs",
+    "fs/promises",
+    "http",
+    "http2",
+    "https",
+    "inspector",
+    "module",
+    "net",
+    "os",
+    "path",
+    "path/posix",
+    "path/win32",
+    "perf_hooks",
+    "process",
+    "punycode",
+    "querystring",
+    "readline",
+    "readline/promises",
+    "stream",
+    "stream/consumers",
+    "stream/promises",
+    "stream/web",
+    "string_decoder",
+    "sys",
+    "timers",
+    "timers/promises",
+    "tls",
+    "tty",
+    "url",
+    "util",
+    "util/types",
+    "v8",
+    "vm",
+    "wasi",
+    "worker_threads",
+    "zlib",
+];
+
+const STUB: &str = "keyside-sharp.js";
+
+/// sharp needs native code, which plugins can't load here. SVG passes through unchanged
+/// (Keyside draws SVG keys itself), anything else fails as if sharp were missing.
+const SHARP_STUB: &str = r#"import { Buffer } from "node:buffer";
+const unavailable = () => new Error("sharp isn't available in Keyside");
+export default function sharp(input) {
+  const bytes = input == null || typeof input === "object" && !ArrayBuffer.isView(input) ? null : Buffer.from(input);
+  const svg = !!bytes && /^\s*(<\?xml|<svg)/.test(bytes.subarray(0, 200).toString());
+  const chain = new Proxy({}, {
+    get(_, k) {
+      if (k === "then") return undefined;
+      if (k === "toBuffer") return async (o) => {
+        if (!svg) throw unavailable();
+        return o?.resolveWithObject ? { data: bytes, info: { format: "svg", size: bytes.length } } : bytes;
+      };
+      if (k === "toFile" || k === "metadata" || k === "stats") return async () => { throw unavailable(); };
+      return () => chain;
+    },
+  });
+  return chain;
+}
+"#;
+
+/// Deno settings for Node plugins: their own node_modules, bare built-ins, and sharp swapped
+/// for a stand-in. Written by Keyside, so a plugin's own deno.json is never read.
+fn node_config(cache: &std::path::Path) -> Result<std::path::PathBuf> {
+    let stub = cache.join(STUB);
+    std::fs::write(&stub, SHARP_STUB)?;
+    let mut imports: serde_json::Map<String, Value> = NODE_BUILTINS.iter().map(|m| (m.to_string(), Value::String(format!("node:{m}")))).collect();
+    let stub_url = url::Url::from_file_path(&stub).map_err(|()| anyhow::anyhow!("invalid plugin cache folder"))?;
+    imports.insert("sharp".into(), Value::String(stub_url.to_string()));
+    let path = cache.join("keyside-deno.json");
+    std::fs::write(&path, serde_json::to_vec(&json!({ "nodeModulesDir": "manual", "imports": imports }))?)?;
+    Ok(path)
 }
 
 fn command(app: &App, inst: &Installed, token: &str) -> Result<tokio::process::Command> {
@@ -316,14 +425,17 @@ fn command(app: &App, inst: &Installed, token: &str) -> Result<tokio::process::C
             }
             let mut net = vec![format!("127.0.0.1:{port}")];
             net.extend(inst.net.iter().cloned());
+            let config = node_config(&cache)?;
             let mut c = tokio::process::Command::new(deno);
-            c.args(["run", "--quiet", "--no-prompt", "--no-config", "--no-lock", "--no-remote", "--no-npm", "--unstable-detect-cjs", "--deny-run", "--deny-ffi"])
+            c.args(["run", "--quiet", "--no-prompt", "--no-lock", "--no-remote", "--no-npm", "--unstable-detect-cjs", "--deny-run", "--deny-ffi"])
+                .arg("--config")
+                .arg(&config)
                 .arg("--v8-flags=--max-old-space-size=256")
                 // The environment is cleared below, so reading it reveals nothing.
                 .arg("--allow-env")
                 .arg(format!("--allow-sys={SYS}"))
                 // Stream Deck plugins expect to write logs and files inside their own folder.
-                .arg(format!("--allow-read={},{}", dir.display(), data.display()))
+                .arg(format!("--allow-read={},{},{}", dir.display(), data.display(), cache.join(STUB).display()))
                 .arg(format!("--allow-write={},{}", dir.display(), data.display()))
                 .arg(if inst.all_net { "--allow-net".to_string() } else { format!("--allow-net={}", net.join(",")) })
                 .arg(dir.join(code))

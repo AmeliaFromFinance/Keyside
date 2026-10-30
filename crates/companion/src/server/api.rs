@@ -173,11 +173,23 @@ async fn events(State(app): State<Arc<App>>, headers: HeaderMap, Query(q): Query
     if let Err(r) = auth(&app, &headers, q.get("token").map(String::as_str), ApiScope::Press) {
         return r;
     }
+    let given = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .or(q.get("token").map(String::as_str))
+        .unwrap_or("")
+        .trim()
+        .to_string();
     ws.max_message_size(4096).on_upgrade(move |mut socket| async move {
         let mut rx = app.engine.lock().subscribe();
         loop {
             tokio::select! {
                 ch = rx.recv() => {
+                    // A token revoked in the editor stops the stream too.
+                    if app.tokens.lock().check(&given).is_none() {
+                        break;
+                    }
                     let msg = match ch {
                         Ok(Change::Pressed { profile, page, key, label, device }) => json!({ "event": "press", "profile": profile, "page": page, "key": key, "label": label, "device": device }),
                         Ok(Change::Profile) => json!({ "event": "profile", "profile": app.engine.lock().active_profile() }),

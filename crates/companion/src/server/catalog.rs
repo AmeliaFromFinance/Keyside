@@ -42,13 +42,14 @@ fn base_actions() -> Value {
             "name": { "type": "string", "title": "Timer name", "maxLength": 24, "default": "break" },
             "mode": { "type": "string", "title": "Type", "enum": ["countdown", "stopwatch"], "enumNames": ["Countdown", "Stopwatch"], "default": "countdown" },
             "op": { "type": "string", "title": "On press", "enum": ["toggle", "start", "stop", "reset"], "enumNames": ["Start or stop", "Start", "Stop", "Reset"], "default": "toggle" },
-            "seconds": { "type": "integer", "title": "Countdown seconds", "minimum": 1, "maximum": 86400, "default": 300, "x-showWhen": { "mode": ["countdown"] } } } } },
+            "seconds": { "type": "integer", "title": "Countdown seconds", "minimum": 1, "maximum": 86400, "default": 300, "x-showWhen": { "mode": ["countdown"] } },
+            "resetOnStop": { "type": "boolean", "title": "Reset when stopped", "default": false, "x-showWhen": { "op": ["toggle", "stop"] } } } } },
         { "id": "core.var", "group": "Deck", "name": "Set variable", "icon": "variable", "settings": { "type": "object", "required": ["name"], "properties": {
             "name": { "type": "string", "title": "Variable (starts with user.)", "maxLength": 80, "default": "user." },
             "op": { "type": "string", "title": "Change", "enum": ["set", "toggle", "inc", "dec"], "enumNames": ["Set to", "Toggle on/off", "Add", "Subtract"], "default": "set" },
             "value": { "type": "string", "title": "Value", "maxLength": 512, "x-showWhen": { "op": ["set", "inc", "dec"] } } } } },
         { "id": "core.keys", "group": "Keyboard", "name": "Hotkey", "icon": "keyboard", "settings": { "type": "object", "required": ["keys"], "properties": {
-            "keys": { "type": "string", "title": "Keys", "format": "hotkey", "maxLength": 60, "description": "For example ctrl+shift+f13" } } } },
+            "keys": { "type": "string", "title": "Keys", "format": "hotkey", "maxLength": 60, "description": "Shortcuts your desktop already uses can't be recorded. Use the pencil to type those, like super+shift+t." } } } },
         { "id": "core.text", "group": "Keyboard", "name": "Type text", "icon": "type", "settings": { "type": "object", "required": ["text"], "properties": {
             "text": { "type": "string", "title": "Text", "format": "textarea", "maxLength": 2000 } } } },
         { "id": "core.media", "group": "Keyboard", "name": "Media key", "icon": "play", "settings": { "type": "object", "required": ["key"], "properties": {

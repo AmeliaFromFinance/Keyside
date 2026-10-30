@@ -315,7 +315,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
                 app.plugins.secrets.set(PIN_SECRET, id, pin).map_err(OpError::failed)?;
             }
             // Reconnect so the new scope and PIN apply right away.
-            app.notify(Change::Revoked(id.to_string()));
+            app.notify(Change::Updated(id.to_string()));
             Ok(Value::Null)
         }
         "devices.pin" => {

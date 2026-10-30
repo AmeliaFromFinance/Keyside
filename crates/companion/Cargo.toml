@@ -23,7 +23,8 @@ render = ["dep:image", "dep:resvg", "dep:ab_glyph"]
 nowplaying = ["dep:image", "dep:zbus", "dep:windows"]
 # Per-app volume and mute on Windows. Linux uses pactl and needs nothing extra.
 appaudio = ["dep:windows"]
-input = ["dep:enigo"]
+# Keys, text and media keys. Wayland desktops use the virtual keyboard protocol.
+input = ["dep:enigo", "dep:wayland-client", "dep:wayland-protocols-misc"]
 sound = ["dep:rodio"]
 midi = ["dep:midir"]
 focus = ["dep:active-win-pos-rs"]
@@ -83,6 +84,8 @@ libc = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5", optional = true }
+wayland-client = { version = "0.31", optional = true }
+wayland-protocols-misc = { version = "0.3", optional = true, features = ["client"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", optional = true, features = [

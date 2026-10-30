@@ -76,9 +76,7 @@ function frame(op: number, payload: unknown) {
 
 async function command(cmd: string, args: Record<string, unknown> = {}, evt?: string, ms = 10_000): Promise<any> {
   const nonce = randomId();
-  const p = waiting.wait(nonce, ms);
-  await frame(OP.Frame, { cmd, args, evt, nonce });
-  return p;
+  return waiting.request(nonce, () => frame(OP.Frame, { cmd, args, evt, nonce }), ms);
 }
 
 function onFrame(data: any) {

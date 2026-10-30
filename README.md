@@ -67,6 +67,8 @@ Built in: hotkeys, typing text, media keys, now playing with cover art (Linux an
 
 On Linux and Windows, keys can also mute an app or set its volume. Linux needs `pactl`, which comes with PipeWire and PulseAudio.
 
+On Linux, hotkeys and typed text reach every app on X11 and on Wayland desktops built on wlroots, like Hyprland and Sway. GNOME and KDE on Wayland only let them reach X11 apps. Media keys go straight to the playing app and the sound server, so they work everywhere.
+
 Setup for each plugin is in [docs/plugins.md](docs/plugins.md).
 
 ## Get started

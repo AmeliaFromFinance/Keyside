@@ -4,6 +4,7 @@
   import { req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import Rich from "./Rich.svelte";
+  import HotkeyField from "./HotkeyField.svelte";
 
   let {
     schema,
@@ -134,6 +135,8 @@
           step={f.type === "integer" ? 1 : "any"}
           oninput={(e) => set(name, e.currentTarget.value === "" ? undefined : Number(e.currentTarget.value))}
         />
+      {:else if f.format === "hotkey"}
+        <HotkeyField value={(v as string) ?? ""} onchange={(x) => set(name, x)} />
       {:else if f.format === "textarea"}
         <textarea maxlength={f.maxLength} value={(v as string) ?? ""} oninput={(e) => set(name, e.currentTarget.value)}></textarea>
       {:else if f.format === "secret"}

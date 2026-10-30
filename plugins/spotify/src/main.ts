@@ -19,6 +19,8 @@ interface Player {
   track: string;
   artist: string;
   id: string;
+  /** spotify:track:… or spotify:episode:…, for the library. */
+  uri: string;
   art: string;
   volume: number | null;
   shuffle: boolean;
@@ -48,10 +50,26 @@ async function api(method: string, path: string, body?: unknown, retry = true): 
       await session.renew();
       return api(method, path, body, false);
     }
-    if (e instanceof HttpError && e.status === 403) throw new Error("Spotify needs Premium for this");
+    if (e instanceof HttpError && e.status === 403) throw new Error(forbidden(e));
     if (e instanceof HttpError && e.status === 404) throw new Error("Open Spotify on a device first");
     throw e;
   }
+}
+
+/** Spotify says why it refused. Only call it a Premium problem when it is one. */
+function forbidden(e: HttpError) {
+  const err = (e.body as { error?: { message?: string; reason?: string } } | undefined)?.error;
+  const why = `${err?.reason ?? ""} ${err?.message ?? ""}`;
+  if (/PREMIUM_REQUIRED|premium/i.test(why)) return "Spotify needs Premium for this";
+  if (/not registered|developer dashboard|allowlist/i.test(why)) return "Add your Spotify account under User Management in your Spotify app's settings";
+  if (/scope/i.test(why)) return "Spotify needs you to sign in again. Remove and re-add the Client ID";
+  return `Spotify refused this${err?.message ? `: ${err.message}` : ""}`;
+}
+
+/** Whether a track or episode is in Your Library. */
+async function saved(uri: string) {
+  const r = await api("GET", `/me/library/contains?uris=${encodeURIComponent(uri)}`);
+  return Array.isArray(r) ? !!r[0] : !!r?.[uri];
 }
 
 async function signIn() {
@@ -87,7 +105,8 @@ async function poll(gen: number) {
     if (!p || !p.item) player = null;
     else {
       const id = String(p.item.id ?? "");
-      const liked = player?.id === id ? player.liked : id ? !!(await api("GET", `/me/tracks/contains?ids=${encodeURIComponent(id)}`).catch(() => [false]))?.[0] : false;
+      const uri = String(p.item.uri ?? "");
+      const liked = player?.id === id ? player.liked : uri ? await saved(uri).catch(() => false) : false;
       const images: Array<{ url: string; width: number }> = p.item.album?.images ?? p.item.images ?? [];
       const art = images.slice().sort((a, b) => a.width - b.width).find((i) => i.width >= 160)?.url ?? images[0]?.url ?? "";
       player = {
@@ -95,6 +114,7 @@ async function poll(gen: number) {
         track: String(p.item.name ?? ""),
         artist: (p.item.artists ?? []).map((a: any) => a.name).join(", ") || String(p.item.show?.name ?? ""),
         id,
+        uri,
         art,
         volume: typeof p.device?.volume_percent === "number" ? p.device.volume_percent / 100 : null,
         shuffle: !!p.shuffle_state,
@@ -242,8 +262,8 @@ export default definePlugin({
     like: {
       press: () =>
         act(async () => {
-          if (!player?.id) throw new Error("Nothing playing");
-          await api(player.liked ? "DELETE" : "PUT", `/me/tracks?ids=${encodeURIComponent(player.id)}`);
+          if (!player?.uri) throw new Error("Nothing playing");
+          await api(player.liked ? "DELETE" : "PUT", `/me/library?uris=${encodeURIComponent(player.uri)}`);
           player.liked = !player.liked;
         }),
       appear: render,

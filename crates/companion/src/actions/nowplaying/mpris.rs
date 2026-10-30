@@ -77,6 +77,7 @@ impl Backend {
             Control::Toggle => "PlayPause",
             Control::Next => "Next",
             Control::Previous => "Previous",
+            Control::Stop => "Stop",
         };
         p.call_method(method, &()).await.map(|_| ()).map_err(|e| format!("The player didn't accept that: {e}"))
     }

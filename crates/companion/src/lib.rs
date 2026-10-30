@@ -89,8 +89,25 @@ pub async fn shutdown(app: &App) {
     save_vars(app).await;
     app.plugins.stop_all();
     streamdeck::stop_all(app);
+    streamdeck::hardware::release().await;
     // Plugins get a shutdown message and a moment to leave before they're killed.
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+}
+
+/// Resolves when the system asks Keyside to quit: Ctrl+C, or SIGTERM at logout or from `kill`.
+pub async fn quit_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        if let Ok(mut term) = signal(SignalKind::terminate()) {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = term.recv() => {}
+            }
+            return;
+        }
+    }
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 pub fn editor_url(app: &App) -> String {

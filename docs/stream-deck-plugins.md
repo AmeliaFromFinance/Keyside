@@ -18,11 +18,15 @@ Its actions appear in the palette like any other. Select a key and open a step t
 | Programs (`.exe` on Windows, apps on macOS) | Only if you agree to run them unsandboxed. They can do anything you can. |
 | Web page plugins (older SDK, `CodePath` ends in `.html`) | Not supported. They need Elgato's built-in browser. |
 
+JavaScript plugins can't load native add-ons. For `sharp`, which many plugins use to turn SVG into PNG, Keyside passes the SVG through and draws it itself. Other image conversions in such plugins fail.
+
+If a plugin keeps stopping, the reason shows next to it in **Plugins** and in the message when Keyside turns it off.
+
 ## Internet access
 
 JavaScript plugins start with no network access except to Keyside itself. If a plugin needs a web service (weather, a game API), open it in **Stream Deck plugins** and pick:
 
-- **Only these sites**: list the hosts it needs, one per line, like `api.example.com`.
+- **Only these sites**: list the hosts it needs, one per line, like `api.example.com`. Apps on this PC count too: the Streamer.bot plugin needs `127.0.0.1:8080`.
 - **Any site**: includes devices on your network. Use this only for plugins you trust.
 
 The plugin's settings page can reach the same sites.
@@ -43,7 +47,7 @@ Two-state actions flip state on release, as on a Stream Deck. Dials, touch strip
 
 ## Physical Stream Decks
 
-Plug one in and it shows your active layout, drawn the same way as on your phone. Folders and back keys work as usual. Turn it off under **Settings > Use Stream Deck hardware plugged into this PC**.
+Plug one in and it shows your active layout, drawn the same way as on your phone. Folders and back keys work as usual. When Keyside quits, the deck goes back to its Elgato logo. Turn it off under **Settings > Use Stream Deck hardware plugged into this PC**.
 
 On Linux, give your user access to the device first:
 

@@ -470,7 +470,12 @@ impl Host {
     pub fn configure(&self, id: &str, values: &Map<String, Value>, from_plugin: bool) -> Result<()> {
         let m = self.get(id).context("plugin not installed")?.manifest;
         let Some(schema) = &m.connection else { bail!("this plugin has no settings") };
-        let mut merged = self.connection_values(&m);
+        // Addresses decide what the plugin may reach, so only the person can change them.
+        if from_plugin && let Some(k) = values.keys().find(|k| m.permissions.net.iter().any(|n| n.contains(&format!("{{{k}}}")))) {
+            bail!("plugins can't change \"{k}\" themselves");
+        }
+        let old = self.connection_values(&m);
+        let mut merged = old.clone();
         for (k, v) in values {
             merged.insert(k.clone(), v.clone());
         }
@@ -486,10 +491,7 @@ impl Host {
             }
         }
         store::write_json(&self.config.join(format!("{id}.json")), &plain)?;
-        let net_changed = {
-            let before = manifest::expand_net(&m.permissions.net, &merged);
-            before != manifest::expand_net(&m.permissions.net, &self.connection_values(&m))
-        };
+        let net_changed = manifest::expand_net(&m.permissions.net, &old) != manifest::expand_net(&m.permissions.net, &self.connection_values(&m));
         if from_plugin && !net_changed {
             return Ok(());
         }
@@ -1198,6 +1200,26 @@ mod tests {
             assert!(e.contains("ship with Keyside"), "{e}");
         }
         assert!(app.plugins.install(&pkg, Source::Bundled, false).is_ok());
+    }
+
+    #[tokio::test]
+    async fn plugins_cannot_change_the_addresses_they_may_reach() {
+        let data = tempfile::tempdir().unwrap();
+        let app = App::new(crate::app::Options { data_dir: Some(data.path().into()), bundled_plugins: None }).unwrap();
+        let src = tempfile::tempdir().unwrap();
+        let manifest = json!({
+            "id": "dev.example.net", "name": "Net", "version": "1.0.0", "author": "Me", "prefix": "net", "host": "^1.0", "entry": "main.js", "actions": [],
+            "permissions": { "net": ["{host}:{port}"] },
+            "connection": { "type": "object", "properties": {
+                "host": { "type": "string", "default": "127.0.0.1" }, "port": { "type": "integer", "default": 4455 }, "token": { "type": "string", "format": "secret" } } }
+        });
+        std::fs::write(src.path().join("manifest.json"), manifest.to_string()).unwrap();
+        std::fs::write(src.path().join("main.js"), "").unwrap();
+        app.plugins.install(&package::Package::from_dir(src.path()).unwrap(), Source::File, true).unwrap();
+        let set = |v: Value| v.as_object().unwrap().clone();
+        assert!(app.plugins.configure("dev.example.net", &set(json!({ "host": "exfil.example" })), true).is_err());
+        assert!(app.plugins.configure("dev.example.net", &set(json!({ "token": "t" })), true).is_ok(), "tokens are fine");
+        assert!(app.plugins.configure("dev.example.net", &set(json!({ "host": "10.0.0.2" })), false).is_ok(), "the person can");
     }
 
     #[test]

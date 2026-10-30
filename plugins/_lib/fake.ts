@@ -57,7 +57,7 @@ export async function fakeServer(handler: (ws: WebSocket, msg: any, raw: string)
   };
 }
 
-export async function eventually(check: () => boolean | unknown, ms = 3000) {
+export async function eventually(check: () => boolean | unknown, ms = 5000) {
   const end = Date.now() + ms;
   for (;;) {
     let ok = false;

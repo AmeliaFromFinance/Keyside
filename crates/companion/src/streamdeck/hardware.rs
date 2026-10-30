@@ -13,6 +13,12 @@ pub fn spawn(app: Arc<App>) {
     let _ = app;
 }
 
+/// Hands the decks back on quit: keys go blank and show the Elgato logo again.
+pub async fn release() {
+    #[cfg(feature = "hardware")]
+    imp::release().await;
+}
+
 #[cfg(feature = "render")]
 pub mod render;
 
@@ -21,6 +27,7 @@ mod imp {
     use std::collections::HashMap;
     use std::hash::{Hash, Hasher};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc as std_mpsc;
     use std::time::{Duration, Instant};
 
@@ -62,9 +69,23 @@ mod imp {
         }
     }
 
+    static RUNNING: AtomicBool = AtomicBool::new(false);
+    static STOP: AtomicBool = AtomicBool::new(false);
+
     pub fn spawn(app: Arc<App>) {
         let rt = tokio::runtime::Handle::current();
-        std::thread::Builder::new().name("stream-deck-scan".into()).spawn(move || scan(app, rt)).ok();
+        RUNNING.store(true, Ordering::SeqCst);
+        if std::thread::Builder::new().name("stream-deck-scan".into()).spawn(move || scan(app, rt)).is_err() {
+            RUNNING.store(false, Ordering::SeqCst);
+        }
+    }
+
+    pub async fn release() {
+        STOP.store(true, Ordering::SeqCst);
+        let end = Instant::now() + Duration::from_millis(1500);
+        while RUNNING.load(Ordering::SeqCst) && Instant::now() < end {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
     }
 
     struct Open {
@@ -81,12 +102,20 @@ mod imp {
             Ok(h) => h,
             Err(e) => {
                 tracing::info!("Stream Deck support is off: {e}");
+                RUNNING.store(false, Ordering::SeqCst);
                 return;
             }
         };
         let mut decks: HashMap<String, Open> = HashMap::new();
         let mut last_scan: Option<Instant> = None;
         loop {
+            if STOP.load(Ordering::SeqCst) {
+                for (_, d) in decks.drain() {
+                    let _ = d.deck.reset();
+                }
+                RUNNING.store(false, Ordering::SeqCst);
+                return;
+            }
             if last_scan.is_none_or(|t| t.elapsed() >= SCAN_EVERY) {
                 last_scan = Some(Instant::now());
                 if !app.settings.read().hardware_decks {

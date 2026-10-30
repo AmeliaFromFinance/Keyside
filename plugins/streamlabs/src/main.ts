@@ -24,9 +24,7 @@ const st = {
 
 function call(resource: string, method: string, args: unknown[] = []): Promise<any> {
   const id = nextId++;
-  const p = waiting.wait(String(id));
-  sock.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: { resource, args } }));
-  return p;
+  return waiting.request(String(id), () => sock.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: { resource, args } })));
 }
 
 function onMessage(raw: string) {

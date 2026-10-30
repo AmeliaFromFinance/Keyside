@@ -121,15 +121,16 @@ async function findBroadcast(gen: number) {
   later(() => void findBroadcast(gen), broadcast ? IDLE_CHECK * 2 : IDLE_CHECK, gen);
 }
 
-async function stats(gen: number) {
-  if (!broadcast) return;
-  const v = (await api("GET", `/videos?part=liveStreamingDetails,statistics&id=${encodeURIComponent(broadcast.id)}`).catch(() => null))?.items?.[0];
+async function stats(gen: number, id = broadcast?.id) {
+  // One loop per broadcast: a newer broadcast starts its own.
+  if (!id || broadcast?.id !== id) return;
+  const v = (await api("GET", `/videos?part=liveStreamingDetails,statistics&id=${encodeURIComponent(id)}`).catch(() => null))?.items?.[0];
   if (v) {
     host.setVar("viewers", Number(v.liveStreamingDetails?.concurrentViewers ?? 0));
     host.setVar("likes", Number(v.statistics?.likeCount ?? 0));
   }
   await checkHealth();
-  later(() => void stats(gen), STATS_EVERY, gen);
+  later(() => void stats(gen, id), STATS_EVERY, gen);
 }
 
 const HEALTH: Record<string, [label: string, tone: "success" | "warning" | "danger" | "muted"]> = {

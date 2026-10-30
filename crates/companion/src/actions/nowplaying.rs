@@ -30,6 +30,7 @@ pub enum Control {
     Toggle,
     Next,
     Previous,
+    Stop,
 }
 
 #[cfg(target_os = "linux")]
@@ -69,6 +70,11 @@ pub async fn press(m: &Map<String, Value>) -> Result<(), String> {
         "previous" => Control::Previous,
         _ => return Err("unknown media control".into()),
     };
+    control(c).await
+}
+
+/// Sends a control to the current player.
+pub async fn control(c: Control) -> Result<(), String> {
     let tx = CONTROL.get().ok_or("Now playing isn't available on this system yet")?;
     let (done, wait) = tokio::sync::oneshot::channel();
     tx.send((c, done)).await.map_err(|_| "media watcher stopped")?;

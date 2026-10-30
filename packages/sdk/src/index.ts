@@ -480,6 +480,12 @@ function quietConsole() {
 export function definePlugin(def: PluginDefinition): PluginDefinition {
   if (!(globalThis as any).__keysideTest && typeof Deno !== "undefined") {
     quietConsole();
+    // Deno ends the process on a rejected promise nobody handled. A failed background
+    // request (say, the app closed mid-request) shouldn't restart the whole plugin.
+    globalThis.addEventListener("unhandledrejection", (e: any) => {
+      e.preventDefault();
+      console.error("Unhandled:", e.reason);
+    });
     queueMicrotask(() => {
       void new Runtime(def, stdioWire()).serve().then(() => Deno.exit(0));
     });

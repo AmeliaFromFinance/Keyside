@@ -63,18 +63,14 @@ function url(): string | null {
 
 function request(requestType: string, requestData?: Record<string, unknown>): Promise<any> {
   const requestId = randomId();
-  const p = waiting.wait(requestId);
-  sock.send(JSON.stringify({ op: OP.Request, d: { requestType, requestId, requestData } }));
-  return p;
+  return waiting.request(requestId, () => sock.send(JSON.stringify({ op: OP.Request, d: { requestType, requestId, requestData } })));
 }
 
 /** Runs requests in order as one message. Resolves with each result (failed ones are null). */
 function batch(requests: Req[]): Promise<Array<any | null>> {
   if (!requests.length) return Promise.resolve([]);
   const requestId = randomId();
-  const p = waiting.wait(requestId);
-  sock.send(JSON.stringify({ op: OP.Batch, d: { requestId, haltOnFailure: false, executionType: 0, requests } }));
-  return p;
+  return waiting.request(requestId, () => sock.send(JSON.stringify({ op: OP.Batch, d: { requestId, haltOnFailure: false, executionType: 0, requests } })));
 }
 
 function onMessage(text: string) {

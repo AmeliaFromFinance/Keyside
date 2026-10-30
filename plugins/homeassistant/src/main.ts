@@ -45,9 +45,7 @@ const states = new Map<string, Entity>();
 
 function send(msg: Record<string, unknown>): Promise<any> {
   const id = nextId++;
-  const p = waiting.wait(String(id));
-  sock.send(JSON.stringify({ id, ...msg }));
-  return p;
+  return waiting.request(String(id), () => sock.send(JSON.stringify({ id, ...msg })));
 }
 
 function toEntity(s: any): Entity {

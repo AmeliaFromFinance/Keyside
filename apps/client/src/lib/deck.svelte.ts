@@ -92,6 +92,9 @@ function handle(m: any) {
     case "unlocked":
       deck.locked = false;
       deck.lockReason = "";
+      // The companion ignores everything but the PIN while locked, screen size included.
+      lastFF = "";
+      sendViewport();
       break;
     case "page":
       deck.page = m.page;

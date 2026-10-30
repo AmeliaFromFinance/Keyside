@@ -239,7 +239,8 @@ export class Connection {
       return;
     }
     if (m.t === "bye") {
-      this.#closed(m.reason, m.reason === "shutdown");
+      // "updated": the PC changed this device's settings, so reconnect to get them.
+      this.#closed(m.reason, m.reason === "shutdown" || m.reason === "updated");
       return;
     }
     this.#deliver(m);

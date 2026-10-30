@@ -40,9 +40,7 @@ class VtsError extends Error {
 
 function call(messageType: string, data: Record<string, unknown> = {}, ms = 10_000): Promise<any> {
   const requestID = randomId();
-  const p = waiting.wait(requestID, ms);
-  sock.send(JSON.stringify({ apiName: "VTubeStudioPublicAPI", apiVersion: "1.0", requestID, messageType, data }));
-  return p;
+  return waiting.request(requestID, () => sock.send(JSON.stringify({ apiName: "VTubeStudioPublicAPI", apiVersion: "1.0", requestID, messageType, data })), ms);
 }
 
 function onMessage(raw: string) {

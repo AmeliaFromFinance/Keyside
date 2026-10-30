@@ -34,6 +34,19 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Equibop: found in `~/.local/bin` and other usual folders even when they aren't on the desktop's PATH, and a crashing Equibop is no longer reported as not installed.
 - Linux AppImage: programs, links and sign-in pages Keyside opens no longer inherit the AppImage's library settings, which could stop them from starting.
 - Deck: tap the connection bar to fold it into one slim row with a status dot per app. The phone remembers the choice.
+- Hotkey: click the box and press the shortcut to record it. The pencil still lets you type one.
+- Linux: hotkeys and typed text work on Wayland desktops like Hyprland and Sway, without getting in the way of fcitx5 or IBus. Media keys control the playing app and system volume directly.
+- Hotkey, Type text and Media key keys show why when they can't send keys, instead of doing nothing.
+- Timer: optional "Reset when stopped".
+- Spotify: Like uses Spotify's new library endpoint, so it works with apps made after February 2026. Refusals say what Spotify actually said instead of always blaming Premium.
+- Stream Deck plugins: JavaScript plugins with their own node_modules start (including the Streamer.bot plugin). Plugins that use sharp for images still show their keys. A plugin that keeps stopping says why.
+- Physical Stream Decks go back to the Elgato logo when Keyside quits, including at logout.
+- Devices: changing a phone's name, PIN or access on the PC no longer makes the phone forget it's paired.
+- Deck: tablets and landscape phones with a PIN keep their layout after unlocking.
+- Editor: folders can be deleted in a layout with only one page. Changes made while pushing are no longer lost.
+- Plugins can't change the addresses they're allowed to reach. A plugin no longer restarts when a background request fails.
+- HTTP API: revoking a token also closes its open event stream.
+- YouTube: viewer and health checks no longer double up when one broadcast ends and the next starts.
 - Deck: tap a toast to dismiss it. Toasts also go away on their own.
 - Deck: the lock button works on phones that cancel a long press for their own menus, and a quick tap explains that it needs a hold. Held keys with pictures no longer get cut short by the iPhone's "Save image" callout.
 - "Last seen" shows days and years instead of thousands of hours.

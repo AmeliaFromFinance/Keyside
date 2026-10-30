@@ -39,9 +39,7 @@ function pick(v: unknown, allowed: string[], fallback: string): string {
 
 function request(data: unknown, ms = 5000): Promise<any> {
   const id = nextId++;
-  const p = waiting.wait(String(id), ms);
-  sock.send(JSON.stringify({ id, data }));
-  return p;
+  return waiting.request(String(id), () => sock.send(JSON.stringify({ id, data })), ms);
 }
 
 /** The GoXLR the keys control: the one set in the settings, or the first. */

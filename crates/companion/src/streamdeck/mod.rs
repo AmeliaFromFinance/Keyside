@@ -264,9 +264,25 @@ fn image_from_plugin(app: &App, uuid: &str, raw: &str) -> Option<String> {
         return crate::plugins::valid_image(&url).then_some(url);
     }
     if raw.starts_with("data:") {
-        return crate::plugins::valid_image(raw).then(|| raw.to_string());
+        let fixed = svg_label(raw);
+        let url = fixed.as_deref().unwrap_or(raw);
+        return crate::plugins::valid_image(url).then(|| url.to_string());
     }
     plugin_image(app, uuid, raw.trim_start_matches("./"))
+}
+
+/// Some plugins label SVG as PNG (say, when their PNG converter isn't available here).
+fn svg_label(raw: &str) -> Option<String> {
+    use base64::Engine;
+    let (head, data) = raw.split_once(";base64,")?;
+    if head.ends_with("svg+xml") {
+        return None;
+    }
+    // The first ~200 bytes are enough to tell. Base64 decodes cleanly in blocks of 4.
+    let start = base64::engine::general_purpose::STANDARD.decode(data.get(..data.len().min(268) / 4 * 4)?).ok()?;
+    let text = String::from_utf8_lossy(&start);
+    let t = text.trim_start();
+    (t.starts_with("<svg") || t.starts_with("<?xml")).then(|| format!("data:image/svg+xml;base64,{data}"))
 }
 
 /// Parses "profile/page/key/n". Off actions ("o<n>") aren't driven by Stream Deck plugins.
@@ -853,6 +869,15 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn relabels_svg_sent_as_png() {
+        use base64::Engine;
+        let b = |s: &str| base64::engine::general_purpose::STANDARD.encode(s);
+        let svg = format!("data:image/png;base64,{}", b("<svg xmlns='http://www.w3.org/2000/svg'><rect/></svg>"));
+        assert!(svg_label(&svg).unwrap().starts_with("data:image/svg+xml;base64,"));
+        assert_eq!(svg_label(&format!("data:image/png;base64,{}", b("\u{89}PNG...."))), None);
+    }
 
     #[test]
     fn splits_instances() {

@@ -10,6 +10,9 @@ enum Cmd {
     Media(Media),
 }
 
+/// A command and where to send its result, so a key that fails says why.
+type Job = (Cmd, tokio::sync::oneshot::Sender<Result<(), String>>);
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Media {
     PlayPause,
@@ -33,7 +36,7 @@ pub enum KeyName {
 }
 
 pub struct Input {
-    tx: Option<mpsc::Sender<Cmd>>,
+    tx: Option<mpsc::Sender<Job>>,
 }
 
 /// Parses "ctrl+shift+f13" style combos. Modifiers first, one main key last.
@@ -91,50 +94,159 @@ impl Input {
         Self { tx: None }
     }
 
-    fn send(&self, c: Cmd) -> Result<(), String> {
-        self.tx.as_ref().ok_or("keyboard control is not available in this build")?.send(c).map_err(|_| "keyboard control stopped".to_string())
+    async fn send(&self, c: Cmd) -> Result<(), String> {
+        let (done, wait) = tokio::sync::oneshot::channel();
+        self.tx.as_ref().ok_or("keyboard control is not available in this build")?.send((c, done)).map_err(|_| "keyboard control stopped".to_string())?;
+        // Long text takes a few seconds to type.
+        tokio::time::timeout(std::time::Duration::from_secs(60), wait)
+            .await
+            .map_err(|_| "keyboard control didn't answer".to_string())?
+            .map_err(|_| "keyboard control stopped".to_string())?
     }
 
-    pub fn keys(&self, combo: &str) -> Result<(), String> {
-        self.send(Cmd::Keys(parse_combo(combo)?))
+    pub async fn keys(&self, combo: &str) -> Result<(), String> {
+        self.send(Cmd::Keys(parse_combo(combo)?)).await
     }
 
-    pub fn text(&self, t: &str) -> Result<(), String> {
-        self.send(Cmd::Text(t.to_string()))
+    pub async fn text(&self, t: &str) -> Result<(), String> {
+        self.send(Cmd::Text(t.to_string())).await
     }
 
-    pub fn media(&self, m: &str) -> Result<(), String> {
-        self.send(Cmd::Media(parse_media(m)?))
+    pub async fn media(&self, m: &str) -> Result<(), String> {
+        let m = parse_media(m)?;
+        // Linux desktops differ in which keys reach players, so ask the player and the sound
+        // server directly first.
+        #[cfg(target_os = "linux")]
+        if linux_media(m).await.is_ok() {
+            return Ok(());
+        }
+        self.send(Cmd::Media(m)).await
     }
 }
 
+#[cfg(target_os = "linux")]
+async fn linux_media(m: Media) -> Result<(), String> {
+    #[cfg(feature = "nowplaying")]
+    {
+        use super::nowplaying::{Control, control};
+        let c = match m {
+            Media::PlayPause => Some(Control::Toggle),
+            Media::Next => Some(Control::Next),
+            Media::Prev => Some(Control::Previous),
+            Media::Stop => Some(Control::Stop),
+            _ => None,
+        };
+        if let Some(c) = c {
+            return control(c).await;
+        }
+    }
+    let (wpctl, pactl): (&[&str], &[&str]) = match m {
+        Media::VolumeUp => (&["set-volume", "-l", "1.0", "@DEFAULT_AUDIO_SINK@", "5%+"], &["set-sink-volume", "@DEFAULT_SINK@", "+5%"]),
+        Media::VolumeDown => (&["set-volume", "@DEFAULT_AUDIO_SINK@", "5%-"], &["set-sink-volume", "@DEFAULT_SINK@", "-5%"]),
+        Media::Mute => (&["set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"], &["set-sink-mute", "@DEFAULT_SINK@", "toggle"]),
+        _ => return Err("no player".into()),
+    };
+    for (program, args) in [("wpctl", wpctl), ("pactl", pactl)] {
+        let Some(path) = crate::programs::find(program) else { continue };
+        let mut cmd = tokio::process::Command::new(path);
+        cmd.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        crate::programs::apply_tokio(&mut cmd);
+        if cmd.status().await.is_ok_and(|s| s.success()) {
+            return Ok(());
+        }
+    }
+    Err("no sound server".into())
+}
+
+#[cfg(all(feature = "input", target_os = "linux"))]
+#[path = "input/wayland.rs"]
+mod wayland;
+
 #[cfg(feature = "input")]
 mod imp {
-    use super::{Cmd, KeyName, Media};
+    use super::{Cmd, Job, KeyName, Media};
     use enigo::{Direction, Enigo, Key, Keyboard, Settings};
     use std::sync::mpsc::Receiver;
 
-    pub fn run(rx: Receiver<Cmd>) {
-        let mut enigo: Option<Enigo> = None;
-        while let Ok(cmd) = rx.recv() {
-            if enigo.is_none() {
-                match Enigo::new(&Settings::default()) {
-                    Ok(e) => enigo = Some(e),
+    enum Backend {
+        #[cfg(target_os = "linux")]
+        Wayland(super::wayland::Keyboard),
+        Enigo(Enigo),
+    }
+
+    /// Wayland desktops get the virtual keyboard. Elsewhere, or if the desktop refuses it,
+    /// enigo (X11 on Linux, which on Wayland only reaches X11 apps).
+    fn open() -> Result<Backend, String> {
+        #[cfg(target_os = "linux")]
+        let wayland_err = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+            match super::wayland::Keyboard::connect() {
+                Ok(k) => return Ok(Backend::Wayland(k)),
+                Err(e) => {
+                    tracing::warn!("Wayland keyboard unavailable, trying X11: {e}");
+                    Some(e)
+                }
+            }
+        } else {
+            None
+        };
+        #[cfg(not(target_os = "linux"))]
+        let wayland_err: Option<String> = None;
+        Enigo::new(&Settings::default()).map(Backend::Enigo).map_err(|e| match wayland_err {
+            Some(w) => format!("Keyside can't send keys here: {w}"),
+            None => format!("Keyside can't send keys here: {e}"),
+        })
+    }
+
+    pub fn run(rx: Receiver<Job>) {
+        let mut backend: Option<Backend> = None;
+        while let Ok((cmd, done)) = rx.recv() {
+            if backend.is_none() {
+                match open() {
+                    Ok(b) => backend = Some(b),
                     Err(e) => {
-                        tracing::warn!("keyboard control unavailable: {e}");
+                        let _ = done.send(Err(e));
                         continue;
                     }
                 }
             }
-            let Some(en) = enigo.as_mut() else { continue };
-            let r = match cmd {
-                Cmd::Keys(keys) => combo(en, &keys),
-                Cmd::Text(t) => en.text(&t),
-                Cmd::Media(m) => en.key(media(m), Direction::Click),
+            let Some(b) = backend.as_mut() else { continue };
+            let r = match b {
+                #[cfg(target_os = "linux")]
+                Backend::Wayland(k) => wayland(k, &cmd),
+                Backend::Enigo(en) => match &cmd {
+                    Cmd::Keys(keys) => combo(en, keys),
+                    Cmd::Text(t) => en.text(t),
+                    Cmd::Media(m) => en.key(media(*m), Direction::Click),
+                }
+                .map_err(|e| format!("couldn't send keys: {e}")),
             };
-            if let Err(e) = r {
-                tracing::warn!("keyboard action failed: {e}");
+            if r.is_err() {
+                // Reconnect next time, say after the desktop restarted.
+                backend = None;
             }
+            let _ = done.send(r);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn wayland(k: &mut super::wayland::Keyboard, cmd: &Cmd) -> Result<(), String> {
+        use super::wayland::{ALT, CTRL, SHIFT, SUPER, key_sym, media_sym};
+        match cmd {
+            Cmd::Keys(keys) => {
+                let (last, mods) = keys.split_last().ok_or("no key")?;
+                let mask = mods.iter().fold(0, |m, k| {
+                    m | match k {
+                        KeyName::Ctrl => CTRL,
+                        KeyName::Shift => SHIFT,
+                        KeyName::Alt => ALT,
+                        KeyName::Meta => SUPER,
+                        _ => 0,
+                    }
+                });
+                k.combo(mask, &key_sym(last))
+            }
+            Cmd::Text(t) => k.text(t),
+            Cmd::Media(m) => k.combo(0, media_sym(*m)),
         }
     }
 
@@ -152,37 +264,35 @@ mod imp {
     }
 
     fn key(k: &KeyName) -> Key {
+        const F: [Key; 20] = [
+            Key::F1,
+            Key::F2,
+            Key::F3,
+            Key::F4,
+            Key::F5,
+            Key::F6,
+            Key::F7,
+            Key::F8,
+            Key::F9,
+            Key::F10,
+            Key::F11,
+            Key::F12,
+            Key::F13,
+            Key::F14,
+            Key::F15,
+            Key::F16,
+            Key::F17,
+            Key::F18,
+            Key::F19,
+            Key::F20,
+        ];
         match k {
             KeyName::Ctrl => Key::Control,
             KeyName::Shift => Key::Shift,
             KeyName::Alt => Key::Alt,
             KeyName::Meta => Key::Meta,
             KeyName::Char(c) => Key::Unicode(*c),
-            KeyName::F(n) => [
-                Key::F1,
-                Key::F2,
-                Key::F3,
-                Key::F4,
-                Key::F5,
-                Key::F6,
-                Key::F7,
-                Key::F8,
-                Key::F9,
-                Key::F10,
-                Key::F11,
-                Key::F12,
-                Key::F13,
-                Key::F14,
-                Key::F15,
-                Key::F16,
-                Key::F17,
-                Key::F18,
-                Key::F19,
-                Key::F20,
-            ]
-            .get(*n as usize - 1)
-            .copied()
-            .unwrap_or(Key::F12),
+            KeyName::F(n) => F.get(*n as usize - 1).copied().unwrap_or(Key::F12),
             KeyName::Named(n) => match *n {
                 "enter" => Key::Return,
                 "tab" => Key::Tab,
@@ -199,6 +309,8 @@ mod imp {
                 "pageup" => Key::PageUp,
                 "pagedown" => Key::PageDown,
                 "capslock" => Key::CapsLock,
+                #[cfg(not(target_os = "macos"))]
+                "insert" => Key::Insert,
                 _ => Key::Escape,
             },
         }

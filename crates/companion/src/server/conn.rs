@@ -196,6 +196,10 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
                     let _ = c.link.send(&json!({ "t": "bye", "reason": "revoked" })).await;
                     break;
                 }
+                Ok(Change::Updated(id)) if id == c.who.device => {
+                    let _ = c.link.send(&json!({ "t": "bye", "reason": "updated" })).await;
+                    break;
+                }
                 Ok(Change::Pending | Change::Plugins) if c.who.admin => {
                     if c.link.send(&json!({ "t": "event", "name": "admin.changed" })).await.is_err() { break; }
                 }

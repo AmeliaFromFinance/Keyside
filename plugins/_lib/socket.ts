@@ -133,6 +133,17 @@ export class Waiters<T = any> {
     });
   }
 
+  /** Waits for the reply to a request. If sending fails, the request fails right away. */
+  async request(id: string, send: () => unknown, ms = 10_000): Promise<T> {
+    const p = this.wait(id, ms);
+    try {
+      await send();
+    } catch (e) {
+      this.reject(id, e instanceof Error ? e : new Error(String(e)));
+    }
+    return p;
+  }
+
   resolve(id: string, v: T) {
     const w = this.#m.get(id);
     if (!w) return;

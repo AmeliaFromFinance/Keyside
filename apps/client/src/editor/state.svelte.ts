@@ -187,12 +187,18 @@ export async function push() {
   ed.error = "";
   try {
     const pushed = $state.snapshot(ed.layout) as LayoutFile;
+    const sent = JSON.stringify(pushed);
     const r = await req<{ rev: number }>("layout.save", { layout: pushed, baseRev: ed.baseRev });
     saved = pushed;
     ed.baseRev = r.rev;
+    // Edits made while the push was on its way still need pushing.
+    const later = JSON.stringify({ ...($state.snapshot(ed.layout) as LayoutFile), rev: pushed.rev }) !== sent;
     ed.layout.rev = r.rev;
-    ed.dirty = false;
-    localStorage.removeItem(draftKey());
+    if (later) persist();
+    else {
+      ed.dirty = false;
+      localStorage.removeItem(draftKey());
+    }
   } catch (e: any) {
     ed.error = e.message;
     ed.conflict = e.code === "conflict";
@@ -573,7 +579,9 @@ export function addPage(folder = false): string | undefined {
 
 export function deletePage(id: string) {
   const pr = profile();
-  if (!pr || pr.pages.filter((p) => !p.folder).length <= 1) return;
+  const target = pr?.pages.find((p) => p.id === id);
+  // A layout keeps at least one normal page. Folders can always go.
+  if (!pr || !target || (!target.folder && pr.pages.filter((p) => !p.folder).length <= 1)) return;
   change(() => {
     pr.pages = pr.pages.filter((p) => p.id !== id);
     for (const p of pr.pages) p.keys = p.keys.filter((k) => !(k.kind === "folder" && k.target === id));

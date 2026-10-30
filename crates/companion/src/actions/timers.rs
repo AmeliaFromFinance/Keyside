@@ -61,6 +61,7 @@ impl Timers {
         };
         let secs = m.get("seconds").and_then(Value::as_f64).unwrap_or(300.0).clamp(1.0, 86_400.0);
         let op = m.get("op").and_then(Value::as_str).unwrap_or("toggle");
+        let reset_on_stop = m.get("resetOnStop").and_then(Value::as_bool).unwrap_or(false);
         {
             let mut map = self.map.lock();
             if map.len() >= 32 && !map.contains_key(name) {
@@ -78,6 +79,9 @@ impl Timers {
             let stop = |t: &mut Timer| {
                 if let Some(s) = t.started.take() {
                     t.elapsed += s.elapsed();
+                }
+                if reset_on_stop {
+                    t.elapsed = Duration::ZERO;
                 }
             };
             match op {
@@ -144,5 +148,22 @@ mod tests {
         assert_eq!(super::text(std::time::Duration::from_secs(3725)), "1:02:05");
         assert!(super::valid_name("break-1"));
         assert!(!super::valid_name("Break"));
+    }
+
+    #[test]
+    fn can_reset_when_stopped() {
+        use serde_json::json;
+        let dir = tempfile::tempdir().unwrap();
+        let app = crate::app::App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+        let t = super::Timers::default();
+        let args = |op: &str, reset: bool| json!({ "name": "x", "mode": "stopwatch", "op": op, "resetOnStop": reset }).as_object().unwrap().clone();
+        let elapsed = || t.map.lock()["x"].elapsed;
+        t.apply(&app, &args("start", false)).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        t.apply(&app, &args("toggle", false)).unwrap();
+        assert!(!elapsed().is_zero(), "keeps its time by default");
+        t.apply(&app, &args("start", true)).unwrap();
+        t.apply(&app, &args("stop", true)).unwrap();
+        assert!(elapsed().is_zero());
     }
 }

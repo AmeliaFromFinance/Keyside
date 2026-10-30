@@ -18,8 +18,8 @@ test("signs in with PKCE on first press, then controls playback", async () => {
   const api = await fakeHttp((h) => {
     if (h.headers.authorization !== "Bearer a") return { status: 401, json: { error: { message: "no" } } };
     if (h.path === "/me/player" && h.method === "GET")
-      return { json: { is_playing: playing, item: { id: "t1", name: "Song", artists: [{ name: "Band" }], album: { images: [] } }, device: { volume_percent: 40 }, shuffle_state: false, repeat_state: "off" } };
-    if (h.path === "/me/tracks/contains") return { json: [true] };
+      return { json: { is_playing: playing, item: { id: "t1", uri: "spotify:track:t1", name: "Song", artists: [{ name: "Band" }], album: { images: [] } }, device: { volume_percent: 40 }, shuffle_state: false, repeat_state: "off" } };
+    if (h.path === "/me/library/contains") return { json: [true] };
     if (h.path === "/me/player/play") playing = true;
     return { status: 204 };
   });
@@ -55,7 +55,7 @@ test("queues songs and moves playback to another device", async () => {
   const api = await fakeHttp((h) => {
     if (h.path === "/me/player" && h.method === "GET") return { json: { is_playing: true, item: { id: "t1", name: "Song", artists: [], album: { images: [] } }, device: { name: "Desk PC" } } };
     if (h.path === "/me/player/devices") return { json: { devices: [{ id: "d1", name: "Desk PC" }, { id: "d2", name: "Kitchen" }, { id: "d3", name: "Locked", is_restricted: true }] } };
-    if (h.path === "/me/tracks/contains") return { json: [false] };
+    if (h.path === "/me/library/contains") return { json: [false] };
     return { status: 204 };
   });
   Object.assign(endpoints, { api: api.url });
@@ -92,4 +92,29 @@ test("reads Spotify links and URIs only", () => {
   assert.equal(toUri("https://open.spotify.com/playlist/37i9dQZF1DX?si=abc"), "spotify:playlist:37i9dQZF1DX");
   assert.equal(toUri("spotify:album:abc123"), "spotify:album:abc123");
   assert.throws(() => toUri("https://evil.example/playlist/x"));
+});
+
+test("likes through Your Library and explains refusals", async () => {
+  let liked = false;
+  let refuse = false;
+  const api = await fakeHttp((h) => {
+    if (h.path === "/me/player" && h.method === "GET") return { json: { is_playing: true, item: { id: "t1", uri: "spotify:track:t1", name: "Song", artists: [], album: { images: [] } } } };
+    if (h.path === "/me/library/contains") return { json: [liked] };
+    if (h.path === "/me/library" && refuse) return { status: 403, json: { error: { status: 403, message: "Insufficient client scope" } } };
+    if (h.path === "/me/library" && h.method === "PUT" && h.query.get("uris") === "spotify:track:t1") liked = true;
+    return { status: 204 };
+  });
+  Object.assign(endpoints, { api: api.url });
+  const session = JSON.stringify({ client: "cid", access: "a", refresh: "r", expires: Date.now() + 3600_000 });
+  const h = createTestHost(plugin, { connection: { clientId: "cid", session } });
+  await h.start();
+  await h.sync([{ id: "like", action: "like" }]);
+  await eventually(() => h.view("like") !== undefined);
+  await h.press("like", "like");
+  assert.ok(liked, "saved with PUT /me/library");
+  await eventually(() => h.view("like")?.badge === "LIKED");
+  refuse = true;
+  await assert.rejects(h.press("like", "like"), (e: Error) => !/Premium/.test(e.message) && /sign in again/.test(e.message));
+  await h.stop();
+  await api.close();
 });

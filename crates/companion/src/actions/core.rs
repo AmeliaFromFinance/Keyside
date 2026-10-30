@@ -82,7 +82,7 @@ pub async fn run(app: &App, ctx: &Ctx, a: &Action) -> Res {
         }
         "core.launch" => launch(m),
         "core.keys" => {
-            app.input.keys(req(m, "keys")?)?;
+            app.input.keys(req(m, "keys")?).await?;
             Ok(None)
         }
         "core.text" => {
@@ -90,11 +90,11 @@ pub async fn run(app: &App, ctx: &Ctx, a: &Action) -> Res {
             if t.chars().count() > 2000 {
                 return Err("text is longer than 2000 characters".into());
             }
-            app.input.text(t)?;
+            app.input.text(t).await?;
             Ok(None)
         }
         "core.media" => {
-            app.input.media(req(m, "key")?)?;
+            app.input.media(req(m, "key")?).await?;
             Ok(None)
         }
         "core.osc" => osc(m).await,

@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
         [] | ["run"] => {
             let app = keyside::start(opts()).await?;
             println!("Keyside is running. Editor: http://127.0.0.1:{}  (run `keyside open` to sign in)", app.settings.read().admin_port);
-            tokio::signal::ctrl_c().await?;
+            keyside::quit_signal().await;
             keyside::shutdown(&app).await;
             Ok(())
         }

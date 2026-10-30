@@ -51,6 +51,7 @@ impl Backend {
                 Control::Toggle => s.TryTogglePlayPauseAsync()?.join(),
                 Control::Next => s.TrySkipNextAsync()?.join(),
                 Control::Previous => s.TrySkipPreviousAsync()?.join(),
+                Control::Stop => s.TryStopAsync()?.join(),
             }
         })
         .await

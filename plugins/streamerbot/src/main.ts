@@ -30,9 +30,7 @@ function url(): string | null {
 
 function request(name: string, body: Record<string, unknown> = {}): Promise<any> {
   const id = randomId();
-  const p = waiting.wait(id);
-  sock.send(JSON.stringify({ request: name, id, ...body }));
-  return p;
+  return waiting.request(id, () => sock.send(JSON.stringify({ request: name, id, ...body })));
 }
 
 /** Streamer.bot variable names become {sb.name}. Anything unusual is folded to _. */

@@ -44,11 +44,22 @@ pub enum Change {
     Vars,
     Status,
     Profile,
-    Toast { text: String, tone: Tone },
+    Toast {
+        text: String,
+        tone: Tone,
+    },
     Revoked(String),
+    /// A device's settings changed. It reconnects to pick them up.
+    Updated(String),
     Pending,
     Plugins,
-    Pressed { profile: String, page: String, key: String, label: String, device: String },
+    Pressed {
+        profile: String,
+        page: String,
+        key: String,
+        label: String,
+        device: String,
+    },
 }
 
 pub struct Engine {

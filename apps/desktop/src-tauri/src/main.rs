@@ -112,6 +112,13 @@ fn main() {
                 })
                 .build(app)?;
 
+            // Logging out or `kill` should still blank the Stream Decks and stop plugins.
+            let quit = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                keyside::quit_signal().await;
+                quit.exit(0);
+            });
+
             if !std::env::args().any(|a| a == BACKGROUND) {
                 open_editor(app.handle());
             }
