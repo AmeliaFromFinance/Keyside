@@ -204,6 +204,7 @@ pub async fn start(app: Arc<App>, port: u16) -> anyhow::Result<()> {
         .route("/admin/upload/streamdeck", post(upload_streamdeck).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
         .route("/admin/upload/asset", post(upload_asset).layer(DefaultBodyLimit::max(crate::assets::MAX_SOUND)))
         .nest("/api/v1", super::api::router())
+        .nest("/overlay", super::overlay::router())
         .fallback(fallback)
         .layer(middleware::from_fn_with_state(app.clone(), host_guard))
         .layer(DefaultBodyLimit::max(256 * 1024))

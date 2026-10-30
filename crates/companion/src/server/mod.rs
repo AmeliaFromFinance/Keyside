@@ -7,6 +7,7 @@ pub mod conn;
 pub mod handshake;
 pub mod lan;
 pub mod ops;
+pub mod overlay;
 pub mod web;
 
 use std::net::IpAddr;
