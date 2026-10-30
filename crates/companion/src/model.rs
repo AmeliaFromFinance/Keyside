@@ -22,6 +22,9 @@ pub struct LayoutFile {
     pub rev: u64,
     pub default_profile: String,
     pub profiles: Vec<Profile>,
+    /// Chat commands, keywords and channel point redemptions that press a key.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub triggers: Vec<Trigger>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -235,6 +238,78 @@ pub struct FeedbackStyle {
     pub disabled: Option<bool>,
 }
 
+pub const MAX_TRIGGERS: usize = 100;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Trigger {
+    pub id: String,
+    #[serde(default)]
+    pub source: ChatSource,
+    pub kind: TriggerKind,
+    /// The command ("!brb"), the words to look for, or the reward title.
+    #[serde(rename = "match")]
+    pub pattern: String,
+    #[serde(default)]
+    pub who: Audience,
+    /// Seconds before the trigger can fire again.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub cooldown: u32,
+    pub target: TriggerTarget,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disabled: bool,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TriggerTarget {
+    pub profile: String,
+    pub page: String,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ChatSource {
+    #[default]
+    Any,
+    Twitch,
+    Youtube,
+    Kick,
+}
+
+impl ChatSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Any => "any",
+            Self::Twitch => "twitch",
+            Self::Youtube => "youtube",
+            Self::Kick => "kick",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TriggerKind {
+    Command,
+    Redeem,
+    Keyword,
+}
+
+/// Who may set off a trigger. Each level includes the ones above it (mods count as subs).
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Audience {
+    #[default]
+    Everyone,
+    Subs,
+    Mods,
+    Broadcaster,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Tone {
@@ -358,6 +433,34 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
     }
     if !profile_ids.contains(l.default_profile.as_str()) {
         return bad("default profile does not exist");
+    }
+    validate_triggers(&l.triggers)
+}
+
+/// Targets aren't checked here: a deleted key only makes its trigger do nothing.
+fn validate_triggers(list: &[Trigger]) -> Result<(), Invalid> {
+    if list.len() > MAX_TRIGGERS {
+        return bad(format!("at most {MAX_TRIGGERS} chat triggers"));
+    }
+    let mut ids = HashSet::new();
+    for t in list {
+        if !valid_id(&t.id) || !ids.insert(t.id.as_str()) {
+            return bad("chat trigger ids must be unique");
+        }
+        if t.pattern.trim().is_empty() {
+            return bad("a chat trigger needs something to match");
+        }
+        text("chat trigger", &t.pattern, 100)?;
+        if t.pattern.contains('\n') {
+            return bad("chat trigger has a line break");
+        }
+        if t.cooldown > 86_400 {
+            return bad("chat trigger cooldown can be at most a day");
+        }
+        let target = &t.target;
+        if ![&target.profile, &target.page, &target.key].iter().all(|id| valid_id(id)) {
+            return bad("chat trigger points at an invalid key");
+        }
     }
     Ok(())
 }
@@ -491,6 +594,26 @@ mod tests {
         let mut l = sample();
         l.profiles[0].pages[0].keys[0].actions[0].kind = "rm -rf".into();
         assert!(validate(&l).is_err());
+    }
+
+    #[test]
+    fn checks_chat_triggers() {
+        let trigger = |id: &str, pattern: &str| -> Trigger {
+            serde_json::from_value(serde_json::json!({ "id": id, "kind": "command", "match": pattern, "target": { "profile": "main", "page": "p1", "key": "gone" } })).unwrap()
+        };
+        let mut l = sample();
+        l.triggers = vec![trigger("t1", "!brb"), trigger("t2", "hello there")];
+        validate(&l).unwrap();
+        assert_eq!(l.triggers[0].who, Audience::Everyone);
+        assert_eq!(l.triggers[0].source, ChatSource::Any);
+        l.triggers[1].id = "t1".into();
+        assert!(validate(&l).is_err(), "duplicate id");
+        l.triggers = vec![trigger("t1", "  ")];
+        assert!(validate(&l).is_err(), "empty match");
+        l.triggers = vec![trigger("t1", "a\nb")];
+        assert!(validate(&l).is_err(), "line break");
+        // Layouts without triggers stay as they were.
+        assert!(!serde_json::to_string(&sample()).unwrap().contains("triggers"));
     }
 
     #[test]

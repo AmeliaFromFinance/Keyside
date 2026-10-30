@@ -171,10 +171,12 @@ function stopAll() {
 
 async function refresh() {
   if (!me) return;
-  const [stream, followers, schedule] = await Promise.all([
+  const [stream, followers, schedule, subs] = await Promise.all([
     api("GET", `/streams${q({ user_id: me.id })}`).catch(() => null),
     api("GET", `/channels/followers${q({ broadcaster_id: me.id, first: 1 })}`).catch(() => null),
     api("GET", `/channels/ads${q({ broadcaster_id: me.id })}`).catch(() => null),
+    // Only Affiliates and Partners have subscribers.
+    api("GET", `/subscriptions${q({ broadcaster_id: me.id, first: 1 })}`).catch(() => null),
   ]);
   if (stream) {
     const s = stream.data?.[0];
@@ -184,6 +186,7 @@ async function refresh() {
     host.setVar("viewers", live.viewers);
   }
   if (followers) host.setVar("followers", Number(followers.total ?? 0));
+  if (subs) host.setVar("subs", Number(subs.total ?? 0));
   const a = schedule?.data?.[0];
   if (a) {
     ads.next = stamp(a.next_ad_at);
@@ -311,39 +314,68 @@ function render() {
   }
 }
 
+/** Chat badges as roles for chat triggers. Founders count as subscribers. */
+export function roles(e: any): Array<"broadcaster" | "mod" | "vip" | "sub"> {
+  const out = new Set<"broadcaster" | "mod" | "vip" | "sub">();
+  for (const b of Array.isArray(e.badges) ? e.badges : []) {
+    const set = String(b?.set_id ?? "");
+    if (set === "broadcaster") out.add("broadcaster");
+    else if (set === "moderator") out.add("mod");
+    else if (set === "vip") out.add("vip");
+    else if (set === "subscriber" || set === "founder") out.add("sub");
+  }
+  if (e.chatter_user_id && e.chatter_user_id === e.broadcaster_user_id) out.add("broadcaster");
+  return [...out];
+}
+
 function onEvent(type: string, e: any) {
   const who = String(e.user_name ?? e.chatter_user_name ?? e.from_broadcaster_user_name ?? "");
   const showChat = setting(host.connection, "chat", true);
+  const source = "twitch";
   switch (type) {
     case "channel.chat.message":
-      if (showChat) host.feed("chat", { author: who, text: String(e.message?.text ?? "").slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(e.color ?? "") ? e.color : undefined });
+      if (showChat)
+        host.feed("chat", {
+          author: who,
+          text: String(e.message?.text ?? "").slice(0, 500),
+          color: /^#[0-9a-f]{6}$/i.test(e.color ?? "") ? e.color : undefined,
+          kind: "chat",
+          source,
+          roles: roles(e),
+        });
       return;
+    case "channel.channel_points_custom_reward_redemption.add": {
+      const title = String(e.reward?.title ?? "").slice(0, 100);
+      host.setVar("last_redeem", `${who}: ${title}`);
+      if (showChat) host.feed("events", { author: who, text: `redeemed ${title}`, kind: "redeem", source, reward: title, input: String(e.user_input ?? "").slice(0, 500) });
+      return;
+    }
     case "channel.chat_settings.update":
       chat = { ...chat, ...e };
       break;
     case "channel.follow":
       host.setVar("last_follower", who);
-      if (showChat) host.feed("events", { author: who, text: "followed" });
+      if (showChat) host.feed("events", { author: who, text: "followed", kind: "follow", source });
       return;
     case "channel.subscribe":
       if (e.is_gift) return;
       host.setVar("last_sub", who);
-      if (showChat) host.feed("events", { author: who, text: "subscribed" });
+      if (showChat) host.feed("events", { author: who, text: "subscribed", kind: "sub", source });
       return;
     case "channel.subscription.message":
       host.setVar("last_sub", who);
-      if (showChat) host.feed("events", { author: who, text: `resubscribed (${e.cumulative_months ?? "?"} months)` });
+      if (showChat) host.feed("events", { author: who, text: `resubscribed (${e.cumulative_months ?? "?"} months)`, kind: "sub", source });
       return;
     case "channel.subscription.gift":
-      if (showChat) host.feed("events", { author: e.is_anonymous ? "Anonymous" : who, text: `gifted ${e.total ?? 1} sub${e.total === 1 ? "" : "s"}` });
+      if (showChat) host.feed("events", { author: e.is_anonymous ? "Anonymous" : who, text: `gifted ${e.total ?? 1} sub${e.total === 1 ? "" : "s"}`, kind: "sub", source });
       return;
     case "channel.cheer":
       host.setVar("last_cheer", `${e.is_anonymous ? "Anonymous" : who} (${e.bits})`);
-      if (showChat) host.feed("events", { author: e.is_anonymous ? "Anonymous" : who, text: `cheered ${e.bits} bits` });
+      if (showChat) host.feed("events", { author: e.is_anonymous ? "Anonymous" : who, text: `cheered ${e.bits} bits`, kind: "cheer", source });
       return;
     case "channel.raid":
       host.setVar("last_raid", `${e.from_broadcaster_user_name} (${e.viewers})`);
-      if (showChat) host.feed("events", { author: String(e.from_broadcaster_user_name ?? ""), text: `raided with ${e.viewers}` });
+      if (showChat) host.feed("events", { author: String(e.from_broadcaster_user_name ?? ""), text: `raided with ${e.viewers}`, kind: "raid", source });
       return;
     case "stream.online":
     case "stream.offline":
@@ -413,6 +445,7 @@ function subscriptions(user: string): Array<[string, string, Record<string, stri
   return [
     ["channel.chat.message", "1", { ...b, user_id: user }],
     ["channel.chat_settings.update", "1", { ...b, user_id: user }],
+    ["channel.channel_points_custom_reward_redemption.add", "1", b],
     ["channel.follow", "2", { ...b, moderator_user_id: user }],
     ["channel.subscribe", "1", b],
     ["channel.subscription.message", "1", b],

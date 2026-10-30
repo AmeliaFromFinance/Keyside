@@ -1,7 +1,7 @@
 import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import plugin, { cleanTitle, endpoints } from "../src/main.ts";
+import plugin, { cleanTitle, endpoints, onMessage, roles } from "../src/main.ts";
 import { eventually } from "../../_lib/fake.ts";
 import { fakeHttp } from "../../_lib/fakehttp.ts";
 
@@ -30,6 +30,10 @@ test("finds the live broadcast, reads new chat and sends messages", async () => 
   assert.equal(post.body.snippet.textMessageDetails.messageText, "hello");
   assert.equal(chatCalls, 1);
   assert.ok(!h.sent.some((s) => s.method === "feed.push" && s.params.item.text === "old"), "history isn't replayed");
+  onMessage({ snippet: { type: "textMessageEvent", displayMessage: "!brb" }, authorDetails: { displayName: "Ana", isChatModerator: true } });
+  onMessage({ snippet: { type: "newSponsorEvent" }, authorDetails: { displayName: "Bo" } });
+  assert.deepEqual(h.feed("chat"), [{ author: "Ana", text: "!brb", kind: "chat", source: "youtube", roles: ["mod"] }]);
+  assert.deepEqual(h.feed("events"), [{ author: "Bo", text: "became a member", kind: "sub", source: "youtube" }]);
   await h.stop();
   await api.close();
 });
@@ -82,4 +86,10 @@ test("needs a client id and secret", async () => {
   assert.match(String(h.status()?.detail), /secret/);
   await assert.rejects(h.press("k", "send", { message: "x" }), /signed in/);
   await h.stop();
+});
+
+test("reads chat roles", () => {
+  assert.deepEqual(roles({ isChatOwner: true, isChatSponsor: true }), ["broadcaster", "sub"]);
+  assert.deepEqual(roles({}), []);
+  assert.deepEqual(roles(undefined), []);
 });

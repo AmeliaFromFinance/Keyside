@@ -19,6 +19,7 @@ pub mod state;
 pub mod store;
 pub mod streamdeck;
 pub mod tokens;
+pub mod triggers;
 
 use std::sync::Arc;
 
@@ -39,6 +40,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     }
     streamdeck::hardware::spawn(app.clone());
     actions::timers::Timers::spawn_ticker(app.clone());
+    triggers::spawn_ticker(app.clone());
     #[cfg(feature = "nowplaying")]
     actions::nowplaying::spawn(app.clone());
     #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]

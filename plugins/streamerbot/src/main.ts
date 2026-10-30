@@ -85,6 +85,37 @@ function render() {
 
 const text = (v: unknown) => (typeof v === "string" ? v : "");
 
+type Role = "broadcaster" | "mod" | "vip" | "sub";
+
+/**
+ * Chat roles from a Streamer.bot event, for chat triggers. Twitch sends a role number
+ * (2 VIP, 3 moderator, 4 broadcaster), badges and a subscribed flag; YouTube and Kick send flags.
+ */
+export function roles(d: any): Role[] {
+  const out = new Set<Role>();
+  const user = d?.user ?? {};
+  const msg = typeof d?.message === "object" && d.message ? d.message : {};
+  const role = Number(user.role ?? msg.role ?? 0);
+  if (role >= 4) out.add("broadcaster");
+  else if (role === 3) out.add("mod");
+  else if (role === 2) out.add("vip");
+  const yes = (...v: unknown[]) => v.some((x) => x === true);
+  if (yes(user.subscribed, msg.subscriber, user.isSubscribed, user.isSubscriber, user.isSponsor, user.isMember)) out.add("sub");
+  if (yes(user.isModerator, msg.isModerator, user.isMod)) out.add("mod");
+  if (yes(user.isBroadcaster, user.isOwner, msg.isBroadcaster)) out.add("broadcaster");
+  if (yes(user.isVip, msg.isVip)) out.add("vip");
+  for (const b of [...(Array.isArray(user.badges) ? user.badges : []), ...(Array.isArray(msg.badges) ? msg.badges : [])]) {
+    const name = String(b?.name ?? b?.setId ?? b ?? "").toLowerCase();
+    if (name === "broadcaster") out.add("broadcaster");
+    else if (name === "moderator") out.add("mod");
+    else if (name === "vip") out.add("vip");
+    else if (name === "subscriber" || name === "founder") out.add("sub");
+  }
+  return [...out];
+}
+
+const PLATFORMS = new Set(["twitch", "youtube", "kick"]);
+
 function onEvent(source: string, type: string, d: any) {
   if (source === "General" && type === "Custom") {
     const p = d?.keyside ?? d?.data?.keyside;
@@ -107,9 +138,16 @@ function onEvent(source: string, type: string, d: any) {
     text(d?.userName) ||
     text(d?.user_name) ||
     text(d?.from_broadcaster_user_name);
+  const platform = PLATFORMS.has(source.toLowerCase()) ? source.toLowerCase() : undefined;
   if (type === "ChatMessage" || (source === "YouTube" && type === "Message")) {
     const body = text(msg.message) || text(d?.text) || text(d?.message);
-    if (body) host.feed("chat", { author: who, text: body.slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(msg.color ?? "") ? msg.color : undefined });
+    if (body) host.feed("chat", { author: who, text: body.slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(msg.color ?? "") ? msg.color : undefined, kind: "chat", source: platform, roles: roles(d) });
+    return;
+  }
+  if (type === "RewardRedemption") {
+    const title = (text(d?.reward?.title) || text(d?.rewardTitle) || text(d?.title)).slice(0, 100);
+    const input = text(d?.user_input) || text(d?.userInput) || text(d?.input);
+    if (title && who) host.feed("events", { author: who, text: `redeemed ${title}`, kind: "redeem", source: platform, reward: title, input: input.slice(0, 500) });
     return;
   }
   const alerts: Record<string, string> = {
@@ -130,7 +168,8 @@ function onEvent(source: string, type: string, d: any) {
   };
   if (alerts[type] && who) {
     const extra = d?.bits ? ` ${d.bits} bits` : d?.viewers ? ` with ${d.viewers}` : d?.gifts ? ` (${d.gifts})` : "";
-    host.feed("events", { author: who, text: `${alerts[type]}${extra}` });
+    const kind = type === "Follow" ? "follow" : type === "Cheer" ? "cheer" : type === "Raid" ? "raid" : type === "SuperChat" ? "alert" : "sub";
+    host.feed("events", { author: who, text: `${alerts[type]}${extra}`, kind, source: platform });
   }
 }
 
@@ -182,7 +221,7 @@ async function hello(m: any) {
     const events: Record<string, string[]> = { General: ["Custom"], Misc: ["GlobalVariableUpdated"] };
     if (setting(host.connection, "chat", true)) {
       Object.assign(events, {
-        Twitch: ["ChatMessage", "Follow", "Sub", "ReSub", "GiftSub", "GiftBomb", "Cheer", "Raid"],
+        Twitch: ["ChatMessage", "Follow", "Sub", "ReSub", "GiftSub", "GiftBomb", "Cheer", "Raid", "RewardRedemption"],
         YouTube: ["Message", "NewSubscriber", "SuperChat", "NewSponsor"],
         Kick: ["ChatMessage", "Follow", "Subscription", "Resubscription", "GiftSubscription", "MassGiftSubscription"],
       });

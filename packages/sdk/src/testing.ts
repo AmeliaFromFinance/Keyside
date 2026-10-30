@@ -29,6 +29,8 @@ export interface Harness {
   /** Latest view sent for a key. */
   view(instance: string): Record<string, unknown> | null | undefined;
   variable(name: string): unknown;
+  /** Items pushed to one feed, oldest first. */
+  feed(name: string): any[];
   /** Waits for batched key and variable updates to go out. */
   settle(): Promise<void>;
   stop(): Promise<void>;
@@ -116,6 +118,7 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
       for (const s of sent) if (s.method === "var.set" && s.params.name === name) v = s.params.value;
       return v;
     },
+    feed: (name) => sent.filter((s) => s.method === "feed.push" && s.params.feed === name).map((s) => s.params.item),
     settle: () => new Promise((r) => setTimeout(r, 80)),
     async stop() {
       closed = true;

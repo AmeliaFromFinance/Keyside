@@ -146,6 +146,8 @@ pub struct CatalogPlugin {
     pub icon: Option<String>,
     pub running: bool,
     pub actions: Vec<manifest::ActionDef>,
+    pub variables: Vec<manifest::VarDef>,
+    pub feeds: Vec<manifest::FeedDef>,
 }
 
 impl Host {
@@ -255,7 +257,8 @@ impl Host {
 
     pub fn list(&self) -> Vec<PluginInfo> {
         // Engine first, then plugin state: never hold both locks at once.
-        let statuses: HashMap<String, String> = self.app().map(|a| a.engine.lock().status().0.into_iter().map(|c| (c.id, c.status)).collect()).unwrap_or_default();
+        // All connections, so plugins the layout doesn't use yet show their real state too.
+        let statuses: HashMap<String, String> = self.app().map(|a| a.engine.lock().connections().into_iter().map(|c| (c.id, c.status)).collect()).unwrap_or_default();
         let st = self.state.lock();
         st.installed
             .values()
@@ -304,6 +307,8 @@ impl Host {
                 icon: i.manifest.icon.clone(),
                 running: st.running.get(&i.manifest.id).is_some_and(|r| r.peer.is_some()),
                 actions: i.manifest.actions.clone(),
+                variables: i.manifest.variables.clone(),
+                feeds: i.manifest.feeds.clone(),
             })
             .collect()
     }
@@ -943,11 +948,16 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             if !m.feeds.iter().any(|f| f.name == feed) {
                 return Err("feed is not declared in the manifest".into());
             }
-            let mut item: FeedItem = serde_json::from_value(params.get("item").cloned().unwrap_or(Value::Null)).map_err(|_| "invalid item")?;
+            let raw = params.get("item").cloned().unwrap_or(Value::Null);
+            let mut item: FeedItem = serde_json::from_value(raw.clone()).map_err(|_| "invalid item")?;
+            // Kind, source, roles and reward, for chat triggers. Older plugins send none.
+            let details: crate::triggers::Details = serde_json::from_value(raw).unwrap_or_default();
             item.text = item.text.chars().filter(|c| !c.is_control()).take(500).collect();
             item.author = item.author.map(|a| a.chars().filter(|c| !c.is_control()).take(40).collect());
             item.color = item.color.filter(|c| c.len() == 7 && c.starts_with('#') && c[1..].bytes().all(|b| b.is_ascii_hexdigit()));
+            let event = crate::triggers::Event::from_item(&m.prefix, feed, &item, &details);
             app.engine.lock().push_feed(&format!("{}.{feed}", m.prefix), item);
+            crate::triggers::handle(app, event);
             Ok(Value::Null)
         }
         "status.set" => {

@@ -200,27 +200,38 @@ async function readChat(gen: number) {
   if (broadcast?.id === b.id) later(() => void readChat(gen), wait, gen);
 }
 
-function onMessage(m: any) {
+/** Chat roles for chat triggers. Channel members count as subscribers. */
+export function roles(a: any): Array<"broadcaster" | "mod" | "sub"> {
+  const out: Array<"broadcaster" | "mod" | "sub"> = [];
+  if (a?.isChatOwner) out.push("broadcaster");
+  if (a?.isChatModerator) out.push("mod");
+  if (a?.isChatSponsor) out.push("sub");
+  return out;
+}
+
+/** One item from the live chat. Exported for tests. */
+export function onMessage(m: any) {
   const s = m.snippet ?? {};
   const who = String(m.authorDetails?.displayName ?? "");
+  const source = "youtube";
   switch (s.type) {
     case "textMessageEvent":
-      host.feed("chat", { author: who, text: String(s.displayMessage ?? "").slice(0, 500) });
+      host.feed("chat", { author: who, text: String(s.displayMessage ?? "").slice(0, 500), kind: "chat", source, roles: roles(m.authorDetails) });
       break;
     case "superChatEvent":
     case "superStickerEvent": {
       const amount = s.superChatDetails?.amountDisplayString ?? s.superStickerDetails?.amountDisplayString ?? "";
       host.setVar("last_superchat", `${who} ${amount}`.trim());
-      host.feed("events", { author: who, text: `sent ${amount}${s.superChatDetails?.userComment ? `: ${s.superChatDetails.userComment}` : ""}`.slice(0, 500) });
+      host.feed("events", { author: who, text: `sent ${amount}${s.superChatDetails?.userComment ? `: ${s.superChatDetails.userComment}` : ""}`.slice(0, 500), kind: "alert", source });
       break;
     }
     case "newSponsorEvent":
     case "memberMilestoneChatEvent":
       host.setVar("last_member", who);
-      host.feed("events", { author: who, text: s.type === "newSponsorEvent" ? "became a member" : "member milestone" });
+      host.feed("events", { author: who, text: s.type === "newSponsorEvent" ? "became a member" : "member milestone", kind: "sub", source });
       break;
     case "membershipGiftingEvent":
-      host.feed("events", { author: who, text: `gifted ${s.membershipGiftingDetails?.giftMembershipsCount ?? ""} memberships` });
+      host.feed("events", { author: who, text: `gifted ${s.membershipGiftingDetails?.giftMembershipsCount ?? ""} memberships`, kind: "sub", source });
       break;
   }
 }

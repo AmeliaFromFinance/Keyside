@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.streamerbot",
   "name": "Streamer.bot",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Keyside",
   "prefix": "sb",
   "description": "Run Streamer.bot actions, show its global variables and mirror chat and alerts from the platforms it is connected to.",

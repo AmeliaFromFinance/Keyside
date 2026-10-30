@@ -81,6 +81,24 @@ export interface PluginManifest {
   feeds?: Array<{ name: string; title: string }>;
 }
 
+/**
+ * A feed line as a plugin sends it. The extra fields tell chat triggers what happened and
+ * who did it. They are optional, so plugins that don't send them keep working: lines in a
+ * feed called "chat" then count as chat from a viewer without roles.
+ */
+export interface FeedPush extends Omit<FeedItem, "at"> {
+  /** "chat" for messages, "redeem" for channel point redemptions. Anything else is an alert. */
+  kind?: "chat" | "redeem" | "follow" | "sub" | "cheer" | "raid" | "alert";
+  /** "twitch", "youtube" or "kick". Defaults to the plugin prefix. */
+  source?: string;
+  /** What the author is in that channel. Members count as "sub". */
+  roles?: Array<"broadcaster" | "mod" | "vip" | "sub">;
+  /** Reward title, for redemptions. */
+  reward?: string;
+  /** What the viewer typed with a redemption. */
+  input?: string;
+}
+
 /** A placed key using one of the plugin's actions. */
 export interface Instance {
   id: string;
@@ -114,7 +132,7 @@ export interface HostToPlugin {
 export interface PluginToHost {
   "key.set": { params: { instance: string; view: Partial<Omit<KeyView, "id" | "kind" | "x" | "y" | "w" | "h" | "lines">> | null }; result: void };
   "var.set": { params: { name: string; value: VarValue }; result: void };
-  "feed.push": { params: { feed: string; item: Omit<FeedItem, "at"> }; result: void };
+  "feed.push": { params: { feed: string; item: FeedPush }; result: void };
   "status.set": { params: { state: "connected" | "connecting" | "offline" | "error"; detail?: string; pills?: Array<{ label: string; tone?: string; since?: number }> }; result: void };
   toast: { params: { text: string; tone?: "default" | "success" | "warning" | "danger" }; result: void };
   log: { params: { level: "debug" | "info" | "warn" | "error"; message: string }; result: void };
