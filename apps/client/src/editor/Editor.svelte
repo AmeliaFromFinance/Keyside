@@ -12,7 +12,12 @@
   import StreamDeck from "./StreamDeck.svelte";
   import Profiles from "./Profiles.svelte";
   import Splitter from "./Splitter.svelte";
-  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection } from "./state.svelte.ts";
+  import KeySearch from "./KeySearch.svelte";
+  import PushReview from "./PushReview.svelte";
+  import TemplateSave from "./TemplateSave.svelte";
+  import ImageCrop from "./ImageCrop.svelte";
+  import { cropping, applyCrop } from "./images.svelte.ts";
+  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection, templates } from "./state.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
@@ -21,7 +26,7 @@
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
-  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | null;
+  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | "search" | "push" | null;
   let panel = $state<Panel>(null);
   let menu = $state(false);
   let paletteOpen = $state(false);
@@ -96,6 +101,11 @@
 
   function keys(e: KeyboardEvent) {
     const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === "k" && loaded && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      panel = panel === "search" ? null : "search";
+      return;
+    }
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
     if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();
@@ -215,11 +225,12 @@
       {:else if loaded}
         <span class="saved">{t("Up to date")}</span>
       {/if}
+      <button class="btn icon ghost" aria-label={t("Search all keys")} title={t("Search all keys ({shortcut})", { shortcut: /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl+K" })} disabled={!loaded} onclick={() => (panel = "search")}><Icon name="search" /></button>
       <button class="btn icon ghost" aria-label={t("Undo")} title={t("Undo")} disabled={!canUndo()} onclick={undo}><Icon name="undo-2" /></button>
       <button class="btn icon ghost" aria-label={t("Redo")} title={t("Redo")} disabled={!canRedo()} onclick={redo}><Icon name="redo-2" /></button>
       <button class="btn" onclick={() => (panel = "share")}>{t("Import")}</button>
       <button class="btn" onclick={exportJson}>{t("Export JSON")}</button>
-      <button class="btn primary" onclick={push} disabled={!ed.dirty || ed.pushing}>{ed.pushing ? t("Pushing…") : t("Push to phones")}</button>
+      <button class="btn primary" onclick={() => (panel = "push")} disabled={!ed.dirty || ed.pushing}>{ed.pushing ? t("Pushing…") : t("Push to phones")}</button>
       <button class="btn icon" aria-label={t("More")} aria-expanded={menu} onclick={() => (menu = !menu)}><Icon name="settings" /></button>
     </div>
   </header>
@@ -298,6 +309,16 @@
 <Sheet open={panel === "share"} onclose={() => (panel = null)} title={t("Share and gallery")} wide><Share {admin} onimported={() => (panel = null)} /></Sheet>
 <Sheet open={panel === "streamdeck"} onclose={() => (panel = null)} title={t("Stream Deck plugins")} wide><StreamDeck /></Sheet>
 <Sheet open={panel === "devices"} onclose={() => (panel = null)} title={t("Devices")} wide><PairPanel /></Sheet>
+<Sheet open={panel === "search"} onclose={() => (panel = null)} title={t("Search all keys")}><KeySearch onclose={() => (panel = null)} /></Sheet>
+<Sheet open={panel === "push"} onclose={() => (panel = null)} title={t("Review before pushing")}>
+  <PushReview oncancel={() => (panel = null)} onpush={async () => (await push(), !ed.error && (panel = null))} />
+</Sheet>
+<Sheet open={!!templates.asking} onclose={() => (templates.asking = null)} title={t("Save as template")}>
+  {#if templates.asking}<TemplateSave ids={templates.asking} onclose={() => (templates.asking = null)} />{/if}
+</Sheet>
+<Sheet open={!!cropping.file} onclose={() => (cropping.file = null)} title={t("Crop image")}>
+  {#if cropping.file}<ImageCrop file={cropping.file} oncancel={() => (cropping.file = null)} onresult={applyCrop} />{/if}
+</Sheet>
 <Sheet open={panel === "profiles"} onclose={() => (panel = null)} title={t("Layouts")} wide><Profiles /></Sheet>
 
 <style>

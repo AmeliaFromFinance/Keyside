@@ -129,7 +129,14 @@ impl Assets {
             bail!("asset library is full");
         }
         store::write_atomic(&self.dir.join(format!("{id}.{ext}")), bytes)?;
-        let meta = Meta { id: id.clone(), kind, mime: mime.into(), name: crate::config::clean_name(name, 80).unwrap_or_else(|| id.clone()), size: bytes.len(), pack: pack.map(str::to_string) };
+        let meta = Meta {
+            id: id.clone(),
+            kind,
+            mime: mime.into(),
+            name: crate::config::clean_name(name, 80).unwrap_or_else(|| id.clone()),
+            size: bytes.len(),
+            pack: pack.map(str::to_string),
+        };
         idx.insert(id, meta.clone());
         Ok(meta)
     }
@@ -252,7 +259,11 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let a = Assets::open(t.path().to_path_buf()).unwrap();
         let icon = |n: &str, b: &[u8]| Icon { name: n.into(), tags: vec![], bytes: b.to_vec() };
-        let parsed = || Parsed { name: "Pack".into(), author: Some("Me".into()), icons: vec![icon("a", b"\x89PNG\r\n\x1a\naaaa"), icon("b", b"\x89PNG\r\n\x1a\nbbbb"), icon("c", b"\x89PNG\r\n\x1a\ncccc"), icon("bad", b"MZ")] };
+        let parsed = || Parsed {
+            name: "Pack".into(),
+            author: Some("Me".into()),
+            icons: vec![icon("a", b"\x89PNG\r\n\x1a\naaaa"), icon("b", b"\x89PNG\r\n\x1a\nbbbb"), icon("c", b"\x89PNG\r\n\x1a\ncccc"), icon("bad", b"MZ")],
+        };
         let none = std::collections::HashSet::new();
         let (p, skipped) = a.add_pack(parsed(), &none).unwrap();
         assert_eq!((p.icons.len(), skipped), (3, 1));

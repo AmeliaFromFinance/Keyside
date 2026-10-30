@@ -157,7 +157,8 @@ mod tests {
 
     #[test]
     fn reads_plain_zips_of_images() {
-        let p = parse(&zip(&[("arrows/left_arrow.png", PNG), ("readme.txt", b"hi"), ("__MACOSX/arrows/._left_arrow.png", PNG), ("run.exe", b"MZ")]), "C:\\Downloads\\My icons.zip").unwrap();
+        let p = parse(&zip(&[("arrows/left_arrow.png", PNG), ("readme.txt", b"hi"), ("__MACOSX/arrows/._left_arrow.png", PNG), ("run.exe", b"MZ")]), "C:\\Downloads\\My icons.zip")
+            .unwrap();
         assert_eq!(p.name, "My icons");
         assert_eq!(p.icons.len(), 1);
         assert_eq!((p.icons[0].name.as_str(), p.icons[0].tags.as_slice()), ("left arrow", ["arrows".to_string()].as_slice()));

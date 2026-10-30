@@ -130,7 +130,8 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
         }
         "templates.save" => {
             need_edit(who)?;
-            let mut keys: Vec<model::Key> = serde_json::from_value(a.get("keys").cloned().unwrap_or(Value::Null)).map_err(|e| OpError::invalid(format!("keys are invalid: {e}")))?;
+            let mut keys: Vec<model::Key> =
+                serde_json::from_value(a.get("keys").cloned().unwrap_or(Value::Null)).map_err(|e| OpError::invalid(format!("keys are invalid: {e}")))?;
             if !who.admin {
                 review_template(&app.engine.lock().layout().clone(), &mut keys)?;
             }
@@ -493,9 +494,7 @@ pub fn icons_in_use(app: &App) -> std::collections::HashSet<String> {
     let layout = app.engine.lock().layout().clone();
     let templates = app.templates.list();
     let keys = all_keys(&layout).map(|(_, _, k)| k).chain(templates.iter().flat_map(|t| &t.keys));
-    keys.flat_map(|k| k.icon.iter().chain(k.feedback.iter().filter_map(|f| f.style.icon.as_ref())))
-        .filter_map(|i| i.strip_prefix("asset:").map(str::to_string))
-        .collect()
+    keys.flat_map(|k| k.icon.iter().chain(k.feedback.iter().filter_map(|f| f.style.icon.as_ref()))).filter_map(|i| i.strip_prefix("asset:").map(str::to_string)).collect()
 }
 
 fn all_variables(app: &App) -> Value {

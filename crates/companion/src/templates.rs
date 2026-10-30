@@ -166,7 +166,8 @@ mod tests {
         let path = dir.path().join("templates.json");
         let bad = key("a", 0, 0);
         let good = key("b", 0, 0);
-        std::fs::write(&path, serde_json::to_vec(&json!([{ "id": "x", "name": "Bad", "keys": [bad.clone(), bad] }, { "id": "y", "name": "Good", "keys": [good] }])).unwrap()).unwrap();
+        std::fs::write(&path, serde_json::to_vec(&json!([{ "id": "x", "name": "Bad", "keys": [bad.clone(), bad] }, { "id": "y", "name": "Good", "keys": [good] }])).unwrap())
+            .unwrap();
         let t = Templates::open(path).unwrap();
         assert_eq!(t.list().iter().map(|t| t.name.as_str()).collect::<Vec<_>>(), ["Good"]);
     }

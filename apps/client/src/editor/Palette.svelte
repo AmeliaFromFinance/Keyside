@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from "../components/Icon.svelte";
-  import { ed, allActions, type ActionDef } from "./state.svelte.ts";
+  import KeyIcon from "./KeyIcon.svelte";
+  import { ed, allActions, templates, notify, type ActionDef } from "./state.svelte.ts";
+  import { req } from "../lib/deck.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
   import { actionMatches, searchWords } from "./search.ts";
 
@@ -60,6 +62,42 @@
 
   const allFolded = $derived(groups.length > 0 && groups.every(([g]) => collapsed.has(g)));
 
+  // Saved templates, placed like actions. Their palette id is "tpl:<id>".
+  const TEMPLATES = "\u0000templates";
+  const shownTemplates = $derived(templates.list.filter((tp) => words.every((w) => tp.name.toLowerCase().includes(w))));
+  const templatesOpen = $derived(words.length > 0 || !collapsed.has(TEMPLATES));
+  let renaming = $state<{ id: string; name: string } | null>(null);
+  let deleting = $state<string | null>(null);
+
+  async function rename() {
+    const r = renaming;
+    renaming = null;
+    const tp = templates.list.find((x) => x.id === r?.id);
+    if (!r || !tp || !r.name.trim() || r.name.trim() === tp.name) return;
+    try {
+      await req("templates.rename", { id: r.id, name: r.name });
+      tp.name = r.name.trim();
+    } catch (e: any) {
+      notify(e.message);
+    }
+  }
+
+  async function remove(id: string) {
+    deleting = null;
+    try {
+      await req("templates.delete", { id });
+      templates.list = templates.list.filter((x) => x.id !== id);
+      if (ed.armed === `tpl:${id}`) ed.armed = null;
+    } catch (e: any) {
+      notify(e.message);
+    }
+  }
+
+  function focus(el: HTMLInputElement) {
+    el.focus();
+    el.select();
+  }
+
   function drag(e: DragEvent, id: string) {
     e.dataTransfer?.setData("application/x-keyside-action", id);
     e.dataTransfer!.effectAllowed = "copy";
@@ -71,7 +109,7 @@
   <div class="head">
     <h2>{t("Button palette")}</h2>
     {#if !words.length && groups.length > 1}
-      <button class="fold-all" onclick={() => setFolded(allFolded ? new Set() : new Set(groups.map(([g]) => g)))}>
+      <button class="fold-all" onclick={() => setFolded(allFolded ? new Set() : new Set([...groups.map(([g]) => g), TEMPLATES]))}>
         {allFolded ? t("Expand all") : t("Collapse all")}
       </button>
     {/if}
@@ -81,6 +119,51 @@
     <input type="search" bind:value={q} placeholder={t("Search plugins and actions")} aria-label={t("Search plugins and actions")} onkeydown={(e) => e.key === "Escape" && (q = "")} />
   </label>
   <p class="tip">{t("Drag an action onto an empty cell, or tap it and then tap a cell.")}</p>
+  {#if templates.list.length && (shownTemplates.length || !words.length)}
+    <section class="templates">
+      <h3>
+        <button class="group" aria-expanded={templatesOpen} disabled={words.length > 0} onclick={() => toggle(TEMPLATES)}>
+          <span class="chev" class:open={templatesOpen}><Icon name="chevron-right" size={16} /></span>
+          <span class="title">{t("Templates")}</span>
+          <span class="count">{templates.list.length}</span>
+        </button>
+      </h3>
+      {#if templatesOpen}
+        {#each shownTemplates as tp (tp.id)}
+          {@const id = `tpl:${tp.id}`}
+          {#if renaming?.id === tp.id}
+            <form class="rename" onsubmit={(e) => (e.preventDefault(), rename())}>
+              <input class="input" maxlength="40" bind:value={renaming.name} aria-label={t("Template name")} use:focus onkeydown={(e) => e.key === "Escape" && (e.stopPropagation(), (renaming = null))} onblur={rename} />
+            </form>
+          {:else if deleting === tp.id}
+            <div class="confirm">
+              <span>{t("Delete {name}?", { name: tp.name })}</span>
+              <button class="tool danger" onclick={() => remove(tp.id)}>{t("Delete")}</button>
+              <button class="tool" onclick={() => (deleting = null)}>{t("Cancel")}</button>
+            </div>
+          {:else}
+            <div class="tpl">
+              <button
+                class="item"
+                class:armed={ed.armed === id}
+                draggable="true"
+                ondragstart={(e) => drag(e, id)}
+                ondragend={() => (ed.armed = null)}
+                onclick={() => (ed.armed = ed.armed === id ? null : id)}
+                title={tp.keys.map((k) => k.label).join(", ")}
+              >
+                <KeyIcon icon={tp.keys[0]?.icon} size={20} fallback="bookmark" />
+                <span class="name">{tp.name}</span>
+                <span class="hint">{ed.armed === id ? t("tap a cell") : tp.keys.length > 1 ? t("{n} keys", { n: tp.keys.length }) : ""}</span>
+              </button>
+              <button class="tool" title={t("Rename")} aria-label={t("Rename {name}", { name: tp.name })} onclick={() => (renaming = { id: tp.id, name: tp.name })}><Icon name="pencil" size={16} /></button>
+              <button class="tool" title={t("Delete")} aria-label={t("Delete {name}", { name: tp.name })} onclick={() => (deleting = tp.id)}><Icon name="trash-2" size={16} /></button>
+            </div>
+          {/if}
+        {/each}
+      {/if}
+    </section>
+  {/if}
   {#each groups as [group, items] (group)}
     {@const open = words.length > 0 || !collapsed.has(group)}
     {@const limit = words.length || showAll[group] ? items.length : 6}
@@ -114,7 +197,7 @@
       {/if}
     </section>
   {:else}
-    <p class="none">{t("Nothing matches “{q}”.", { q: q.trim() })}</p>
+    {#if !shownTemplates.length}<p class="none">{t("Nothing matches “{q}”.", { q: q.trim() })}</p>{/if}
   {/each}
 </aside>
 
@@ -277,6 +360,63 @@
   }
   .armed .hint {
     color: var(--accent);
+  }
+  .tpl {
+    display: flex;
+    align-items: center;
+  }
+  .tpl .item {
+    flex: 1;
+    min-width: 0;
+  }
+  .tool {
+    display: grid;
+    place-items: center;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--muted);
+    opacity: 0;
+  }
+  .tpl:hover .tool,
+  .tool:focus-visible,
+  .confirm .tool {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .tool {
+      opacity: 1;
+    }
+  }
+  .tool:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+  .tool.danger {
+    color: var(--danger-text);
+  }
+  .confirm {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    padding: 0 8px;
+  }
+  .confirm span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rename {
+    padding: 4px 0;
+  }
+  .rename .input {
+    width: 100%;
   }
   .more {
     border: none;

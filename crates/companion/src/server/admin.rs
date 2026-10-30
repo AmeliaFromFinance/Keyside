@@ -155,11 +155,17 @@ async fn upload_asset(State(app): State<Arc<App>>, headers: HeaderMap, body: Byt
     }
 }
 
-async fn upload_iconpack(State(app): State<Arc<App>>, headers: HeaderMap, body: Bytes) -> Response {
+/// The file name comes in the query (?name=), since headers can't hold every character.
+async fn upload_iconpack(
+    State(app): State<Arc<App>>,
+    headers: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+    body: Bytes,
+) -> Response {
     if !csrf_ok(&app, &headers) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    let name = headers.get("x-file-name").and_then(|v| v.to_str().ok()).unwrap_or("Icons").to_string();
+    let name = q.get("name").cloned().unwrap_or_else(|| "Icons".into());
     let in_use = super::ops::icons_in_use(&app);
     let a = app.clone();
     let done = tokio::task::spawn_blocking(move || crate::iconpack::parse(&body, &name).and_then(|p| a.assets.add_pack(p, &in_use))).await;
