@@ -11,14 +11,19 @@
   "entry": "main.js",
   "icon": "tv",
   "permissions": { "net": ["id.twitch.tv", "api.twitch.tv", "eventsub.wss.twitch.tv"] },
+  "setup": [
+    "Open the [Twitch developer console](https://dev.twitch.tv/console/apps/create) and register an application.",
+    "Add the OAuth redirect URL `https://localhost`, pick any category and set Client Type to Public.",
+    "Press Create, then Manage. Copy the Client ID below and press Save settings.",
+    "Keyside shows a code here. Open [twitch.tv/activate](https://www.twitch.tv/activate) and enter it."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "clientId": {
         "type": "string",
         "title": "Client ID",
-        "maxLength": 64,
-        "description": "Register an app at dev.twitch.tv/console with client type Public and any redirect URL (https://localhost works). Paste its Client ID here, save, then enter the code Twitch shows."
+        "maxLength": 64
       },
       "chat": { "type": "boolean", "title": "Show chat and alerts", "default": true },
       "session": { "type": "string", "format": "secret", "x-hidden": true }

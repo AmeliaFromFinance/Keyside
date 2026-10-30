@@ -11,10 +11,15 @@
   "entry": "main.js",
   "icon": "lightbulb",
   "permissions": { "net": ["{bridge}"] },
+  "setup": [
+    "Find the bridge's IP address in the Hue app: Settings > Bridges, then the info icon.",
+    "Enter it below and press Save settings.",
+    "Press the round button on the bridge within 90 seconds."
+  ],
   "connection": {
     "type": "object",
     "properties": {
-      "bridge": { "type": "string", "title": "Bridge address", "maxLength": 64, "description": "The bridge's IP address (Hue app: Settings > Bridges > i). Save, then press the round button on the bridge." },
+      "bridge": { "type": "string", "title": "Bridge address", "maxLength": 64 },
       "username": { "type": "string", "format": "secret", "x-hidden": true }
     }
   },

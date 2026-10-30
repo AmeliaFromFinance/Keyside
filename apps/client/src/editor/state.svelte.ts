@@ -75,6 +75,8 @@ export const ed = $state({
   picked: [] as string[],
   /** Touch screens: taps add to the selection until Done. */
   picking: false,
+  /** Plugin to open in the Plugins panel. */
+  setup: null as string | null,
   error: "",
   pushing: false,
   conflict: false,

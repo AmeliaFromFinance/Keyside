@@ -74,6 +74,8 @@ export interface PluginManifest {
   permissions: PluginPermissions;
   /** Settings for the plugin as a whole (address, password, OAuth client id). */
   connection?: SettingsSchema;
+  /** Up to 8 setup steps shown above the settings. `[text](https://…)` makes a link, `` `text` `` a copy button. */
+  setup?: string[];
   actions: ActionDef[];
   variables?: Array<{ name: string; title?: string; type?: "string" | "number" | "boolean" }>;
   feeds?: Array<{ name: string; title: string }>;

@@ -11,11 +11,15 @@
   "entry": "main.js",
   "icon": "scan-face",
   "permissions": { "net": ["{host}:{port}"] },
+  "setup": [
+    "In VTube Studio, open Settings and turn on Start API (port `8001`).",
+    "Press Save settings. VTube Studio asks to allow Keyside. Press Allow."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
-      "port": { "type": "integer", "title": "Port", "default": 8001, "minimum": 1, "maximum": 65535, "description": "VTube Studio: Settings > Start API. Click Allow when Keyside asks for access." },
+      "port": { "type": "integer", "title": "Port", "default": 8001, "minimum": 1, "maximum": 65535 },
       "token": { "type": "string", "format": "secret", "x-hidden": true }
     },
     "required": ["host", "port"]

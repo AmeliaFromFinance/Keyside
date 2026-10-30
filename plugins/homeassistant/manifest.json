@@ -11,13 +11,17 @@
   "entry": "main.js",
   "icon": "house",
   "permissions": { "net": ["{host}:{port}"] },
+  "setup": [
+    "In Home Assistant, open your profile, then Security > Long-lived access tokens > Create token.",
+    "Enter the address (like `homeassistant.local`), port `8123` and the token below. Press Save settings."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "host": { "type": "string", "title": "Address", "default": "homeassistant.local", "maxLength": 200 },
       "port": { "type": "integer", "title": "Port", "default": 8123, "minimum": 1, "maximum": 65535 },
       "secure": { "type": "boolean", "title": "Use HTTPS", "default": false },
-      "token": { "type": "string", "format": "secret", "title": "Access token", "description": "Home Assistant: your profile > Security > Long-lived access tokens > Create token." },
+      "token": { "type": "string", "format": "secret", "title": "Access token" },
       "watch": { "type": "string", "title": "Entities as variables", "format": "textarea", "maxLength": 4000, "description": "Optional. Entity IDs to show anywhere as {ha.sensor.name}, one per line." }
     },
     "required": ["host", "port"]

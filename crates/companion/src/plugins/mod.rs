@@ -130,6 +130,7 @@ pub struct PluginInfo {
     pub granted: Permissions,
     pub needs_approval: bool,
     pub connection: Option<manifest::Schema>,
+    pub setup: Vec<String>,
     /// Current connection values. Secret fields show only whether they are set.
     pub values: Map<String, Value>,
     pub variables: Vec<manifest::VarDef>,
@@ -282,6 +283,7 @@ impl Host {
                     granted: i.granted.clone(),
                     needs_approval: i.needs_approval(),
                     connection: m.connection.clone(),
+                    setup: m.setup.clone(),
                     values: self.public_values(m),
                     variables: m.variables.clone(),
                     feeds: m.feeds.clone(),
@@ -948,7 +950,7 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
         }
         "status.set" => {
             let state = params.get("state").and_then(Value::as_str).filter(|s| ["connected", "connecting", "offline", "error"].contains(s)).ok_or("invalid state")?;
-            let detail = params.get("detail").and_then(Value::as_str).map(|d| d.chars().filter(|c| !c.is_control()).take(120).collect());
+            let detail = params.get("detail").and_then(Value::as_str).map(|d| d.chars().filter(|c| !c.is_control()).take(200).collect());
             let mut e = app.engine.lock();
             e.set_connection(ConnectionView { id: m.id.clone(), name: m.name.clone(), status: state.into(), detail });
             let one = |p: &Map<String, Value>| -> Option<Pill> {

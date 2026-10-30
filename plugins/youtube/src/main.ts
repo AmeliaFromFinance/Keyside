@@ -55,7 +55,8 @@ async function signIn(gen: number) {
   const { id, secret } = cfg();
   const dev = await http(`${endpoints.oauth}/device/code`, { form: { client_id: id, scope: SCOPE } });
   const where = String(dev.verification_url ?? "https://www.google.com/device");
-  host.status("connecting", `Sign in: open ${where.replace(/^https:\/\//, "")} and enter ${dev.user_code}`);
+  const page = where.startsWith("https://") ? `[${where.replace(/^https:\/\//, "")}](${where})` : where;
+  host.status("connecting", `Sign in: open ${page} and enter \`${dev.user_code}\``);
   host.toast(`YouTube code: ${dev.user_code}`);
   if (where.startsWith("https://") && (await firstTime(host.dataDir, `youtube-${id}`))) await host.openBrowser(where).catch(() => {});
   const tokens = await pollDeviceCode(

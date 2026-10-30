@@ -501,4 +501,8 @@ export default {
   "A folder can't go inside itself": "Ein Ordner kann nicht in sich selbst liegen",
   "{page} has no room for {name}": "{page} hat keinen Platz für {name}",
   "Moved {name} to {page}": "{name} nach {page} verschoben",
+  "Copied": "Kopiert",
+  "Set up": "Einrichten",
+  "{name} isn't connected yet.": "{name} ist noch nicht verbunden.",
+  "{name} isn't running.": "{name} läuft nicht.",
 } as Record<string, string>;

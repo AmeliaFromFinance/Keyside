@@ -11,14 +11,17 @@
   "entry": "main.js",
   "icon": "hand-coins",
   "permissions": { "net": ["api.streamelements.com", "astro.streamelements.com"] },
+  "setup": [
+    "Open your [StreamElements channel settings](https://streamelements.com/dashboard/account/channels) and press Show secrets.",
+    "Copy the JWT token below and press Save settings. Treat it like a password."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "token": {
         "type": "string",
         "format": "secret",
-        "title": "JWT token",
-        "description": "StreamElements dashboard: Account, Channels, Show secrets. Copy the JWT token. Treat it like a password."
+        "title": "JWT token"
       }
     },
     "required": ["token"]

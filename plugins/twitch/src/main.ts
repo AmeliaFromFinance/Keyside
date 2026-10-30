@@ -104,7 +104,8 @@ async function signIn(gen: number) {
   const client = clientId();
   const dev = await http(`${endpoints.id}/device`, { form: { client_id: client, scopes: SCOPES } });
   signInPage = String(dev.verification_uri ?? "https://www.twitch.tv/activate");
-  host.status("connecting", `Sign in: open twitch.tv/activate and enter ${dev.user_code}`);
+  const link = signInPage.startsWith("https://") ? signInPage : "https://www.twitch.tv/activate";
+  host.status("connecting", `Sign in: open [twitch.tv/activate](${link}) and enter \`${dev.user_code}\``);
   host.toast(`Twitch code: ${dev.user_code}`);
   if (signInPage.startsWith("https://") && (await firstTime(host.dataDir, `twitch-${client}`))) await host.openBrowser(signInPage).catch(() => {});
   const tokens = await pollDeviceCode(

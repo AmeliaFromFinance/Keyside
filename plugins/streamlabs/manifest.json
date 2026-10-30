@@ -11,12 +11,17 @@
   "entry": "main.js",
   "icon": "radio",
   "permissions": { "net": ["{host}:{port}"] },
+  "setup": [
+    "In Streamlabs Desktop, open Settings > Remote Control.",
+    "Click the QR code, then Show details, and copy the API token below.",
+    "Use address `127.0.0.1` and port `59650` when Streamlabs runs on this PC. Press Save settings."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
       "port": { "type": "integer", "title": "Port", "default": 59650, "minimum": 1, "maximum": 65535 },
-      "token": { "type": "string", "format": "secret", "title": "API token", "description": "Streamlabs Desktop: Settings > Remote Control > click the QR code > Show details." }
+      "token": { "type": "string", "format": "secret", "title": "API token" }
     },
     "required": ["host", "port"]
   },

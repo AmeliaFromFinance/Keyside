@@ -157,3 +157,23 @@ test("reports a missing Equibop", async () => {
   assert.notEqual(h.view("m")?.badge, "MUTED");
   await h.stop();
 });
+
+test("says where to authorize and what to do when it's cancelled", async () => {
+  let h: Harness;
+  const reply = (payload: object) => setTimeout(() => void h.emit("ipc.message", { bridge: "discord", data: { op: 1, payload } }), 1);
+  h = createTestHost(plugin, {
+    connection: { clientId: "123", clientSecret: "shh" },
+    respond(s) {
+      if (s.method !== "ipc.send") return undefined;
+      const { op, payload: p } = s.params.data;
+      if (op === 0) reply({ cmd: "DISPATCH", evt: "READY", data: {} });
+      else if (p.cmd === "AUTHORIZE") reply({ cmd: p.cmd, evt: "ERROR", nonce: p.nonce, data: { code: 5000, message: "OAuth2 Error: access_denied" } });
+      return null;
+    },
+  });
+  await h.start();
+  await eventually(() => h.status()?.state === "error");
+  assert.ok(h.sent.some((s) => s.method === "toast" && /Authorize/.test(s.params.text)));
+  assert.match(String(h.status()?.detail), /cancelled in Discord. Press Restart/);
+  await h.stop();
+});

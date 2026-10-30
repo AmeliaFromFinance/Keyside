@@ -16,6 +16,7 @@
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
   import { zoomControls } from "../lib/zoom.ts";
+  import { plain } from "../lib/rich.ts";
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
@@ -31,6 +32,9 @@
   let reviewCount = $state(0);
 
   $effect(() => everySecond((n) => (now = n)));
+  $effect(() => {
+    if (ed.setup) panel = "plugins";
+  });
   $effect(() => (admin ? zoomControls() : undefined));
 
   $effect(() => {
@@ -175,7 +179,11 @@
     </label>
     <div class="pills">
       {#each pills as p (p.id)}
-        <span class="chip"><span class="dot" class:ok={p.status === "connected"} class:busy={p.status === "connecting"} class:bad={p.status === "error"}></span>{p.name}{#if p.port}<span class="mono port">:{p.port}</span>{/if}</span>
+        {@const live = deck.connections.find((c) => c.id === p.id)}
+        {@const st = live?.status ?? p.status}
+        <svelte:element this={admin ? "button" : "span"} class="chip" title={live?.detail ? plain(live.detail) : undefined} onclick={admin ? () => (ed.setup = p.id) : undefined} role={admin ? undefined : "status"}>
+          <span class="dot" class:ok={st === "connected"} class:busy={st === "connecting"} class:bad={st === "error"}></span>{p.name}{#if p.port}<span class="mono port">:{p.port}</span>{/if}
+        </svelte:element>
       {/each}
       {#if admin}<span class="chip"><span class="dot" class:ok={devicesOnline > 0}></span>{t("{n} phones online", { n: devicesOnline })}</span>{/if}
     </div>
@@ -239,7 +247,7 @@
   </div>
 </div>
 
-<Sheet open={panel === "plugins"} onclose={() => (panel = null)} title={t("Plugins")} wide><Plugins {admin} /></Sheet>
+<Sheet open={panel === "plugins"} onclose={() => ((panel = null), (ed.setup = null))} title={t("Plugins")} wide><Plugins {admin} focus={ed.setup} /></Sheet>
 <Sheet open={panel === "settings"} onclose={() => (panel = null)} title={t("Settings")} wide><Settings /></Sheet>
 <Sheet open={panel === "review"} onclose={() => ((panel = null), refreshMeta())} title={t("Review imported steps")} wide><Review onapproved={() => ((panel = null), load(false), refreshMeta())} /></Sheet>
 <Sheet open={panel === "share"} onclose={() => (panel = null)} title={t("Share and gallery")} wide><Share {admin} onimported={() => (panel = null)} /></Sheet>
@@ -304,11 +312,20 @@
   }
   .pills .chip {
     background: var(--bg);
+    font: inherit;
+    color: inherit;
     white-space: nowrap;
     min-width: 0;
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  button.chip {
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  button.chip:hover {
+    border-color: var(--line);
   }
   .port {
     color: var(--muted);

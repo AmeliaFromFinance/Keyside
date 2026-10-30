@@ -1,6 +1,8 @@
 # Plugin setup
 
-Every bundled plugin is ready to use. Open **Plugins** in the editor, pick one, fill in its settings and save. The dot next to it turns green once it's connected.
+Every bundled plugin is ready to use. Open **Plugins** in the editor, pick one, follow its steps and save. The dot next to it turns green once it's connected.
+
+A key whose app isn't connected shows a **Set up** button in the editor. The app names at the top of the editor open the same place.
 
 Plugins only connect to the addresses you enter here.
 
@@ -98,12 +100,12 @@ If you changed the editor port in Keyside settings, use that port in the redirec
 
 ## Discord
 
-1. Create an application at [discord.com/developers/applications](https://discord.com/developers/applications).
-2. Under **OAuth2**, add the redirect `http://127.0.0.1`.
-3. Paste the **Application ID** and **Client Secret** into Keyside and save.
-4. Discord asks you to allow Keyside. Click **Authorize**.
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and press **New Application**. Any name works.
+2. Go to **OAuth2**. Under **Redirects**, add `http://127.0.0.1` and press **Save Changes**.
+3. On the same page, copy the **Client ID** and **Client Secret** into Keyside.
+4. Keep Discord open and press **Save settings**. Discord shows a Keyside window inside the app. Press **Authorize**.
 
-The Discord desktop app must be running on this PC.
+The Discord desktop app must be running on this PC. If you miss the Authorize window or press Cancel, press **Restart** on the Discord plugin to see it again.
 
 ### Equibop
 

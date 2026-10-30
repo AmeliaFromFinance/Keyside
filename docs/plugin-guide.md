@@ -55,6 +55,7 @@ test/main.test.ts tests that run without Keyside
 - **id**: reverse domain name you control.
 - **prefix**: short name for your variables, so `count` becomes `{counter.count}`.
 - **connection**: settings for the whole plugin, shown in the Plugins panel. `"format": "secret"` keeps a value in the system keychain. `"x-hidden": true` hides a field you manage yourself, like a sign-in session.
+- **setup**: up to 8 numbered steps shown above the connection settings. Write `[text](https://…)` for a link and `` `text` `` for something people should copy, like a redirect URL. `{redirect}` becomes the return address `host.authorize` uses on this PC. Field descriptions and `host.status` details take the same markup.
 - **actions**: each has its own settings form. Use `"x-options": "dynamic"` on a text field to fill a dropdown from your plugin.
   - `"x-template": true` on a text or arguments field lets people use Keyside variables, like `{obs.scene}`. Keyside fills them in before your plugin sees the value.
   - `"x-showWhen": { "mode": ["set", "add"] }` shows a text field only while the `mode` field has one of those values.

@@ -219,6 +219,17 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             *app.settings.write() = next;
             Ok(json!({ "restartNeeded": true }))
         }
+        // The desktop editor window can't open new tabs, so links in setup steps open here.
+        "open.link" => {
+            need_admin(who)?;
+            let url = s(&a, "url")?;
+            let u = url::Url::parse(url).map_err(|_| OpError::invalid("invalid link"))?;
+            if u.scheme() != "https" || url.len() > 2048 {
+                return Err(OpError::invalid("only https links"));
+            }
+            open::that_detached(u.as_str()).map_err(|e| OpError::invalid(format!("could not open the link: {e}")))?;
+            Ok(Value::Null)
+        }
         "editor.zoom" => {
             need_admin(who)?;
             // Like browsers: Ctrl + and - walk these steps.
@@ -557,6 +568,9 @@ mod tests {
         let admin = Who { admin: true, device: String::new(), name: String::new(), scope: Scope::Editor, pages: None };
         let phone = Who { admin: false, ..admin.clone() };
         assert!(handle(&app, &admin, "editor.zoom", json!({ "step": 1 })).await.is_err(), "needs the desktop app");
+        assert!(handle(&app, &admin, "open.link", json!({ "url": "file:///etc/passwd" })).await.is_err(), "https only");
+        assert!(handle(&app, &admin, "open.link", json!({ "url": "http://example.com" })).await.is_err(), "https only");
+        assert!(handle(&app, &phone, "open.link", json!({ "url": "https://example.com" })).await.is_err(), "editor on this PC only");
 
         *app.zoom_hook.write() = Some(Box::new(|saved| saved.unwrap_or(1.25)));
         *app.editor_zoom.write() = 1.25;

@@ -192,6 +192,9 @@ pub struct Manifest {
     pub permissions: Permissions,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connection: Option<Schema>,
+    /// Numbered setup steps shown above the connection settings.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub setup: Vec<String>,
     pub actions: Vec<ActionDef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variables: Vec<VarDef>,
@@ -306,6 +309,12 @@ pub fn validate(m: &Manifest) -> Result<(), String> {
     }
     if let Some(c) = &m.connection {
         check_schema("connection", c)?;
+    }
+    if m.setup.len() > 8 {
+        return err("too many setup steps");
+    }
+    for step in &m.setup {
+        plain("setup step", step, 400)?;
     }
     if m.actions.len() > 200 {
         return err("too many actions");

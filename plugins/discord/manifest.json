@@ -22,6 +22,12 @@
       ["flatpak", "run", "io.github.equicord.equibop", "--toggle-vad"]
     ]
   },
+  "setup": [
+    "Open the [Discord Developer Portal](https://discord.com/developers/applications) and press New Application. Any name works.",
+    "Go to OAuth2. Under Redirects, press Add Redirect, paste `http://127.0.0.1` and press Save Changes.",
+    "On the same page, copy the Client ID and Client Secret (press Reset Secret to see it) into the fields below.",
+    "Keep Discord open and press Save settings. Discord shows a Keyside window. Press Authorize. You only do this once."
+  ],
   "connection": {
     "type": "object",
     "properties": {
@@ -42,9 +48,8 @@
       },
       "clientId": {
         "type": "string",
-        "title": "Application ID (Discord only)",
-        "maxLength": 32,
-        "description": "Create an application at discord.com/developers, add http://127.0.0.1 under OAuth2 > Redirects and paste its Application ID and Client Secret here. Discord then asks you to allow Keyside once."
+        "title": "Client ID (Discord only)",
+        "maxLength": 32
       },
       "clientSecret": { "type": "string", "format": "secret", "title": "Client secret (Discord only)" },
       "session": { "type": "string", "format": "secret", "x-hidden": true }

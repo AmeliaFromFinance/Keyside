@@ -1,9 +1,10 @@
 <script lang="ts">
   import Icon from "../components/Icon.svelte";
   import SettingsForm from "./SettingsForm.svelte";
+  import Rich from "./Rich.svelte";
   import type { Schema } from "./state.svelte.ts";
   import { reloadCatalog } from "./state.svelte.ts";
-  import { req } from "../lib/deck.svelte.ts";
+  import { req, deck } from "../lib/deck.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
 
   interface Perms {
@@ -28,6 +29,7 @@
     granted: Perms;
     needsApproval: boolean;
     connection?: Schema;
+    setup?: string[];
     values: Record<string, unknown>;
   }
   interface Staged {
@@ -38,7 +40,8 @@
     installed?: { version: string; signer?: string };
   }
 
-  let { admin = false }: { admin?: boolean } = $props();
+  /** `focus` opens that plugin and scrolls to it. */
+  let { admin = false, focus = null }: { admin?: boolean; focus?: string | null } = $props();
 
   const statusText: Record<string, string> = {
     connected: mark("connected"),
@@ -60,6 +63,21 @@
     list = await req<Info[]>("plugins.list");
   }
   $effect(() => void refresh().catch((e) => (error = e.message)));
+
+  // Status changes arrive live, so a sign-in code or "press Authorize" shows up right away.
+  const live = (p: Info) => deck.connections.find((c) => c.id === p.id);
+  const stateOf = (p: Info) => (p.enabled ? (live(p)?.status ?? p.status) : "disabled");
+
+  // Setup steps can show {redirect}: the sign-in return address on this PC's editor port.
+  const redirect = `http://127.0.0.1:${location.port || "80"}/oauth/callback`;
+
+  let focused = "";
+  $effect(() => {
+    if (!focus || focused === focus || !list.some((p) => p.id === focus)) return;
+    focused = focus;
+    open = focus;
+    requestAnimationFrame(() => document.getElementById(`plugin-${focus}`)?.scrollIntoView({ block: "start", behavior: "smooth" }));
+  });
 
   function describe(p: Perms): string[] {
     const out: string[] = [];
@@ -147,17 +165,23 @@
   {/if}
 
   {#each list as p (p.id)}
-    <div class="plugin" class:off={!p.enabled}>
+    {@const st = stateOf(p)}
+    {@const detail = p.enabled ? live(p)?.detail : undefined}
+    <div class="plugin" class:off={!p.enabled} id="plugin-{p.id}">
       <button class="head" onclick={() => (open = open === p.id ? null : p.id)} aria-expanded={open === p.id}>
-        <span class="dot" class:ok={p.status === "connected"} class:busy={p.status === "connecting"} class:bad={p.status === "error"}></span>
+        <span class="dot" class:ok={st === "connected"} class:busy={st === "connecting"} class:bad={st === "error"}></span>
         <span class="name"><b>{p.name}</b> <span class="mono muted">{p.version}</span></span>
         {#if p.needsApproval}<span class="tag warn">{t("Needs approval")}</span>{/if}
         {#if p.source === "file" && !p.signer}<span class="tag">{t("Unsigned")}</span>{/if}
-        <span class="muted status">{t(statusText[p.enabled ? p.status : "disabled"] ?? p.status)}</span>
+        <span class="muted status">{t(statusText[st] ?? st)}</span>
       </button>
       {#if open === p.id}
         <div class="body">
           {#if p.description}<p class="muted">{p.description}</p>{/if}
+          {#if detail && st !== "connected"}<div class="state" class:bad={st === "error"} role="status"><Rich text={detail} /></div>{/if}
+          {#if p.setup?.length && admin}
+            <ol class="setup">{#each p.setup as step, i (i)}<li><Rich text={t(step, { redirect })} /></li>{/each}</ol>
+          {/if}
           {#if p.connection && admin}
             <SettingsForm schema={p.connection} values={{ ...p.values, ...(edits[p.id] ?? {}) }} onchange={(v) => (edits[p.id] = v)} />
             <button class="btn primary" disabled={busy || !edits[p.id]} onclick={() => run(async () => (await req("plugins.configure", { id: p.id, values: edits[p.id] }), delete edits[p.id]))}>{t("Save settings")}</button>
@@ -220,6 +244,29 @@
     flex-direction: column;
     gap: 12px;
     padding: 0 16px 16px;
+  }
+  .state {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    line-height: 1.5;
+  }
+  .state.bad {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+  .setup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding-left: 1.4em;
+    line-height: 1.5;
+  }
+  .setup li::marker {
+    color: var(--muted);
+    font-weight: 600;
   }
   .tag {
     font-size: 0.75rem;

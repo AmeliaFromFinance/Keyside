@@ -11,12 +11,17 @@
   "entry": "main.js",
   "icon": "video",
   "permissions": { "net": ["{host}:{port}"] },
+  "setup": [
+    "In OBS, open Tools > WebSocket Server Settings and tick Enable WebSocket server.",
+    "Press Show Connect Info and copy the password below.",
+    "Use address `127.0.0.1` and port `4455` when OBS runs on this PC. Press Save settings."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "host": { "type": "string", "title": "Address", "default": "127.0.0.1", "description": "127.0.0.1 when OBS runs on this PC." },
       "port": { "type": "integer", "title": "Port", "default": 4455, "minimum": 1, "maximum": 65535 },
-      "password": { "type": "string", "format": "secret", "title": "Password", "description": "OBS: Tools > WebSocket Server Settings > Show Connect Info." }
+      "password": { "type": "string", "format": "secret", "title": "Password" }
     },
     "required": ["host", "port"]
   },

@@ -3,6 +3,7 @@
   import { ed, profile } from "./state.svelte.ts";
   import { req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
+  import Rich from "./Rich.svelte";
 
   let {
     schema,
@@ -104,7 +105,7 @@
           <input class="input" placeholder={t("Value")} value={val} oninput={(e) => setEntry(name, i, k, e.currentTarget.value)} />
         </div>
       {/each}
-      {#if f.description}<small>{t(f.description)}</small>{/if}
+      {#if f.description}<small><Rich text={t(f.description)} /></small>{/if}
     </div>
   {:else}
     <label class="field">
@@ -146,7 +147,7 @@
           oninput={(e) => set(name, e.currentTarget.value)}
         />
       {/if}
-      {#if f.description}<small>{t(f.description)}</small>{/if}
+      {#if f.description}<small><Rich text={t(f.description)} /></small>{/if}
     </label>
   {/if}
 {/each}

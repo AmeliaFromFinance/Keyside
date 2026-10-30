@@ -125,7 +125,7 @@ async function connect(gen: number) {
     return;
   }
   if (!id || !secret) {
-    host.status("offline", "Add your Discord Application ID and Client secret in the plugin settings.");
+    host.status("offline", "Add your Discord Client ID and Client secret in the plugin settings.");
     return;
   }
   try {
@@ -139,14 +139,20 @@ async function connect(gen: number) {
     });
     await frame(OP.Handshake, { v: 1, client_id: id });
     const hello = await got;
-    if (!hello) throw new Error("Discord didn't answer. Check the Application ID.");
+    if (!hello) throw new Error("Discord didn't answer. Check the Client ID.");
     if (hello.user?.id === ARRPC_USER || hello.user?.username === "arrpc") {
       throw new Error("Found Equibop or Vesktop instead of Discord. For Equibop, choose it under App.");
     }
     if (!session.load(id)) {
-      host.status("connecting", "Allow Keyside in the Discord window");
-      const { code } = await command("AUTHORIZE", { client_id: id, scopes: SCOPES }, undefined, 120_000);
-      const t = await http(endpoints.token, { form: { client_id: id, client_secret: secret, grant_type: "authorization_code", code, redirect_uri: REDIRECT } });
+      // Discord shows the prompt inside its own window, which may be behind others or in the tray.
+      host.status("connecting", "Open the Discord app. It shows a Keyside window: press Authorize.");
+      host.toast("Open Discord and press Authorize");
+      const { code } = await command("AUTHORIZE", { client_id: id, scopes: SCOPES }, undefined, 120_000).catch((e) => {
+        throw new Error(authorizeError(errorText(e)));
+      });
+      const t = await http(endpoints.token, { form: { client_id: id, client_secret: secret, grant_type: "authorization_code", code, redirect_uri: REDIRECT } }).catch((e) => {
+        throw new Error(tokenError(errorText(e)));
+      });
       await session.save(fromResponse(t, id));
     }
     const auth = await command("AUTHENTICATE", { access_token: await session.token() }).catch(async () => {
@@ -169,6 +175,18 @@ async function connect(gen: number) {
     if (/not running|no Discord|didn't answer/i.test(msg)) retryLater(gen);
   }
   render();
+}
+
+function authorizeError(msg: string) {
+  if (/no answer in time/.test(msg)) return "Nobody pressed Authorize in Discord. Press Restart to ask again.";
+  if (/cancel|denied|access_denied/i.test(msg)) return "Authorize was cancelled in Discord. Press Restart to ask again.";
+  return msg;
+}
+
+function tokenError(msg: string) {
+  if (/redirect/i.test(msg)) return "Add `http://127.0.0.1` under OAuth2 > Redirects in the Discord Developer Portal, then press Restart.";
+  if (/invalid_client|unauthorized/i.test(msg)) return "Discord didn't accept the Client secret. Copy it again and save.";
+  return msg;
 }
 
 /** One pending reconnect at most, so two failures can't start two sign-ins. */

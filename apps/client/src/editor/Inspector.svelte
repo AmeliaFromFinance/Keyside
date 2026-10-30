@@ -7,7 +7,8 @@
   import SdPanel from "./SdPanel.svelte";
   import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits, selection, duplicateKeys, copyKeys, deleteKeys, clearSelection, moveToPage } from "./state.svelte.ts";
   import { actionMatches, searchWords } from "./search.ts";
-  import { req } from "../lib/deck.svelte.ts";
+  import { req, deck } from "../lib/deck.svelte.ts";
+  import { plain } from "../lib/rich.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
 
   let { admin = false }: { admin?: boolean } = $props();
@@ -22,6 +23,22 @@
   const group = $derived(selection());
   const others = $derived((profile()?.pages ?? []).filter((p) => p.id !== ed.page));
   const pg = $derived(page());
+
+  /** Plugins this key uses that aren't connected, so setup is one click away. */
+  const unready = $derived.by(() => {
+    if (!key) return [];
+    const used = new Set([...key.actions, ...(key.offActions ?? [])].map((a) => a.type.split("/")[0]));
+    return ed.catalog.plugins
+      .filter((p) => used.has(p.id))
+      .map((p) => ({ p, c: deck.connections.find((c) => c.id === p.id) }))
+      .filter(({ c }) => c?.status !== "connected")
+      .map(({ p, c }) => ({
+        id: p.id,
+        name: p.name,
+        bad: c?.status === "error",
+        text: c?.detail ? `${p.name}: ${plain(c.detail)}` : !c && !p.running ? t("{name} isn't running.", { name: p.name }) : t("{name} isn't connected yet.", { name: p.name }),
+      }));
+  });
 
   const colors: Array<[KeyColor, string]> = [
     ["default", mark("Default")],
@@ -215,6 +232,14 @@
       </div>
       <button class="btn" onclick={test} disabled={!key.actions.length || testing}><Icon name="play" size={16} />{testing ? t("Running…") : t("Test run")}</button>
     </header>
+
+    {#each unready as u (u.id)}
+      <div class="setup" class:bad={u.bad} role="status">
+        <Icon name="plug" size={18} />
+        <span>{u.text}</span>
+        {#if admin}<button class="btn" onclick={() => (ed.setup = u.id)}>{t("Set up")}</button>{/if}
+      </div>
+    {/each}
 
     <div class="two">
       <label class="field"><span>{t("Label")}</span><input value={key.label} maxlength="64" oninput={(e) => edit((k) => (k.label = e.currentTarget.value))} /></label>
@@ -570,6 +595,23 @@
   .warn {
     margin: 0;
     color: var(--warning);
+  }
+  .setup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-bg);
+    color: var(--accent-text);
+  }
+  .setup.bad {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+  .setup span {
+    flex: 1;
+    min-width: 0;
   }
   .ref {
     display: block;

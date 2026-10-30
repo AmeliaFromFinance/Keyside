@@ -7,6 +7,7 @@
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
   import { ago, clock, everySecond } from "../lib/format.ts";
   import { keepAwake, haptic } from "../lib/native.ts";
+  import { plain } from "../lib/rich.ts";
 
   let {
     onedit,
@@ -156,7 +157,7 @@
       {#if deck.connections.length || deck.pills.length}
         <div class="chips">
           {#each deck.connections as c (c.id)}
-            <span class="chip" title={c.detail}><span class="dot" class:ok={c.status === "connected"} class:busy={c.status === "connecting"} class:bad={c.status === "error"}></span>{c.name}</span>
+            <span class="chip" title={c.detail ? plain(c.detail) : undefined}><span class="dot" class:ok={c.status === "connected"} class:busy={c.status === "connecting"} class:bad={c.status === "error"}></span>{c.name}</span>
           {/each}
           {#each deck.pills as p (p.id)}
             <span class="chip pill tone-{p.tone}"><span class="dot"></span><span>{p.label}</span>{#if p.since}<span class="mono">{clock(now - p.since)}</span>{/if}</span>

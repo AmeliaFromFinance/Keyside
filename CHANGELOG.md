@@ -27,6 +27,10 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Editor: moving keys in the sideways phone preview now puts them in the right place.
 - Editor: the toolbar Undo and Redo buttons now turn on as soon as there's something to undo.
 - Devices: click a paired device to rename it, change its access, set, change or remove its PIN, or revoke it. The PIN shows on hover, or on a tap on touch screens.
+- Plugins: setup steps in the Plugins panel with clickable links and one-click copy for redirect URLs, tokens and sign-in codes.
+- Editor: a key whose app isn't connected says why and has a Set up button. The app names at the top open their setup too.
+- Plugins: connection messages, like a sign-in code or what to do next, show in the Plugins panel as they happen.
+- Discord: says to open Discord and press Authorize, and explains what to do if it was missed, cancelled or the redirect is missing.
 - Deck: tap a toast to dismiss it. Toasts also go away on their own.
 - Deck: the lock button works on phones that cancel a long press for their own menus, and a quick tap explains that it needs a hold. Held keys with pictures no longer get cut short by the iPhone's "Save image" callout.
 - "Last seen" shows days and years instead of thousands of hours.

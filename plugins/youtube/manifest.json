@@ -11,14 +11,20 @@
   "entry": "main.js",
   "icon": "monitor-play",
   "permissions": { "net": ["oauth2.googleapis.com", "www.googleapis.com"] },
+  "setup": [
+    "In the [Google Cloud console](https://console.cloud.google.com/projectcreate), create a project.",
+    "Enable [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) for it.",
+    "Under [Credentials](https://console.cloud.google.com/apis/credentials), create an OAuth client ID of type TVs and Limited Input devices. If asked, set up the consent screen first and add yourself as a test user.",
+    "Copy the client ID and secret below and press Save settings.",
+    "Keyside shows a code here. Open the link and enter it."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "clientId": {
         "type": "string",
         "title": "Client ID",
-        "maxLength": 200,
-        "description": "Google Cloud console: enable YouTube Data API v3, then create an OAuth client of type TVs and Limited Input devices."
+        "maxLength": 200
       },
       "clientSecret": { "type": "string", "format": "secret", "title": "Client secret" },
       "session": { "type": "string", "format": "secret", "x-hidden": true }

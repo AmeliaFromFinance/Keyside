@@ -11,11 +11,15 @@
   "entry": "main.js",
   "icon": "sliders-horizontal",
   "permissions": { "net": ["{host}:{port}"] },
+  "setup": [
+    "Install the [GoXLR Utility](https://github.com/GoXLR-on-Linux/goxlr-utility/releases/latest) and keep it running. The official GoXLR app has no way for other apps to control it.",
+    "The defaults work when the Utility runs on this PC. Press Save settings."
+  ],
   "connection": {
     "type": "object",
     "properties": {
       "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
-      "port": { "type": "integer", "title": "Port", "default": 14564, "minimum": 1, "maximum": 65535, "description": "Install the GoXLR Utility and keep it running. The official GoXLR app has no API." },
+      "port": { "type": "integer", "title": "Port", "default": 14564, "minimum": 1, "maximum": 65535 },
       "serial": { "type": "string", "title": "Serial number", "maxLength": 40, "description": "Only needed with more than one GoXLR. Leave empty to use the first." }
     },
     "required": ["host", "port"]
