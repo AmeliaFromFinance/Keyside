@@ -83,6 +83,9 @@ pub struct KeyView {
     pub since: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hold: Option<u32>,
+    /// Multi-state keys: which state shows, counted from 0.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<usize>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub disabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -137,6 +140,7 @@ pub fn base_view(key: &Key, pos: [u8; 4], folder_size: Option<usize>) -> KeyView
         progress: None,
         since: None,
         hold: key.hold.filter(|h| *h > 0),
+        state: None,
         disabled: false,
         lines: None,
     };
@@ -155,7 +159,7 @@ pub fn base_view(key: &Key, pos: [u8; 4], folder_size: Option<usize>) -> KeyView
     if key.actions.len() > 1 {
         v.meta = Some(format!("{} steps", key.actions.len()));
     }
-    if key.actions.iter().chain(&key.off_actions).any(|a| a.review) {
+    if key.all_actions().any(|a| a.review) {
         v.badge = Some("REVIEW".into());
         v.tone = Some(Tone::Warning);
         v.disabled = true;
@@ -177,6 +181,9 @@ pub fn apply_patch(v: &mut KeyView, p: &ViewPatch) {
 }
 
 pub fn apply_style(v: &mut KeyView, s: &FeedbackStyle) {
+    if let Some(c) = s.color {
+        v.color = Some(c);
+    }
     if let Some(l) = &s.label {
         v.label = l.clone();
     }
@@ -247,7 +254,7 @@ pub fn eval(c: &Condition, get: impl Fn(&str) -> Option<Value>) -> bool {
     }
 }
 
-fn loose_eq(a: &Value, b: &Value) -> bool {
+pub fn loose_eq(a: &Value, b: &Value) -> bool {
     if a == b {
         return true;
     }

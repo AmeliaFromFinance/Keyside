@@ -79,8 +79,8 @@ mod imp {
     use crate::actions::{self, Ctx, Nav};
     use crate::app::App;
     use crate::model::{FormFactor, KeyKind, Tone};
+    use crate::state::Change;
     use crate::state::view::KeyView;
-    use crate::state::{Change, key_path};
 
     const SCAN_EVERY: Duration = Duration::from_secs(3);
     const BRIGHTNESS: u8 = 70;
@@ -93,7 +93,6 @@ mod imp {
     enum Event {
         Down(u8),
         Up(u8),
-        HoldDone(String, u64, u8),
         Gone,
     }
 
@@ -185,7 +184,7 @@ mod imp {
                         let (ev_tx, ev_rx) = mpsc::channel(64);
                         tracing::info!("{} connected", name(kind));
                         app.engine.lock().toast(format!("{} connected", name(kind)), Tone::Success);
-                        let ctl = Controller::new(app.clone(), kind, serial.clone(), cmd_tx, ev_tx.clone());
+                        let ctl = Controller::new(app.clone(), kind, serial.clone(), cmd_tx);
                         rt.spawn(ctl.run(ev_rx));
                         decks.insert(serial, Open { reader: deck.get_reader(), deck, cmds: cmd_rx, events: ev_tx });
                     }
@@ -256,16 +255,15 @@ mod imp {
         page: String,
         stack: Vec<String>,
         cmds: std_mpsc::Sender<Cmd>,
-        events: mpsc::Sender<Event>,
         sent: HashMap<u8, u64>,
         presses: actions::Presses<u8>,
-        holds: HashMap<String, u64>,
-        hold_gen: u64,
+        timers: Option<mpsc::UnboundedReceiver<(u8, u64)>>,
         clocks: bool,
     }
 
     impl Controller {
-        fn new(app: Arc<App>, kind: Kind, serial: String, cmds: std_mpsc::Sender<Cmd>, events: mpsc::Sender<Event>) -> Self {
+        fn new(app: Arc<App>, kind: Kind, serial: String, cmds: std_mpsc::Sender<Cmd>) -> Self {
+            let (presses, timers) = actions::Presses::new(name(kind));
             let mut c = Self {
                 app,
                 kind,
@@ -275,11 +273,9 @@ mod imp {
                 page: String::new(),
                 stack: Vec::new(),
                 cmds,
-                events,
                 sent: HashMap::new(),
-                presses: actions::Presses::default(),
-                holds: HashMap::new(),
-                hold_gen: 0,
+                presses,
+                timers: Some(timers),
                 clocks: false,
             };
             c.reset();
@@ -309,20 +305,16 @@ mod imp {
             let mut changes = self.app.engine.lock().subscribe();
             let mut navs = self.app.nav.subscribe();
             let mut tick = tokio::time::interval(Duration::from_secs(1));
+            let Some(mut timers) = self.timers.take() else { return };
             self.draw();
             loop {
                 tokio::select! {
                     ev = events.recv() => match ev {
                         Some(Event::Down(i)) => self.down(i),
                         Some(Event::Up(i)) => self.up(i),
-                        Some(Event::HoldDone(key, generation, button)) => {
-                            if self.holds.get(&key) == Some(&generation) {
-                                self.holds.remove(&key);
-                                self.fire(&key, button);
-                            }
-                        }
                         Some(Event::Gone) | None => break,
                     },
+                    Some((button, generation)) = timers.recv() => self.presses.timer(&self.app, button, generation),
                     c = changes.recv() => match c {
                         // A deck with its own layout keeps it when the active one changes.
                         Ok(Change::Profile) if self.own_profile().is_none() => {
@@ -371,6 +363,7 @@ mod imp {
             if !ok || moved {
                 self.reset();
             }
+            self.presses.page_changed();
         }
 
         fn goto(&mut self, page: &str) -> bool {
@@ -390,6 +383,7 @@ mod imp {
                 self.stack.clear();
             }
             self.page = page.to_string();
+            self.presses.page_changed();
             true
         }
 
@@ -457,68 +451,19 @@ mod imp {
                     }
                 }
                 KeyKind::Slider | KeyKind::Widget => {}
-                _ if self.presses.is_down(&i) => {}
                 _ => {
-                    self.presses.down(&self.app, i, key_path(&self.profile, &self.page, &key.id), key.repeat.is_some());
-                    match key.hold.filter(|h| *h > 0) {
-                        Some(ms) => {
-                            self.hold_gen += 1;
-                            let generation = self.hold_gen;
-                            self.holds.insert(key.id.clone(), generation);
-                            let tx = self.events.clone();
-                            let id = key.id.clone();
-                            tokio::spawn(async move {
-                                tokio::time::sleep(Duration::from_millis(ms as u64)).await;
-                                let _ = tx.send(Event::HoldDone(id, generation, i)).await;
-                            });
-                        }
-                        None => self.fire(&key.id, i),
-                    }
+                    let ctx = self.ctx(&key.id);
+                    self.presses.down(&self.app, i, ctx, &key);
                 }
             }
         }
 
         fn up(&mut self, i: u8) {
-            self.presses.up(&self.app, &i);
-            if let Some(key) = self.key_at(i) {
-                self.holds.remove(&key.id);
-            }
+            self.presses.up(&self.app, &i, false);
         }
 
         fn ctx(&self, key: &str) -> Ctx {
             Ctx { device: self.device.clone(), profile: self.profile.clone(), page: self.page.clone(), key: key.to_string(), local: true }
-        }
-
-        fn fire(&mut self, id: &str, button: u8) {
-            let Some(key) = self.app.engine.lock().key(&self.profile, &self.page, id).cloned() else { return };
-            let (list, off) = if key.kind == KeyKind::Toggle {
-                let on = self.app.engine.lock().flip_toggle(&key_path(&self.profile, &self.page, id));
-                if on || key.off_actions.is_empty() { (key.actions.clone(), false) } else { (key.off_actions.clone(), true) }
-            } else {
-                (key.actions.clone(), false)
-            };
-            self.app.recorder.record(&list);
-            self.app.notify(Change::Pressed {
-                profile: self.profile.clone(),
-                page: self.page.clone(),
-                key: id.to_string(),
-                label: key.label.clone(),
-                device: name(self.kind).into(),
-            });
-            if list.is_empty() {
-                return;
-            }
-            let Some(running) = actions::Running::claim(&self.app, key_path(&self.profile, &self.page, id)) else { return };
-            let app = self.app.clone();
-            let ctx = self.ctx(id);
-            self.presses.fired(&button, ctx.clone(), key.actions);
-            let started = Instant::now();
-            let repeat = key.repeat;
-            tokio::spawn(async move {
-                actions::run_key(app, ctx, list, off, repeat).await;
-                drop(running);
-                tracing::debug!("hardware key ran in {:?}", started.elapsed());
-            });
         }
     }
 }

@@ -11,8 +11,9 @@
   import Share from "./Share.svelte";
   import StreamDeck from "./StreamDeck.svelte";
   import Profiles from "./Profiles.svelte";
+  import Styles from "./Styles.svelte";
   import Splitter from "./Splitter.svelte";
-  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection } from "./state.svelte.ts";
+  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection, keySteps } from "./state.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
@@ -21,7 +22,7 @@
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
-  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | null;
+  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | "styles" | null;
   let panel = $state<Panel>(null);
   let menu = $state(false);
   let paletteOpen = $state(false);
@@ -56,6 +57,9 @@
   $effect(() => everySecond((n) => (now = n)));
   $effect(() => {
     if (ed.setup) panel = "plugins";
+  });
+  $effect(() => {
+    if (ed.styling) panel = "styles";
   });
   $effect(() => (admin ? zoomControls() : undefined));
 
@@ -173,7 +177,7 @@
   }
 
   const usedPlugins = $derived(
-    new Set(ed.layout?.profiles.flatMap((pr) => pr.pages.flatMap((pg) => pg.keys.flatMap((k) => [...k.actions, ...(k.offActions ?? [])].map((a) => a.type.split("/")[0])))) ?? []),
+    new Set(ed.layout?.profiles.flatMap((pr) => pr.pages.flatMap((pg) => pg.keys.flatMap((k) => keySteps(k).map((a) => a.type.split("/")[0])))) ?? []),
   );
   const pills = $derived(
     plugins
@@ -228,6 +232,7 @@
     <nav class="menu" aria-label={t("Editor menu")}>
       <button onclick={() => ((menu = false), ondeck())}><Icon name="smartphone" size={18} />{t("Open the deck")}</button>
       <button onclick={toggleRecord}><Icon name={recording ? "circle-stop" : "circle-dot"} size={18} />{recording ? t("Stop recording steps") : t("Record steps")}</button>
+      <button onclick={() => ((menu = false), (panel = "styles"))}><Icon name="palette" size={18} />{t("Key styles")}</button>
       <button onclick={() => ((menu = false), (panel = "share"))}><Icon name="share-2" size={18} />{t("Share and gallery")}</button>
       <button onclick={() => ((menu = false), (panel = "plugins"))}><Icon name="plug" size={18} />{t("Plugins")}</button>
       {#if admin}
@@ -299,6 +304,7 @@
 <Sheet open={panel === "streamdeck"} onclose={() => (panel = null)} title={t("Stream Deck plugins")} wide><StreamDeck /></Sheet>
 <Sheet open={panel === "devices"} onclose={() => (panel = null)} title={t("Devices")} wide><PairPanel /></Sheet>
 <Sheet open={panel === "profiles"} onclose={() => (panel = null)} title={t("Layouts")} wide><Profiles /></Sheet>
+<Sheet open={panel === "styles"} onclose={() => ((panel = null), (ed.styling = false))} title={t("Key styles")} wide><Styles /></Sheet>
 
 <style>
   .editor {

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { Action, Key, KeyColor, KeyKind, Tone } from "@keyside/protocol";
+  import type { Action, Key, KeyColor, KeyKind, KeyState, Tone } from "@keyside/protocol";
   import Icon from "../components/Icon.svelte";
   import Sheet from "../components/Sheet.svelte";
   import IconPicker from "./IconPicker.svelte";
   import SettingsForm from "./SettingsForm.svelte";
   import SdPanel from "./SdPanel.svelte";
-  import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits, selection, duplicateKeys, copyKeys, deleteKeys, clearSelection, moveToPage } from "./state.svelte.ts";
+  import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits, selection, duplicateKeys, copyKeys, deleteKeys, clearSelection, moveToPage, keySteps, plainPressReason } from "./state.svelte.ts";
   import { actionMatches, searchWords } from "./search.ts";
   import { req, deck } from "../lib/deck.svelte.ts";
   import { plain } from "../lib/rich.ts";
@@ -13,8 +13,13 @@
 
   let { admin = false }: { admin?: boolean } = $props();
 
-  let picking = $state(false);
-  let adding = $state<"on" | "off" | null>(null);
+  /** A step list on the key: normal, toggle off, long press, double tap, or one state ("s0"…). */
+  type Which = "on" | "off" | "long" | "double" | `s${number}`;
+
+  /** Where the icon picker puts its choice: the key, or one of its states. */
+  let picking = $state<"key" | number | null>(null);
+  let adding = $state<Which | null>(null);
+  let openState = $state<number | null>(0);
   let open = $state<string | null>(null);
   let testing = $state(false);
   let addQuery = $state("");
@@ -27,7 +32,7 @@
   /** Plugins this key uses that aren't connected, so setup is one click away. */
   const unready = $derived.by(() => {
     if (!key) return [];
-    const used = new Set([...key.actions, ...(key.offActions ?? [])].map((a) => a.type.split("/")[0]));
+    const used = new Set(keySteps(key).map((a) => a.type.split("/")[0]));
     return ed.catalog.plugins
       .filter((p) => used.has(p.id))
       .map((p) => ({ p, c: deck.connections.find((c) => c.id === p.id) }))
@@ -56,6 +61,7 @@
     ["back", mark("Back")],
     ["slider", mark("Slider")],
     ["widget", mark("Text or chat")],
+    ["multi", mark("Multi-state")],
   ];
   const tones: Array<[Tone, string]> = [
     ["accent", mark("Highlight")],
@@ -69,8 +75,23 @@
     if (k) change(() => fn(k));
   }
 
-  function list(off: boolean): Action[] {
-    return (off ? key?.offActions : key?.actions) ?? [];
+  function stepsOf(k: Key | undefined, w: Which, create = false): Action[] {
+    if (!k) return [];
+    if (w === "on") return k.actions;
+    if (w === "off") return create ? (k.offActions ??= []) : (k.offActions ?? []);
+    if (w === "long") return create ? (k.longActions ??= []) : (k.longActions ?? []);
+    if (w === "double") return create ? (k.doubleActions ??= []) : (k.doubleActions ?? []);
+    return k.states?.[Number(w.slice(1))]?.actions ?? [];
+  }
+
+  function list(w: Which): Action[] {
+    return stepsOf(key, w);
+  }
+
+  /** Empty long press and double tap lists are left out of the layout. */
+  function tidy(k: Key) {
+    if (!k.longActions?.length) delete k.longActions;
+    if (!k.doubleActions?.length) delete k.doubleActions;
   }
 
   /** How far each step is indented inside If blocks. */
@@ -85,33 +106,34 @@
 
   const OPS: Record<string, string> = { eq: mark("is"), ne: mark("is not"), contains: mark("contains"), gt: mark("is above"), lt: mark("is below"), truthy: mark("is on"), falsy: mark("is off") };
 
-  function editStep(off: boolean, i: number, fn: (a: Action) => void) {
+  function editStep(w: Which, i: number, fn: (a: Action) => void) {
     edit((k) => {
-      const l = off ? (k.offActions ??= []) : k.actions;
+      const l = stepsOf(k, w);
       if (l[i]) fn(l[i]);
     });
   }
 
-  function moveStep(off: boolean, i: number, d: number) {
+  function moveStep(w: Which, i: number, d: number) {
     edit((k) => {
-      const l = off ? (k.offActions ??= []) : k.actions;
+      const l = stepsOf(k, w);
       const j = i + d;
       if (j < 0 || j >= l.length) return;
       [l[i], l[j]] = [l[j], l[i]];
     });
   }
 
-  function removeStep(off: boolean, i: number) {
+  function removeStep(w: Which, i: number) {
     edit((k) => {
-      const l = off ? (k.offActions ??= []) : k.actions;
-      l.splice(i, 1);
+      stepsOf(k, w).splice(i, 1);
+      tidy(k);
     });
   }
 
   function addStep(type: string) {
-    const off = adding === "off";
+    const w = adding;
+    if (!w) return;
     edit((k) => {
-      const l = off ? (k.offActions ??= []) : k.actions;
+      const l = stepsOf(k, w, true);
       // An If comes with its End. Otherwise goes inside the last If block.
       const end = l.map((a) => a.type).lastIndexOf("core.end");
       if (type === "core.else" && end >= 0) l.splice(end, 0, newAction(type));
@@ -119,6 +141,79 @@
     });
     adding = null;
     addQuery = "";
+  }
+
+  /** Turns a key into a multi-state key, or back. Its steps go to the first state and back. */
+  function setKind(k: Key, kind: KeyKind) {
+    if (kind === "multi" && k.kind !== "multi" && !k.states?.length) {
+      k.states = [
+        { label: k.label || t("State 1"), sub: k.sub, actions: k.actions },
+        { label: t("State 2"), actions: [] },
+      ];
+      k.actions = [];
+    }
+    if (kind !== "multi" && k.kind === "multi") {
+      if (!k.actions.length && k.states?.length) k.actions = k.states[0].actions;
+      delete k.states;
+      delete k.follow;
+    }
+    k.kind = kind;
+    if (kind === "slider") k.slider ??= { min: 0, max: 1 };
+    if (kind === "widget") k.widget ??= { text: "" };
+    if (kind === "folder") k.target ??= profile()?.pages.find((p) => p.folder)?.id;
+    if (!["button", "toggle", "multi"].includes(kind)) {
+      delete k.longActions;
+      delete k.doubleActions;
+      delete k.longMs;
+      delete k.doubleMs;
+    }
+  }
+
+  function editState(i: number, fn: (s: KeyState) => void) {
+    edit((k) => {
+      const st = k.states?.[i];
+      if (st) fn(st);
+    });
+  }
+
+  function addState() {
+    edit((k) => {
+      const n = (k.states ??= []).length;
+      if (n < 8) k.states.push({ label: t("State {n}", { n: n + 1 }), actions: [] });
+    });
+    openState = (key?.states?.length ?? 1) - 1;
+  }
+
+  function moveState(i: number, d: number) {
+    edit((k) => {
+      const l = k.states ?? [];
+      const j = i + d;
+      if (j < 0 || j >= l.length) return;
+      [l[i], l[j]] = [l[j], l[i]];
+    });
+    if (openState === i) openState = i + d;
+  }
+
+  function removeState(i: number) {
+    edit((k) => {
+      if ((k.states?.length ?? 0) > 2) k.states!.splice(i, 1);
+    });
+    openState = null;
+  }
+
+  /** Typed like the companion does for "set variable": true, false and numbers aren't text. */
+  function typed(v: string): string | number | boolean | undefined {
+    if (v === "") return undefined;
+    if (v === "true" || v === "false") return v === "true";
+    return v.trim() !== "" && !Number.isNaN(Number(v)) ? Number(v) : v;
+  }
+
+  function toggleStyle(id: string) {
+    edit((k) => {
+      const l = k.styles ?? [];
+      k.styles = l.includes(id) ? l.filter((s) => s !== id) : [...l, id];
+      if (!k.styles.length) delete k.styles;
+    });
   }
 
   function badge(a: Action): string {
@@ -155,7 +250,7 @@
     if (!k) return;
     testing = true;
     try {
-      await req("steps.test", { actions: $state.snapshot(k.actions) });
+      await req("steps.test", { actions: $state.snapshot(mainSteps) });
     } catch (e: any) {
       ed.error = e.message;
     } finally {
@@ -163,7 +258,16 @@
     }
   }
 
-  const sameBatch = $derived(list(false).some((a, i, l) => i > 0 && a.type.includes("/") && l[i - 1].type.split("/")[0] === a.type.split("/")[0]));
+  /** Multi-state keys: the state the deck shows now. */
+  const current = $derived(key?.kind === "multi" ? Math.min((key.states?.length ?? 1) - 1, ed.live?.keys.find((k) => k.id === key.id)?.state ?? 0) : 0);
+  /** What "Test run" runs: the normal steps, or the current state's. */
+  const mainSteps = $derived(key?.kind === "multi" ? (key.states?.[current]?.actions ?? []) : (key?.actions ?? []));
+  const gestures = $derived(!!key && ["button", "toggle", "multi"].includes(key.kind));
+  const hasGestures = $derived(!!key?.longActions?.length || !!key?.doubleActions?.length);
+  const blocked = $derived(key ? plainPressReason(key) : "");
+  const styles = $derived(ed.layout?.styles ?? []);
+  const mainLists = $derived<Which[]>(key?.kind === "toggle" ? ["on", "off"] : ["on"]);
+  const sameBatch = $derived(list("on").some((a, i, l) => i > 0 && a.type.includes("/") && l[i - 1].type.split("/")[0] === a.type.split("/")[0]));
   const varNames = $derived(Object.keys(ed.catalog.variables).sort());
   const fb = $derived(key?.feedback?.[0]);
   const feeds = $derived(ed.catalog.plugins.flatMap((p: any) => (p.feeds ?? []).map((f: any) => ({ value: `${p.prefix}.${f.name}`, label: `${p.name}: ${f.title}` }))));
@@ -230,7 +334,7 @@
         {#if key.actions.length > 1}<span class="tag">{t("Multi-action")}</span>{/if}
         <span class="ref mono" title={t("Page and key id, for the HTTP API")}>{ed.page}/{key.id}</span>
       </div>
-      <button class="btn" onclick={test} disabled={!key.actions.length || testing}><Icon name="play" size={16} />{testing ? t("Running…") : t("Test run")}</button>
+      <button class="btn" onclick={test} disabled={!mainSteps.length || testing}><Icon name="play" size={16} />{testing ? t("Running…") : t("Test run")}</button>
     </header>
 
     {#each unready as u (u.id)}
@@ -245,13 +349,15 @@
       <label class="field"><span>{t("Label")}</span><input value={key.label} maxlength="64" oninput={(e) => edit((k) => (k.label = e.currentTarget.value))} /></label>
       <div class="field">
         <span>{t("Icon")}</span>
-        <button class="btn iconbtn" onclick={() => (picking = true)}>
+        <button class="btn iconbtn" onclick={() => (picking = "key")}>
           {#if key.icon && !key.icon.includes(":")}<Icon name={key.icon} size={18} />{/if}
           {key.icon?.startsWith("asset:") ? t("Image") : (key.icon ?? t("None"))}
         </button>
       </div>
     </div>
-    <label class="field"><span>{t("Second line")}</span><input value={key.sub ?? ""} maxlength="64" placeholder={t("Optional")} oninput={(e) => edit((k) => (k.sub = e.currentTarget.value || undefined))} /></label>
+    {#if key.kind !== "multi"}
+      <label class="field"><span>{t("Second line")}</span><input value={key.sub ?? ""} maxlength="64" placeholder={t("Optional")} oninput={(e) => edit((k) => (k.sub = e.currentTarget.value || undefined))} /></label>
+    {/if}
 
     <div class="two">
       <div class="field">
@@ -264,12 +370,7 @@
       </div>
       <label class="field">
         <span>{t("Type")}</span>
-        <select value={key.kind} onchange={(e) => edit((k) => {
-          k.kind = e.currentTarget.value as KeyKind;
-          if (k.kind === "slider") k.slider ??= { min: 0, max: 1 };
-          if (k.kind === "widget") k.widget ??= { text: "" };
-          if (k.kind === "folder") k.target ??= profile()?.pages.find((p) => p.folder)?.id;
-        })}>
+        <select value={key.kind} onchange={(e) => edit((k) => setKind(k, e.currentTarget.value as KeyKind))}>
           {#each kinds as [k, name] (k)}<option value={k}>{t(name)}</option>{/each}
         </select>
       </label>
@@ -307,10 +408,27 @@
       </div>
     {/if}
 
+    <div class="field">
+      <span>{t("Styles")}</span>
+      {#if styles.length}
+        <div class="chips">
+          {#each styles as st (st.id)}
+            {@const on = !!key.styles?.includes(st.id)}
+            <button class="chip" class:on aria-pressed={on} disabled={!on && (key.styles?.length ?? 0) >= 8} onclick={() => toggleStyle(st.id)}>{#if on}<Icon name="check" size={14} />{/if}{st.name}</button>
+          {/each}
+          <button class="btn small ghost" onclick={() => (ed.styling = true)}><Icon name="palette" size={16} />{t("Manage styles")}</button>
+        </div>
+      {:else}
+        <button class="btn" onclick={() => (ed.styling = true)}><Icon name="palette" size={18} />{t("Create a style")}</button>
+        <small>{t("A style changes how keys look while a variable matches, like red while live. Make it once, use it on any key.")}</small>
+      {/if}
+    </div>
+
     {#if key.kind !== "folder" && key.kind !== "back"}
+      {#if hasGestures && !key.hold && !key.repeat}<p class="note">{t("Hold to confirm and Repeat while held can't be combined with long press or double tap steps.")}</p>{/if}
       <div class="two">
-        <label class="check">
-          <input type="checkbox" checked={!!key.hold} onchange={(e) => edit((k) => (k.hold = e.currentTarget.checked ? 1000 : undefined))} />
+        <label class="check" class:off={hasGestures && !key.hold}>
+          <input type="checkbox" checked={!!key.hold} disabled={hasGestures && !key.hold} onchange={(e) => edit((k) => (k.hold = e.currentTarget.checked ? 1000 : undefined))} />
           {t("Hold to confirm")}
         </label>
         {#if key.hold}
@@ -319,8 +437,8 @@
       </div>
       {#if key.kind === "button"}
         <div class="two">
-          <label class="check">
-            <input type="checkbox" checked={!!key.repeat} onchange={(e) => edit((k) => (k.repeat = e.currentTarget.checked ? 500 : undefined))} />
+          <label class="check" class:off={hasGestures && !key.repeat}>
+            <input type="checkbox" checked={!!key.repeat} disabled={hasGestures && !key.repeat} onchange={(e) => edit((k) => (k.repeat = e.currentTarget.checked ? 500 : undefined))} />
             {t("Repeat while held")}
           </label>
           {#if key.repeat}
@@ -358,37 +476,100 @@
         </div>
       </div>
 
-      {#each key.kind === "toggle" ? [false, true] : [false] as off (off)}
-        {@const depth = depths(list(off))}
-        <section class="steps">
-          <h3>{off ? t("When turned off") : key.kind === "toggle" ? t("When turned on") : t("Steps · run in order")}</h3>
-          {#each list(off) as a, i (i)}
-            {@const def = actionDef(a.type)}
-            <div class="step" class:open={open === `${off}${i}`} class:review={a.review} class:flow={a.type === "core.if" || a.type === "core.else" || a.type === "core.end"} style:--depth={depth[i]}>
-              <button class="summary" onclick={() => (open = open === `${off}${i}` ? null : `${off}${i}`)}>
+      {#if key.kind === "multi"}
+        <section class="states">
+          <h3>{t("States · each press runs the one showing, then shows the next")}</h3>
+          <label class="field">
+            <span>{t("Follow a variable")}</span>
+            <select value={key.follow ?? ""} onchange={(e) => edit((k) => (k.follow = e.currentTarget.value || undefined))}>
+              <option value="">{t("No, just step through")}</option>
+              {#each varNames as v (v)}<option value={v}>{v}</option>{/each}
+              {#if key.follow && !varNames.includes(key.follow)}<option value={key.follow}>{key.follow}</option>{/if}
+            </select>
+            <small>{t("The key shows the state whose value the variable has, even when it changes somewhere else.")}</small>
+          </label>
+          {#each key.states ?? [] as st, i (i)}
+            <div class="state" class:open={openState === i}>
+              <button class="summary" aria-expanded={openState === i} onclick={() => (openState = openState === i ? null : i)}>
                 <span class="n mono">{i + 1}</span>
-                <span class="kind">{badge(a)}</span>
-                <span class="what">{summary(a)}</span>
+                <span class="dot c-{st.color ?? key.color ?? 'default'}"></span>
+                {#if (st.icon ?? key.icon) && !(st.icon ?? key.icon)!.includes(":")}<Icon name={st.icon ?? key.icon} size={16} />{/if}
+                <span class="what">{st.label || t("Untitled state")}</span>
+                {#if key.follow && st.value !== undefined}<span class="tag mono">= {String(st.value)}</span>{/if}
+                {#if i === current}<span class="tag now">{t("Showing")}</span>{/if}
               </button>
-              <button class="btn icon ghost" aria-label={t("Move up")} disabled={i === 0} onclick={() => moveStep(off, i, -1)}><Icon name="chevron-up" size={18} /></button>
-              <button class="btn icon ghost" aria-label={t("Remove step")} onclick={() => removeStep(off, i)}><Icon name="x" size={18} /></button>
-              {#if open === `${off}${i}`}
+              <button class="btn icon ghost" aria-label={t("Move up")} disabled={i === 0} onclick={() => moveState(i, -1)}><Icon name="chevron-up" size={18} /></button>
+              <button class="btn icon ghost" aria-label={t("Move down")} disabled={i === (key.states?.length ?? 0) - 1} onclick={() => moveState(i, 1)}><Icon name="chevron-down" size={18} /></button>
+              <button class="btn icon ghost" aria-label={t("Remove state")} disabled={(key.states?.length ?? 0) <= 2} onclick={() => removeState(i)}><Icon name="x" size={18} /></button>
+              {#if openState === i}
                 <div class="form">
-                  {#if a.review}<p class="warn">{t("Imported step. It won't run until you approve it on the PC.")}</p>{/if}
-                  {#if !def}<p class="warn">{t("This action needs a plugin that is not installed.")}</p>{/if}
-                  {#if a.type.startsWith("sd.")}
-                    {#if admin && !off && def}<SdPanel instance="{ed.profile}/{ed.page}/{key.id}/{i}" dirty={ed.dirty} rev={ed.baseRev} />{:else if def}<p class="muted">{t("Stream Deck plugin settings open in the editor on the PC.")}</p>{/if}
-                  {:else}
-                    <SettingsForm schema={def?.settings} values={a.settings} type={a.type} onchange={(v) => editStep(off, i, (s) => (s.settings = v))} />
+                  <div class="two">
+                    <label class="field"><span>{t("Label")}</span><input value={st.label} maxlength="64" oninput={(e) => editState(i, (q) => (q.label = e.currentTarget.value))} /></label>
+                    <div class="field">
+                      <span>{t("Icon")}</span>
+                      <button class="btn iconbtn" onclick={() => (picking = i)}>
+                        {#if st.icon && !st.icon.includes(":")}<Icon name={st.icon} size={18} />{/if}
+                        {st.icon?.startsWith("asset:") ? t("Image") : (st.icon ?? t("Same as the key"))}
+                      </button>
+                    </div>
+                  </div>
+                  <label class="field"><span>{t("Second line")}</span><input value={st.sub ?? ""} maxlength="64" placeholder={t("Optional")} oninput={(e) => editState(i, (q) => (q.sub = e.currentTarget.value || undefined))} /></label>
+                  <div class="field">
+                    <span>{t("Colour")}</span>
+                    <div class="swatches">
+                      {#each colors as [c, name] (c)}
+                        <button class="swatch c-{c}" class:on={(st.color ?? "default") === c} aria-label={t(name)} title={t(name)} onclick={() => editState(i, (q) => (q.color = c === "default" ? undefined : c))}></button>
+                      {/each}
+                    </div>
+                  </div>
+                  {#if key.follow}
+                    <label class="field">
+                      <span>{t("Shown while {name} is", { name: key.follow })}</span>
+                      <input value={st.value === undefined ? "" : String(st.value)} maxlength="200" placeholder={String(ed.catalog.variables[key.follow] ?? "")} oninput={(e) => editState(i, (q) => (q.value = typed(e.currentTarget.value)))} />
+                    </label>
                   {/if}
+                  {@render stepList(`s${i}`, t("Steps for this state"))}
                 </div>
               {/if}
             </div>
           {/each}
-          <button class="add" onclick={() => (adding = off ? "off" : "on")}><Icon name="plus" size={18} />{t("Add step")}</button>
-          {#if !off && sameBatch}<p class="note">{t("Back-to-back steps for the same app go out together.")}</p>{/if}
+          <button class="add" disabled={(key.states?.length ?? 0) >= 8} onclick={addState}><Icon name="plus" size={18} />{t("Add state")}</button>
         </section>
-      {/each}
+      {:else}
+        {#each mainLists as w (w)}
+          {@render stepList(w, w === "off" ? t("When turned off") : key.kind === "toggle" ? t("When turned on") : t("Steps · run in order"))}
+        {/each}
+      {/if}
+
+      {#if gestures}
+        <section class="gestures">
+          <h3>{t("Long press and double tap")}</h3>
+          {#if blocked}
+            <p class="note">{blocked} {t("Long press and double tap need the key to wait before it acts, so they're off for this key.")}</p>
+          {/if}
+          {#if blocked && hasGestures}
+            <p class="warn" role="alert">{t("Remove the long press and double tap steps below, or the layout can't be pushed.")}</p>
+          {/if}
+          {#if !blocked || hasGestures}
+            <div class="gesture">
+              <div class="ghead">
+                <h4>{t("On long press")}</h4>
+                <label class="field inline"><span>{t("after")}</span><input type="number" min="200" max="5000" step="50" value={key.longMs ?? 500} onchange={(e) => edit((k) => { const ms = Math.min(5000, Math.max(200, Number(e.currentTarget.value) || 500)); k.longMs = ms === 500 ? undefined : ms; })} /><span>ms</span></label>
+              </div>
+              {@render stepList("long", "")}
+            </div>
+            <div class="gesture">
+              <div class="ghead">
+                <h4>{t("On double tap")}</h4>
+                <label class="field inline"><span>{t("within")}</span><input type="number" min="100" max="1000" step="25" value={key.doubleMs ?? 300} onchange={(e) => edit((k) => { const ms = Math.min(1000, Math.max(100, Number(e.currentTarget.value) || 300)); k.doubleMs = ms === 300 ? undefined : ms; })} /><span>ms</span></label>
+              </div>
+              {@render stepList("double", "")}
+            </div>
+            {#if key.longActions?.length}<p class="note">{t("A short tap runs the normal steps when the key is let go.")}</p>{/if}
+            {#if key.doubleActions?.length}<p class="note">{t("A single tap waits {ms} ms to make sure no second tap follows.", { ms: key.doubleMs ?? 300 })}</p>{/if}
+          {/if}
+        </section>
+      {/if}
     {/if}
 
     <div class="foot">
@@ -420,9 +601,51 @@
   {/if}
 </aside>
 
-<Sheet bind:open={picking} title={t("Choose an icon")} wide>
-  <IconPicker value={key?.icon} onpick={(i) => (edit((k) => (k.icon = i)), (picking = false))} />
+<Sheet open={picking !== null} onclose={() => (picking = null)} title={t("Choose an icon")} wide>
+  {@const target = picking}
+  <IconPicker
+    value={typeof target === "number" ? key?.states?.[target]?.icon : key?.icon}
+    onpick={(i) => {
+      if (typeof target === "number") editState(target, (q) => (q.icon = i));
+      else edit((k) => (k.icon = i));
+      picking = null;
+    }}
+  />
 </Sheet>
+
+{#snippet stepList(w: Which, title: string)}
+  {@const steps = list(w)}
+  {@const depth = depths(steps)}
+  <section class="steps">
+    {#if title}<h3>{title}</h3>{/if}
+    {#each steps as a, i (i)}
+      {@const def = actionDef(a.type)}
+      {@const id = `${w}:${i}`}
+      <div class="step" class:open={open === id} class:review={a.review} class:flow={a.type === "core.if" || a.type === "core.else" || a.type === "core.end"} style:--depth={depth[i]}>
+        <button class="summary" onclick={() => (open = open === id ? null : id)}>
+          <span class="n mono">{i + 1}</span>
+          <span class="kind">{badge(a)}</span>
+          <span class="what">{summary(a)}</span>
+        </button>
+        <button class="btn icon ghost" aria-label={t("Move up")} disabled={i === 0} onclick={() => moveStep(w, i, -1)}><Icon name="chevron-up" size={18} /></button>
+        <button class="btn icon ghost" aria-label={t("Remove step")} onclick={() => removeStep(w, i)}><Icon name="x" size={18} /></button>
+        {#if open === id}
+          <div class="form">
+            {#if a.review}<p class="warn">{t("Imported step. It won't run until you approve it on the PC.")}</p>{/if}
+            {#if !def}<p class="warn">{t("This action needs a plugin that is not installed.")}</p>{/if}
+            {#if a.type.startsWith("sd.")}
+              {#if admin && w === "on" && def && key}<SdPanel instance="{ed.profile}/{ed.page}/{key.id}/{i}" dirty={ed.dirty} rev={ed.baseRev} />{:else if def}<p class="muted">{t("Stream Deck plugin settings open in the editor on the PC.")}</p>{/if}
+            {:else}
+              <SettingsForm schema={def?.settings} values={a.settings} type={a.type} onchange={(v) => editStep(w, i, (q) => (q.settings = v))} />
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/each}
+    <button class="add" onclick={() => (adding = w)}><Icon name="plus" size={18} />{t("Add step")}</button>
+    {#if w === "on" && sameBatch}<p class="note">{t("Back-to-back steps for the same app go out together.")}</p>{/if}
+  </section>
+{/snippet}
 
 <Sheet open={adding !== null} onclose={() => (adding = null)} title={t("Add step")} wide>
   <input class="input" bind:value={addQuery} placeholder={t("Search plugins and actions")} aria-label={t("Search plugins and actions")} />
@@ -658,6 +881,92 @@
   .size .btn.icon {
     width: 36px;
     min-height: 36px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .chip.on {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    color: var(--accent-text);
+  }
+  .chip:disabled {
+    opacity: 0.5;
+  }
+  .check.off {
+    opacity: 0.55;
+  }
+  .states,
+  .gestures {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .state {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-soft);
+    background: var(--surface);
+  }
+  .state.open {
+    border-color: var(--accent);
+  }
+  .state .summary {
+    gap: 10px;
+  }
+  .dot {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+  .dot.c-default {
+    background: var(--raised);
+  }
+  .tag.now {
+    background: var(--accent-bg);
+    color: var(--accent-text);
+  }
+  .gesture {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-soft);
+  }
+  .ghead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .ghead input {
+    width: 90px;
+  }
+  h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .add:disabled {
+    opacity: 0.5;
   }
   .choices {
     display: grid;

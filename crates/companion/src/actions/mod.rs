@@ -12,12 +12,17 @@ pub mod nowplaying;
 pub mod sound;
 pub mod timers;
 
+use std::collections::HashMap;
+use std::hash::Hash;
 use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::model::{Action, Tone};
+use crate::model::{Action, Key, KeyKind, StepList, Tone};
 use crate::plugins::Step;
-use crate::state::instance_id;
+use crate::state::{Change, instance_id, key_path};
 
 /// Which key was pressed, and by whom.
 #[derive(Debug, Clone)]
@@ -90,7 +95,7 @@ pub fn needs_pc(a: &Action) -> bool {
 
 /// Runs a list of steps in order. Back-to-back steps for the same plugin go out together,
 /// so plugins like OBS can batch them.
-pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool) {
+pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, list: StepList) {
     let flow = actions.iter().any(is_flow);
     let mut ran = Vec::new();
     let mut i = 0;
@@ -117,9 +122,9 @@ pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool)
             }
             _ => {}
         }
-        if flow && !off {
+        if flow {
             ran.push(i);
-            app.ran.lock().insert(crate::state::key_path(&ctx.profile, &ctx.page, &ctx.key), ran.clone());
+            app.ran.lock().insert(key_path(&ctx.profile, &ctx.page, &ctx.key), ran.clone());
         }
         match a.plugin() {
             Some((plugin, _)) => {
@@ -127,18 +132,18 @@ pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool)
                 let mut steps = Vec::new();
                 while i < actions.len() && actions[i].plugin().is_some_and(|(p, _)| p == plugin) && !actions[i].review {
                     let act = &actions[i];
-                    if flow && !off && ran.last() != Some(&i) {
+                    if flow && ran.last() != Some(&i) {
                         ran.push(i);
                     }
                     steps.push(Step {
-                        instance: instance_id(&ctx.profile, &ctx.page, &ctx.key, off, i),
+                        instance: instance_id(&ctx.profile, &ctx.page, &ctx.key, list, i),
                         action: act.plugin().map(|(_, id)| id.to_string()).unwrap_or_default(),
                         settings: act.settings.clone(),
                     });
                     i += 1;
                 }
-                if flow && !off {
-                    app.ran.lock().insert(crate::state::key_path(&ctx.profile, &ctx.page, &ctx.key), ran.clone());
+                if flow {
+                    app.ran.lock().insert(key_path(&ctx.profile, &ctx.page, &ctx.key), ran.clone());
                 }
                 if let Err(e) = app.plugins.run(&plugin, steps, "press", &ctx.device).await {
                     app.engine.lock().toast(e, Tone::Danger);
@@ -163,15 +168,15 @@ pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool)
 }
 
 /// Runs a key's steps, then again every `repeat` ms for as long as the key is held.
-pub async fn run_key(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool, repeat: Option<u32>) {
-    let path = crate::state::key_path(&ctx.profile, &ctx.page, &ctx.key);
+pub async fn run_key(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, list: StepList, repeat: Option<u32>) {
+    let path = key_path(&ctx.profile, &ctx.page, &ctx.key);
     loop {
-        run_steps(app.clone(), ctx.clone(), actions.clone(), off).await;
+        run_steps(app.clone(), ctx.clone(), actions.clone(), list).await;
         let Some(ms) = repeat.filter(|ms| *ms >= 100) else { break };
         if !app.held.lock().contains(&path) {
             break;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
+        tokio::time::sleep(Duration::from_millis(ms as u64)).await;
         if !app.held.lock().contains(&path) {
             break;
         }
@@ -234,80 +239,230 @@ impl Drop for Running {
     }
 }
 
-/// What a press left behind. Kept so the release matches it even if the page changed meanwhile.
-pub struct Press {
+/// How a key was pressed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Gesture {
+    Press,
+    Long,
+    Double,
+}
+
+/// Which steps a gesture on a key runs. Moves toggles and multi-state keys on to their next
+/// state, so call it once per press.
+pub fn pick(app: &App, ctx: &Ctx, key: &Key, gesture: Gesture) -> (StepList, Vec<Action>) {
+    let path = key_path(&ctx.profile, &ctx.page, &ctx.key);
+    match (gesture, key.kind) {
+        (Gesture::Long, _) => (StepList::Long, key.long_actions.clone()),
+        (Gesture::Double, _) => (StepList::Double, key.double_actions.clone()),
+        (Gesture::Press, KeyKind::Toggle) => {
+            let on = app.engine.lock().flip_toggle(&path);
+            if on || key.off_actions.is_empty() { (StepList::Main, key.actions.clone()) } else { (StepList::Off, key.off_actions.clone()) }
+        }
+        (Gesture::Press, KeyKind::Multi) if !key.states.is_empty() => {
+            let i = app.engine.lock().advance_state(&path, key);
+            (StepList::State(i), key.states[i].actions.clone())
+        }
+        (Gesture::Press, _) => (StepList::Main, key.actions.clone()),
+    }
+}
+
+/// Steps that started, kept for the release.
+type Fired = (Ctx, StepList, Vec<Action>);
+
+/// Runs what a gesture on a key does. `who` names the device for the activity log. When the
+/// key is already up, its release goes out as soon as the steps finish; otherwise the steps
+/// are returned so the release can follow later.
+pub fn fire(app: &Arc<App>, ctx: &Ctx, who: &str, gesture: Gesture, up: bool) -> Option<Fired> {
+    let key = app.engine.lock().key(&ctx.profile, &ctx.page, &ctx.key).cloned()?;
+    let (list, steps) = pick(app, ctx, &key, gesture);
+    app.recorder.record(&steps);
+    app.notify(Change::Pressed { profile: ctx.profile.clone(), page: ctx.page.clone(), key: ctx.key.clone(), label: key.label.clone(), device: who.to_string() });
+    if steps.is_empty() {
+        return None;
+    }
+    let running = Running::claim(app, key_path(&ctx.profile, &ctx.page, &ctx.key))?;
+    let repeat = if gesture == Gesture::Press { key.repeat } else { None };
+    let (app, run_ctx, run_steps) = (app.clone(), ctx.clone(), steps.clone());
+    tokio::spawn(async move {
+        run_key(app.clone(), run_ctx.clone(), run_steps.clone(), list, repeat).await;
+        if up {
+            release(app, run_ctx, list, run_steps).await;
+        }
+        drop(running);
+    });
+    (!up).then(|| (ctx.clone(), list, steps))
+}
+
+/// What happens once a timer started by `Presses` runs out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Timer {
+    /// Hold to confirm: the key was held long enough.
+    Hold,
+    /// Held past the long press time.
+    Long,
+}
+
+/// A key that is down right now. Kept so the release matches the press even if the page
+/// changed meanwhile.
+struct Press {
+    ctx: Ctx,
     /// Entry in `App::held` while a repeating key is down.
     held: Option<String>,
-    /// Context and steps of the press that fired, for the release.
-    fired: Option<(Ctx, Vec<Action>)>,
+    /// Steps that started, for the release.
+    fired: Option<Fired>,
+    /// Timer running while the key is down, by generation.
+    timer: Option<(u64, Timer)>,
+    /// Double tap window when the key has double tap steps.
+    double: Option<u32>,
+    /// Page changed while a timer ran: the release does nothing.
+    dropped: bool,
 }
 
-/// Presses in flight on one device, by whatever that device calls a key.
-pub struct Presses<K: std::hash::Hash + Eq> {
-    map: std::collections::HashMap<K, Press>,
+/// A key tapped once, waiting to see whether a second tap follows.
+struct Tapped {
+    ctx: Ctx,
+    generation: u64,
 }
 
-impl<K: std::hash::Hash + Eq + Clone> Default for Presses<K> {
-    fn default() -> Self {
-        Self { map: std::collections::HashMap::new() }
+/// Presses in flight on one device, by whatever that device calls a key (an id on phones, a
+/// button number on Stream Decks). Handles hold to confirm, long press and double tap. Timers
+/// come back through the receiver from `new`, to be handed to `timer`.
+pub struct Presses<K: Hash + Eq> {
+    who: String,
+    down: HashMap<K, Press>,
+    tapped: HashMap<K, Tapped>,
+    timers: mpsc::UnboundedSender<(K, u64)>,
+    generation: u64,
+}
+
+impl<K: Hash + Eq + Clone + Send + 'static> Presses<K> {
+    /// `who` names the device in the activity log.
+    pub fn new(who: impl Into<String>) -> (Self, mpsc::UnboundedReceiver<(K, u64)>) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        (Self { who: who.into(), down: HashMap::new(), tapped: HashMap::new(), timers: tx, generation: 0 }, rx)
     }
-}
 
-impl<K: std::hash::Hash + Eq + Clone> Presses<K> {
     pub fn is_down(&self, k: &K) -> bool {
-        self.map.contains_key(k)
+        self.down.contains_key(k)
     }
 
-    /// A key went down. `path` is marked held when the key repeats.
-    pub fn down(&mut self, app: &App, k: K, path: String, repeats: bool) {
-        let held = repeats.then(|| {
+    fn start(&mut self, k: &K, ms: u32) -> u64 {
+        self.generation += 1;
+        let (tx, k, generation) = (self.timers.clone(), k.clone(), self.generation);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(ms as u64)).await;
+            let _ = tx.send((k, generation));
+        });
+        generation
+    }
+
+    /// A key went down. Plain keys fire right away; the others wait for their timer or the
+    /// release. A second press of a key that is already down is ignored.
+    pub fn down(&mut self, app: &Arc<App>, k: K, ctx: Ctx, key: &Key) {
+        if self.down.contains_key(&k) {
+            return;
+        }
+        let path = key_path(&ctx.profile, &ctx.page, &ctx.key);
+        let (long, double) = key.gestures();
+        if let Some(t) = self.tapped.remove(&k) {
+            if t.ctx.profile == ctx.profile && t.ctx.page == ctx.page && t.ctx.key == ctx.key && double.is_some() {
+                let fired = fire(app, &ctx, &self.who, Gesture::Double, false);
+                self.down.insert(k, Press { ctx, held: None, fired, timer: None, double: None, dropped: false });
+                return;
+            }
+            // The button shows another key by now: the first tap was a plain press after all.
+            fire(app, &t.ctx, &self.who, Gesture::Press, true);
+        }
+        let held = key.repeat.is_some().then(|| {
             app.held.lock().insert(path.clone());
             path
         });
-        self.map.insert(k, Press { held, fired: None });
+        let timer = match (key.hold.filter(|h| *h > 0), long) {
+            (Some(ms), _) => Some((self.start(&k, ms), Timer::Hold)),
+            (None, Some(ms)) => Some((self.start(&k, ms), Timer::Long)),
+            (None, None) => None,
+        };
+        let fired = if timer.is_none() && double.is_none() { fire(app, &ctx, &self.who, Gesture::Press, false) } else { None };
+        self.down.insert(k, Press { ctx, held, fired, timer, double, dropped: false });
     }
 
-    /// The key's steps started, so its release should be reported.
-    pub fn fired(&mut self, k: &K, ctx: Ctx, actions: Vec<Action>) {
-        if let Some(p) = self.map.get_mut(k) {
-            p.fired = Some((ctx, actions));
+    /// The key came back up, or the press was cancelled (the finger slid off, the app lost
+    /// focus). True when a hold to confirm key was let go too early.
+    pub fn up(&mut self, app: &Arc<App>, k: &K, cancel: bool) -> bool {
+        let Some(p) = self.down.remove(k) else { return false };
+        if let Some(path) = &p.held {
+            app.held.lock().remove(path);
+        }
+        if let Some((ctx, list, steps)) = p.fired {
+            tokio::spawn(release(app.clone(), ctx, list, steps));
+            return false;
+        }
+        if p.dropped || cancel {
+            return false;
+        }
+        match (p.timer, p.double) {
+            (Some((_, Timer::Hold)), _) => true,
+            // Let go before a long press: a tap.
+            (_, Some(ms)) => {
+                let generation = self.start(k, ms);
+                self.tapped.insert(k.clone(), Tapped { ctx: p.ctx, generation });
+                false
+            }
+            (_, None) => {
+                fire(app, &p.ctx, &self.who, Gesture::Press, true);
+                false
+            }
         }
     }
 
-    /// The key came back up (or the device went away).
-    pub fn up(&mut self, app: &Arc<App>, k: &K) {
-        if let Some(p) = self.map.remove(k) {
-            Self::finish(app, p);
+    /// A timer from `new` ran out.
+    pub fn timer(&mut self, app: &Arc<App>, k: K, generation: u64) {
+        if let Some(p) = self.down.get_mut(&k)
+            && let Some((g, what)) = p.timer
+            && g == generation
+        {
+            p.timer = None;
+            let gesture = if what == Timer::Hold { Gesture::Press } else { Gesture::Long };
+            p.fired = fire(app, &p.ctx, &self.who, gesture, false);
+            return;
+        }
+        if self.tapped.get(&k).is_some_and(|t| t.generation == generation)
+            && let Some(t) = self.tapped.remove(&k)
+        {
+            fire(app, &t.ctx, &self.who, Gesture::Press, true);
         }
     }
 
+    /// The device moved to another page: keys waiting to be held long enough don't fire.
+    pub fn page_changed(&mut self) {
+        for p in self.down.values_mut() {
+            if p.timer.take().is_some() || (p.fired.is_none() && p.double.is_some()) {
+                p.dropped = true;
+            }
+        }
+    }
+
+    /// The device went away: releases what's down. Taps waiting for a second one are dropped.
     pub fn release_all(&mut self, app: &Arc<App>) {
-        for (_, p) in self.map.drain() {
-            Self::finish(app, p);
-        }
-    }
-
-    fn finish(app: &Arc<App>, p: Press) {
-        if let Some(path) = p.held {
-            app.held.lock().remove(&path);
-        }
-        if let Some((ctx, actions)) = p.fired {
-            tokio::spawn(release(app.clone(), ctx, actions));
+        self.tapped.clear();
+        let keys: Vec<K> = self.down.keys().cloned().collect();
+        for k in keys {
+            self.up(app, &k, true);
         }
     }
 }
 
 /// Key released after it fired. Only plugins get release events (push-to-talk and similar),
 /// and with if/otherwise steps, only the steps that ran.
-pub async fn release(app: Arc<App>, ctx: Ctx, actions: Vec<Action>) {
-    let ran = if actions.iter().any(is_flow) { Some(app.ran.lock().remove(&crate::state::key_path(&ctx.profile, &ctx.page, &ctx.key)).unwrap_or_default()) } else { None };
+pub async fn release(app: Arc<App>, ctx: Ctx, list: StepList, actions: Vec<Action>) {
+    let ran = if actions.iter().any(is_flow) { Some(app.ran.lock().remove(&key_path(&ctx.profile, &ctx.page, &ctx.key)).unwrap_or_default()) } else { None };
     let mut by_plugin: Vec<(String, Vec<Step>)> = Vec::new();
     for (i, a) in actions.iter().enumerate() {
         let Some((plugin, id)) = a.plugin() else { continue };
         if a.review || ran.as_ref().is_some_and(|r| !r.contains(&i)) {
             continue;
         }
-        let step = Step { instance: instance_id(&ctx.profile, &ctx.page, &ctx.key, false, i), action: id.to_string(), settings: a.settings.clone() };
+        let step = Step { instance: instance_id(&ctx.profile, &ctx.page, &ctx.key, list, i), action: id.to_string(), settings: a.settings.clone() };
         match by_plugin.iter_mut().find(|(p, _)| p == plugin) {
             Some((_, v)) => v.push(step),
             None => by_plugin.push((plugin.to_string(), vec![step])),
@@ -351,16 +506,16 @@ mod tests {
         ];
         let get = |n: &str| app.engine.lock().var(n).and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default();
 
-        run_steps(app.clone(), ctx.clone(), steps.clone(), false).await;
+        run_steps(app.clone(), ctx.clone(), steps.clone(), StepList::Main).await;
         assert_eq!((get("user.said"), get("user.inner"), get("user.after")), ("offline".into(), "".into(), "yes".into()));
 
         app.engine.lock().set_var("user.live", json!(true));
         app.engine.lock().set_var("user.mode", json!("chill"));
-        run_steps(app.clone(), ctx.clone(), steps.clone(), false).await;
+        run_steps(app.clone(), ctx.clone(), steps.clone(), StepList::Main).await;
         assert_eq!((get("user.said"), get("user.inner")), ("live".into(), "chill".into()));
 
         app.engine.lock().set_var("user.mode", json!("hype"));
-        run_steps(app.clone(), ctx, steps, false).await;
+        run_steps(app.clone(), ctx, steps, StepList::Main).await;
         assert_eq!(get("user.inner"), "other");
         // Only the steps that ran are remembered for the release.
         assert_eq!(app.ran.lock().get("p/g/k").cloned(), Some(vec![1, 5, 10]));
@@ -387,6 +542,231 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         assert_eq!(*sent.lock(), vec![0.05, 1.0]);
         assert!(app.slides.lock().is_empty(), "nothing left waiting");
+    }
+
+    fn inc(name: &str) -> Action {
+        step("core.var", json!({ "name": name, "op": "inc", "value": 1 }))
+    }
+
+    struct Deck {
+        _dir: tempfile::TempDir,
+        app: Arc<App>,
+        presses: Presses<String>,
+        timers: mpsc::UnboundedReceiver<(String, u64)>,
+    }
+
+    impl Deck {
+        fn new(keys: serde_json::Value) -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            let app = App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+            let layout = serde_json::from_value(json!({
+                "version": 1, "defaultProfile": "main",
+                "profiles": [{ "id": "main", "name": "Main", "homePage": "p1", "pages": [{ "id": "p1", "name": "One", "cols": 4, "rows": 2, "keys": keys }] }]
+            }))
+            .unwrap();
+            crate::model::validate(&layout).unwrap();
+            app.engine.lock().replace_layout(layout).unwrap();
+            let (presses, timers) = Presses::new("Test deck");
+            Self { _dir: dir, app, presses, timers }
+        }
+
+        fn key(&self, id: &str) -> Key {
+            self.app.engine.lock().key("main", "p1", id).cloned().unwrap()
+        }
+
+        fn down(&mut self, id: &str) {
+            let ctx = Ctx { device: "d".into(), profile: "main".into(), page: "p1".into(), key: id.into(), local: true };
+            let key = self.key(id);
+            self.presses.down(&self.app, id.to_string(), ctx, &key);
+        }
+
+        fn up(&mut self, id: &str) -> bool {
+            self.presses.up(&self.app, &id.to_string(), false)
+        }
+
+        /// Lets `ms` pass, handing timers that ran out back to the tracker, and lets the
+        /// steps they started finish.
+        async fn wait(&mut self, ms: u64) {
+            for _ in 0..ms {
+                tokio::time::advance(Duration::from_millis(1)).await;
+                for _ in 0..4 {
+                    tokio::task::yield_now().await;
+                }
+                while let Ok((k, g)) = self.timers.try_recv() {
+                    self.presses.timer(&self.app, k, g);
+                }
+            }
+            for _ in 0..20 {
+                tokio::task::yield_now().await;
+            }
+        }
+
+        fn count(&self, name: &str) -> i64 {
+            self.app.engine.lock().var(name).and_then(|v| v.as_f64()).unwrap_or(0.0) as i64
+        }
+
+        fn counts(&self) -> (i64, i64, i64) {
+            (self.count("user.press"), self.count("user.long"), self.count("user.double"))
+        }
+    }
+
+    fn gesture_key(id: &str, x: u8, extra: serde_json::Value) -> serde_json::Value {
+        let mut k = json!({ "id": id, "x": x, "y": 0, "kind": "button", "label": id, "actions": [inc("user.press")] });
+        for (f, v) in extra.as_object().unwrap() {
+            k[f] = v.clone();
+        }
+        k
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn plain_keys_fire_on_the_way_down() {
+        let mut d = Deck::new(json!([gesture_key("a", 0, json!({}))]));
+        d.down("a");
+        d.wait(1).await;
+        assert_eq!(d.counts(), (1, 0, 0));
+        d.up("a");
+        d.wait(1000).await;
+        assert_eq!(d.counts(), (1, 0, 0));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn long_press_and_tap() {
+        let mut d = Deck::new(json!([gesture_key("a", 0, json!({ "longActions": [inc("user.long")] }))]));
+        // A tap fires the normal steps on release, not before.
+        d.down("a");
+        d.wait(100).await;
+        assert_eq!(d.counts(), (0, 0, 0));
+        d.up("a");
+        d.wait(1).await;
+        assert_eq!(d.counts(), (1, 0, 0));
+        // Held past 500 ms: the long press steps run while still held, and nothing on release.
+        d.down("a");
+        d.wait(499).await;
+        assert_eq!(d.counts(), (1, 0, 0));
+        d.wait(2).await;
+        assert_eq!(d.counts(), (1, 1, 0));
+        d.up("a");
+        d.wait(1000).await;
+        assert_eq!(d.counts(), (1, 1, 0));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn custom_long_press_time() {
+        let mut d = Deck::new(json!([gesture_key("a", 0, json!({ "longActions": [inc("user.long")], "longMs": 1200 }))]));
+        d.down("a");
+        d.wait(800).await;
+        d.up("a");
+        d.wait(1).await;
+        assert_eq!(d.counts(), (1, 0, 0));
+        d.down("a");
+        d.wait(1201).await;
+        assert_eq!(d.counts(), (1, 1, 0));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn double_tap_and_single_tap() {
+        let mut d = Deck::new(json!([gesture_key("a", 0, json!({ "doubleActions": [inc("user.double")] }))]));
+        // One tap: the normal steps run once the window has passed.
+        d.down("a");
+        d.wait(50).await;
+        d.up("a");
+        d.wait(299).await;
+        assert_eq!(d.counts(), (0, 0, 0));
+        d.wait(2).await;
+        assert_eq!(d.counts(), (1, 0, 0));
+        // Two taps within 300 ms: only the double tap steps, and right on the second tap.
+        d.down("a");
+        d.wait(50).await;
+        d.up("a");
+        d.wait(200).await;
+        d.down("a");
+        d.wait(1).await;
+        assert_eq!(d.counts(), (1, 0, 1));
+        d.up("a");
+        d.wait(1000).await;
+        assert_eq!(d.counts(), (1, 0, 1));
+        // Taps further apart than the window are two presses.
+        for _ in 0..2 {
+            d.down("a");
+            d.wait(30).await;
+            d.up("a");
+            d.wait(400).await;
+        }
+        assert_eq!(d.counts(), (3, 0, 1));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn long_press_and_double_tap_together() {
+        let mut d = Deck::new(json!([gesture_key("a", 0, json!({ "longActions": [inc("user.long")], "doubleActions": [inc("user.double")], "doubleMs": 200 }))]));
+        d.down("a");
+        d.wait(600).await;
+        d.up("a");
+        d.wait(500).await;
+        assert_eq!(d.counts(), (0, 1, 0));
+        d.down("a");
+        d.wait(40).await;
+        d.up("a");
+        d.wait(100).await;
+        d.down("a");
+        d.wait(40).await;
+        d.up("a");
+        d.wait(500).await;
+        assert_eq!(d.counts(), (0, 1, 1));
+        d.down("a");
+        d.wait(40).await;
+        d.up("a");
+        d.wait(201).await;
+        assert_eq!(d.counts(), (1, 1, 1));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hold_to_confirm_and_repeat_work_as_before() {
+        let mut d = Deck::new(json!([gesture_key("h", 0, json!({ "hold": 800 })), gesture_key("r", 1, json!({ "repeat": 200, "actions": [inc("user.r")] }))]));
+        d.down("h");
+        d.wait(500).await;
+        assert!(d.up("h"), "let go too early");
+        d.wait(1000).await;
+        assert_eq!(d.count("user.press"), 0);
+        d.down("h");
+        d.wait(801).await;
+        assert_eq!(d.count("user.press"), 1);
+        assert!(!d.up("h"));
+
+        d.down("r");
+        d.wait(1).await;
+        assert_eq!(d.count("user.r"), 1);
+        d.wait(450).await;
+        assert_eq!(d.count("user.r"), 3);
+        d.up("r");
+        d.wait(1000).await;
+        assert_eq!(d.count("user.r"), 3);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn multi_state_keys_step_through_their_states() {
+        let state = |label: &str, var: &str| json!({ "label": label, "actions": [inc(var)] });
+        let mut d = Deck::new(json!([{ "id": "m", "x": 0, "y": 0, "kind": "multi", "label": "M", "actions": [],
+            "states": [state("One", "user.one"), state("Two", "user.two"), state("Three", "user.three")],
+            "doubleActions": [inc("user.double")] }]));
+        let shown = |d: &Deck| d.app.engine.lock().page_view("main", "p1", crate::model::FormFactor::PhonePortrait, None).unwrap().keys[0].label.clone();
+        assert_eq!(shown(&d), "One");
+        for _ in 0..4 {
+            d.down("m");
+            d.wait(10).await;
+            d.up("m");
+            d.wait(400).await;
+        }
+        assert_eq!((d.count("user.one"), d.count("user.two"), d.count("user.three")), (2, 1, 1));
+        assert_eq!(shown(&d), "Two");
+        // A double tap runs its own steps and leaves the state alone.
+        d.down("m");
+        d.up("m");
+        d.wait(100).await;
+        d.down("m");
+        d.up("m");
+        d.wait(400).await;
+        assert_eq!((d.count("user.double"), d.count("user.two")), (1, 1));
+        assert_eq!(shown(&d), "Two");
     }
 
     #[test]

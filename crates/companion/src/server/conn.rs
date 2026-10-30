@@ -6,14 +6,14 @@ use std::time::{Duration, Instant};
 
 use axum::extract::ws::{Message, WebSocket};
 use serde_json::{Value, json};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 
 use super::ops;
 use crate::actions::{self, Ctx, Nav};
 use crate::app::App;
 use crate::crypto::channel::Session;
 use crate::devices::{PinCheck, Scope};
-use crate::model::{FormFactor, KeyKind, Tone};
+use crate::model::{FormFactor, KeyKind, StepList, Tone};
 use crate::plugins::Step;
 use crate::state::view::KeyView;
 use crate::state::{Change, instance_id, key_path};
@@ -77,10 +77,6 @@ impl Link {
     }
 }
 
-enum Internal {
-    HoldDone { key: String, generation: u64 },
-}
-
 struct Conn {
     app: Arc<App>,
     link: Link,
@@ -92,10 +88,7 @@ struct Conn {
     sent: HashMap<String, KeyView>,
     sent_shape: Option<(String, u8, u8, Vec<String>)>,
     locked: bool,
-    holds: HashMap<String, u64>,
-    hold_gen: u64,
     presses: actions::Presses<String>,
-    itx: mpsc::Sender<Internal>,
     tokens: f64,
     last_tokens: Instant,
 }
@@ -109,7 +102,7 @@ fn fail(id: u64, code: &str, message: &str) -> Value {
 }
 
 pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
-    let (itx, mut irx) = mpsc::channel(32);
+    let (presses, mut timers) = actions::Presses::new(who.name.clone());
     let mut changes = app.engine.lock().subscribe();
     let mut navs = app.nav.subscribe();
     *app.online.lock().entry(who.device.clone()).or_default() += 1;
@@ -129,10 +122,7 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
         sent: HashMap::new(),
         sent_shape: None,
         locked,
-        holds: HashMap::new(),
-        hold_gen: 0,
-        presses: actions::Presses::default(),
-        itx,
+        presses,
         tokens: 60.0,
         last_tokens: Instant::now(),
     };
@@ -215,12 +205,7 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
                     dirty_full = true;
                 }
             }
-            Some(Internal::HoldDone { key, generation }) = irx.recv() => {
-                if c.holds.get(&key) == Some(&generation) {
-                    c.holds.remove(&key);
-                    c.fire(&key).await;
-                }
-            }
+            Some((key, generation)) = timers.recv() => c.presses.timer(&app, key, generation),
             _ = flush.tick() => {
                 if last_in.elapsed() > IDLE_TIMEOUT {
                     break;
@@ -298,7 +283,7 @@ impl Conn {
         if !ok {
             self.reset_profile();
         }
-        self.holds.clear();
+        self.presses.page_changed();
     }
 
     fn goto(&mut self, page: &str) -> bool {
@@ -315,7 +300,7 @@ impl Conn {
             self.stack.clear();
         }
         self.page = page.to_string();
-        self.holds.clear();
+        self.presses.page_changed();
         true
     }
 
@@ -333,7 +318,7 @@ impl Conn {
         }
         self.stack.clear();
         self.page = tops[j as usize].clone();
-        self.holds.clear();
+        self.presses.page_changed();
         true
     }
 
@@ -521,32 +506,16 @@ impl Conn {
             }
             KeyKind::Slider | KeyKind::Widget if key.actions.is_empty() => {}
             KeyKind::Slider => {}
-            // Already held on this device: a second finger, or a client repeating itself.
-            _ if self.presses.is_down(&id.to_string()) => {}
             _ => {
-                self.presses.down(&self.app, id.to_string(), key_path(&self.profile, &self.page, id), key.repeat.is_some());
-                match key.hold.filter(|h| *h > 0) {
-                    Some(ms) => {
-                        self.hold_gen += 1;
-                        let generation = self.hold_gen;
-                        self.holds.insert(id.to_string(), generation);
-                        let tx = self.itx.clone();
-                        let key = id.to_string();
-                        tokio::spawn(async move {
-                            tokio::time::sleep(Duration::from_millis(ms as u64)).await;
-                            let _ = tx.send(Internal::HoldDone { key, generation }).await;
-                        });
-                    }
-                    None => self.fire(id).await,
-                }
+                let ctx = self.ctx(id);
+                self.presses.down(&self.app, id.to_string(), ctx, &key);
             }
         }
         Ok(())
     }
 
     async fn up(&mut self, id: &str, cancel: bool) -> anyhow::Result<()> {
-        self.presses.up(&self.app, &id.to_string());
-        if self.holds.remove(id).is_some() && !cancel {
+        if self.presses.up(&self.app, &id.to_string(), cancel) {
             self.link.send(&json!({ "t": "toast", "text": "Keep holding to confirm", "tone": Tone::Warning, "at": now_ms(), "local": true })).await?;
         }
         Ok(())
@@ -554,30 +523,6 @@ impl Conn {
 
     fn ctx(&self, key: &str) -> Ctx {
         Ctx { device: self.who.device.clone(), profile: self.profile.clone(), page: self.page.clone(), key: key.to_string(), local: self.who.admin }
-    }
-
-    async fn fire(&mut self, id: &str) {
-        let Some(key) = self.key(id) else { return };
-        let (list, off) = if key.kind == KeyKind::Toggle {
-            let on = self.app.engine.lock().flip_toggle(&key_path(&self.profile, &self.page, id));
-            if on || key.off_actions.is_empty() { (key.actions.clone(), false) } else { (key.off_actions.clone(), true) }
-        } else {
-            (key.actions.clone(), false)
-        };
-        self.app.recorder.record(&list);
-        self.app.notify(Change::Pressed { profile: self.profile.clone(), page: self.page.clone(), key: id.to_string(), label: key.label.clone(), device: self.who.name.clone() });
-        if list.is_empty() {
-            return;
-        }
-        let Some(running) = actions::Running::claim(&self.app, key_path(&self.profile, &self.page, id)) else { return };
-        let app = self.app.clone();
-        let ctx = self.ctx(id);
-        self.presses.fired(&id.to_string(), ctx.clone(), key.actions);
-        let repeat = key.repeat;
-        tokio::spawn(async move {
-            actions::run_key(app, ctx, list, off, repeat).await;
-            drop(running);
-        });
     }
 
     /// One value per slider at a time: values that arrive while one is on its way replace
@@ -604,7 +549,7 @@ async fn apply_slide(app: &Arc<App>, profile: &str, page: &str, id: &str, key: &
         }
         match a.plugin() {
             Some((plugin, action)) => {
-                let step = Step { instance: instance_id(profile, page, id, false, n), action: action.to_string(), settings: a.settings.clone() };
+                let step = Step { instance: instance_id(profile, page, id, StepList::Main, n), action: action.to_string(), settings: a.settings.clone() };
                 if let Err(e) = app.plugins.slide(plugin, step, value).await {
                     app.engine.lock().toast(e, Tone::Danger);
                 }

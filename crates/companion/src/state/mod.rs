@@ -10,7 +10,7 @@ use serde_json::Value;
 use tokio::sync::broadcast;
 
 use crate::config::Paths;
-use crate::model::{self, Action, FormFactor, Key, KeyKind, LayoutFile, Page, Profile, Tone};
+use crate::model::{self, Action, FormFactor, Key, KeyKind, LayoutFile, Page, Profile, StepList, Tone};
 use crate::store;
 use view::{FeedItem, KeyView, PageView, ViewPatch};
 
@@ -70,6 +70,10 @@ pub struct Engine {
     /// Set through the inbound API, keyed by "profile/page/key".
     key_overrides: HashMap<String, ViewPatch>,
     toggles: HashMap<String, bool>,
+    /// Multi-state keys: the state the next press runs, by key path.
+    states: HashMap<String, usize>,
+    /// Toggles or states changed since the last save.
+    states_dirty: bool,
     feeds: HashMap<String, VecDeque<FeedItem>>,
     connections: BTreeMap<String, ConnectionView>,
     pills: BTreeMap<String, Pill>,
@@ -80,9 +84,20 @@ pub struct Engine {
     vars_dirty: bool,
 }
 
-/// Instance ids name one action on one key: "profile/page/key/n", or ".../o<n>" for off actions.
-pub fn instance_id(profile: &str, page: &str, key: &str, off: bool, n: usize) -> String {
-    format!("{profile}/{page}/{key}/{}{n}", if off { "o" } else { "" })
+/// Instance ids name one action on one key: "profile/page/key/n", or with a list tag before
+/// the number for the other step lists: "o" for off, "s<state>." for states, "l" for long
+/// press, "d" for double tap.
+pub fn instance_id(profile: &str, page: &str, key: &str, list: StepList, n: usize) -> String {
+    format!("{profile}/{page}/{key}/{}{n}", list.tag())
+}
+
+/// Toggle and multi-state positions, saved so keys come back the way they were left.
+#[derive(Debug, Default, Serialize, serde::Deserialize)]
+struct KeyStates {
+    #[serde(default)]
+    toggles: HashMap<String, bool>,
+    #[serde(default)]
+    states: HashMap<String, usize>,
 }
 
 pub fn key_path(profile: &str, page: &str, key: &str) -> String {
@@ -113,6 +128,7 @@ impl Engine {
             None => default_layout(),
         };
         let user_vars: HashMap<String, Value> = store::read_json_or_reset(&paths.file("variables.json"))?.unwrap_or_default();
+        let saved: KeyStates = store::read_json_or_reset(&paths.file("key-states.json"))?.unwrap_or_default();
         let (tx, rx) = broadcast::channel(1024);
         let active_profile = layout.default_profile.clone();
         Ok((
@@ -122,7 +138,9 @@ impl Engine {
                 vars: user_vars.into_iter().filter(|(k, _)| k.starts_with("user.")).collect(),
                 overrides: HashMap::new(),
                 key_overrides: HashMap::new(),
-                toggles: HashMap::new(),
+                toggles: saved.toggles,
+                states: saved.states,
+                states_dirty: false,
                 feeds: HashMap::new(),
                 connections: BTreeMap::new(),
                 pills: BTreeMap::new(),
@@ -156,7 +174,10 @@ impl Engine {
         new.rev = self.layout.rev + 1;
         store::write_json(&self.paths.file("layout.json"), &new)?;
         let keep: HashSet<String> = all_keys(&new).map(|(p, pg, k)| key_path(&p.id, &pg.id, &k.id)).collect();
+        let before = self.toggles.len() + self.states.len();
         self.toggles.retain(|k, _| keep.contains(k));
+        self.states.retain(|k, _| keep.contains(k));
+        self.states_dirty |= self.toggles.len() + self.states.len() != before;
         self.key_overrides.retain(|k, _| keep.contains(k));
         self.overrides.retain(|inst, _| inst.rsplit_once('/').is_some_and(|(k, _)| keep.contains(k)));
         if new.profiles.iter().all(|p| p.id != self.active_profile) {
@@ -236,6 +257,16 @@ impl Engine {
         }
         self.notify(Change::Vars);
         true
+    }
+
+    /// Toggle and multi-state positions to save, if any changed.
+    pub fn take_unsaved_states(&mut self) -> Option<(std::path::PathBuf, Value)> {
+        if !self.states_dirty {
+            return None;
+        }
+        self.states_dirty = false;
+        let all = KeyStates { toggles: self.toggles.clone(), states: self.states.clone() };
+        Some((self.paths.file("key-states.json"), serde_json::to_value(all).unwrap_or(Value::Null)))
     }
 
     /// The user variables to save, if any changed. Writing happens outside the engine lock,
@@ -328,7 +359,7 @@ impl Engine {
     /// Connections of plugins the layout uses, and every status pill.
     pub fn status(&self) -> (Vec<ConnectionView>, Vec<Pill>) {
         debug_assert!(self.pills.iter().all(|(k, p)| *k == p.id));
-        let used: HashSet<&str> = all_keys(&self.layout).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).filter_map(|a| a.plugin().map(|(id, _)| id)).collect();
+        let used: HashSet<&str> = all_keys(&self.layout).flat_map(|(_, _, k)| k.all_actions()).filter_map(|a| a.plugin().map(|(id, _)| id)).collect();
         (self.connections.values().filter(|c| used.contains(c.id.as_str())).cloned().collect(), self.pills.values().cloned().collect())
     }
 
@@ -337,8 +368,31 @@ impl Engine {
         let v = self.toggles.entry(path.to_string()).or_insert(false);
         *v = !*v;
         let on = *v;
+        self.states_dirty = true;
         self.notify(Change::Keys);
         on
+    }
+
+    /// The state a multi-state key shows. A followed variable wins when one of the states
+    /// has its value; otherwise it's where the presses left the key.
+    pub fn key_state(&self, path: &str, key: &Key) -> usize {
+        let n = key.states.len().max(1);
+        if let Some(var) = &key.follow {
+            let cur = self.var(var).unwrap_or(Value::Null);
+            if let Some(i) = key.states.iter().position(|s| s.value.as_ref().is_some_and(|v| view::loose_eq(&cur, v))) {
+                return i;
+            }
+        }
+        self.states.get(path).copied().unwrap_or(0) % n
+    }
+
+    /// A press of a multi-state key: returns the state whose steps run and moves on to the next.
+    pub fn advance_state(&mut self, path: &str, key: &Key) -> usize {
+        let cur = self.key_state(path, key);
+        self.states.insert(path.to_string(), (cur + 1) % key.states.len().max(1));
+        self.states_dirty = true;
+        self.notify(Change::Keys);
+        cur
     }
 
     pub fn toggle_state(&self, path: &str) -> bool {
@@ -350,7 +404,7 @@ impl Engine {
     /// editors with unsaved changes don't run into a conflict.
     pub fn set_action_settings(&mut self, instance: &str, prefix: &str, settings: serde_json::Map<String, Value>) -> bool {
         let Some((key_path, n)) = instance.rsplit_once('/') else { return false };
-        let Ok(n) = n.parse::<usize>() else { return false };
+        let Some((list, n)) = StepList::parse(n) else { return false };
         let mut parts = key_path.splitn(3, '/');
         let (Some(p), Some(pg), Some(k)) = (parts.next(), parts.next(), parts.next()) else { return false };
         let Some(action) = self
@@ -360,7 +414,8 @@ impl Engine {
             .find(|x| x.id == p)
             .and_then(|x| x.pages.iter_mut().find(|x| x.id == pg))
             .and_then(|x| x.keys.iter_mut().find(|x| x.id == k))
-            .and_then(|x| x.actions.get_mut(n))
+            .and_then(|x| x.steps_mut(list))
+            .and_then(|x| x.get_mut(n))
         else {
             return false;
         };
@@ -391,11 +446,11 @@ impl Engine {
     fn instances_where(&self, wanted: impl Fn(&Action) -> bool) -> Vec<Instance> {
         let mut out = Vec::new();
         for (p, pg, k) in all_keys(&self.layout) {
-            for (off, list) in [(false, &k.actions), (true, &k.off_actions)] {
-                for (n, a) in list.iter().enumerate() {
+            for (list, steps) in k.step_lists() {
+                for (n, a) in steps.iter().enumerate() {
                     if wanted(a) && !a.review {
                         out.push(Instance {
-                            id: instance_id(&p.id, &pg.id, &k.id, off, n),
+                            id: instance_id(&p.id, &pg.id, &k.id, list, n),
                             action: a.kind.clone(),
                             settings: a.settings.clone(),
                             label: k.label.clone(),
@@ -440,32 +495,45 @@ impl Engine {
         let folder_size = key.target.as_deref().and_then(|t| profile.pages.iter().find(|p| p.id == t)).map(|p| p.keys.len());
         let mut v = view::base_view(key, pos, folder_size);
         let get = |n: &str| self.var(n);
-
-        if let Some(name) = key.actions.iter().find(|a| a.kind == "core.timer").and_then(|a| a.settings.get("name")).and_then(Value::as_str) {
-            if let Some(t) = self.var(&format!("timer.{name}")) {
-                v.meta = Some(view::display(&t));
-            }
-            if self.var(&format!("timer.{name}.running")).is_some_and(|r| view::truthy(&r)) {
-                v.tone = Some(Tone::Accent);
-            }
+        let path = key_path(&profile.id, &page.id, &key.id);
+        // The steps the key runs next, whose plugins may draw on it.
+        let mut shown = StepList::Main;
+        if key.kind == KeyKind::Multi && !key.states.is_empty() {
+            let i = self.key_state(&path, key);
+            let st = &key.states[i];
+            shown = StepList::State(i);
+            v.state = Some(i);
+            v.label = st.label.clone();
+            v.sub = st.sub.clone();
+            v.icon = st.icon.clone().or_else(|| key.icon.clone());
+            v.color = st.color.or(key.color);
+            v.meta = Some(format!("{}/{}", i + 1, key.states.len()));
         }
-        if key.kind == KeyKind::Toggle && self.toggle_state(&key_path(&profile.id, &page.id, &key.id)) {
+        if key.kind == KeyKind::Toggle && self.toggle_state(&path) {
             v.badge = Some("ON".into());
             v.tone = Some(Tone::Success);
         }
-        let missing = key.actions.iter().filter_map(Action::plugin).find(|(id, _)| !self.installed.contains(*id));
+        let missing = key.all_actions().filter_map(Action::plugin).find(|(id, _)| !self.installed.contains(*id));
         if missing.is_some() && !v.disabled {
             v.badge = Some("MISSING".into());
             v.tone = Some(Tone::Muted);
             v.disabled = true;
         }
-        for (n, _) in key.actions.iter().enumerate() {
-            if let Some(p) = self.overrides.get(&instance_id(&profile.id, &page.id, &key.id, false, n)) {
+        for (n, _) in key.steps(shown).iter().enumerate() {
+            if let Some(p) = self.overrides.get(&instance_id(&profile.id, &page.id, &key.id, shown, n)) {
                 view::apply_patch(&mut v, p);
             }
         }
-        if let Some(p) = self.key_overrides.get(&key_path(&profile.id, &page.id, &key.id)) {
+        if let Some(p) = self.key_overrides.get(&path) {
             view::apply_patch(&mut v, p);
+        }
+        for id in &key.styles {
+            if let Some(st) = self.layout.styles.iter().find(|s| s.id == *id)
+                && !st.when.var.is_empty()
+                && view::eval(&st.when, get)
+            {
+                view::apply_style(&mut v, &st.style);
+            }
         }
         for f in &key.feedback {
             if view::eval(&f.when, get) {
@@ -534,6 +602,75 @@ mod tests {
         e.set_pills("obs", vec![pill("REC"), pill("LIVE")]);
         let (_, pills) = e.status();
         assert_eq!(pills.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["obs#0", "obs#1"]);
+    }
+
+    fn with_keys(e: &mut Engine, keys: Value, styles: Value) {
+        let l: LayoutFile = serde_json::from_value(serde_json::json!({
+            "version": 1, "defaultProfile": "main", "styles": styles,
+            "profiles": [{ "id": "main", "name": "Main", "homePage": "p1", "pages": [{ "id": "p1", "name": "One", "cols": 3, "rows": 1, "keys": keys }] }]
+        }))
+        .unwrap();
+        model::validate(&l).unwrap();
+        e.replace_layout(l).unwrap();
+    }
+
+    fn view(e: &Engine) -> KeyView {
+        e.page_view("main", "p1", FormFactor::PhonePortrait, None).unwrap().keys.remove(0)
+    }
+
+    #[test]
+    fn multi_state_keys_follow_a_variable_and_keep_their_state() {
+        let t = tempfile::tempdir().unwrap();
+        let paths = Paths { root: t.path().to_path_buf() };
+        let (mut e, _) = Engine::load(paths.clone()).unwrap();
+        let keys = serde_json::json!([{ "id": "m", "x": 0, "y": 0, "kind": "multi", "label": "Scene", "actions": [], "follow": "obs.scene", "states": [
+            { "label": "Gameplay", "color": "green", "value": "Gameplay", "actions": [] },
+            { "label": "Chatting", "icon": "message-circle", "value": "Chatting", "actions": [] },
+            { "label": "Other", "actions": [] }
+        ]}, { "id": "t", "x": 1, "y": 0, "kind": "toggle", "label": "T", "actions": [] }]);
+        with_keys(&mut e, keys, serde_json::json!([]));
+        let key = e.key("main", "p1", "m").cloned().unwrap();
+        assert_eq!((view(&e).label, view(&e).state), ("Gameplay".into(), Some(0)));
+        assert_eq!(view(&e).color, Some(model::KeyColor::Green));
+        // Presses move the state along while the variable matches none of them.
+        assert_eq!(e.advance_state("main/p1/m", &key), 0);
+        assert_eq!(view(&e).label, "Chatting");
+        // Changed elsewhere: the key shows what the variable says.
+        e.set_var("obs.scene", Value::from("Gameplay"));
+        assert_eq!(view(&e).label, "Gameplay");
+        e.set_var("obs.scene", Value::from("Chatting"));
+        assert_eq!((view(&e).label, view(&e).icon), ("Chatting".into(), Some("message-circle".into())));
+        e.set_var("obs.scene", Value::from("Intro"));
+        assert_eq!(e.advance_state("main/p1/m", &key), 1);
+        assert!(e.flip_toggle("main/p1/t"));
+
+        // Saved, and back after a restart.
+        let (path, states) = e.take_unsaved_states().unwrap();
+        store::write_json(&path, &states).unwrap();
+        assert!(e.take_unsaved_states().is_none());
+        let layout = e.layout().clone();
+        let (mut again, _) = Engine::load(paths).unwrap();
+        again.replace_layout(layout).unwrap();
+        assert_eq!(view(&again).label, "Other");
+        assert!(again.toggle_state("main/p1/t"));
+    }
+
+    #[test]
+    fn styles_apply_before_the_keys_own_feedback() {
+        let (_t, mut e) = engine();
+        let styles = serde_json::json!([
+            { "id": "live", "name": "Live", "when": { "var": "user.live", "op": "truthy" }, "style": { "color": "red", "badge": "LIVE", "icon": "radio" } },
+            { "id": "busy", "name": "Busy", "when": { "var": "user.n", "op": "gt", "value": 3 }, "style": { "label": "Busy" } }
+        ]);
+        let keys = serde_json::json!([{ "id": "a", "x": 0, "y": 0, "kind": "button", "label": "A", "actions": [], "styles": ["live", "busy"],
+            "feedback": [{ "when": { "var": "user.live", "op": "truthy" }, "style": { "badge": "ON AIR" } }] }]);
+        with_keys(&mut e, keys, styles);
+        assert_eq!((view(&e).badge, view(&e).color), (None, None));
+        e.set_var("user.live", Value::from(true));
+        let v = view(&e);
+        assert_eq!((v.badge.as_deref(), v.color, v.icon.as_deref(), v.label.as_str()), (Some("ON AIR"), Some(model::KeyColor::Red), Some("radio"), "A"));
+        e.set_var("user.n", Value::from(5));
+        assert_eq!(view(&e).label, "Busy");
     }
 
     #[test]

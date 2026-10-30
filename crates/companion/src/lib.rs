@@ -45,7 +45,8 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     actions::appaudio::spawn(app.clone());
     focus::spawn(app.clone());
 
-    // Keep plugins in step with layout changes, and save user variables a little after they change.
+    // Keep plugins in step with layout changes, and save user variables and key states a
+    // little after they change.
     let mut rx = app.engine.lock().subscribe();
     let a = app.clone();
     tokio::spawn(async move {
@@ -60,7 +61,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
             tokio::select! {
                 c = rx.recv() => match c {
                     Ok(Change::Layout) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => a.plugins.sync_all().await,
-                    Ok(Change::Vars) => {
+                    Ok(Change::Vars | Change::Keys) => {
                         save_at.get_or_insert(tokio::time::Instant::now() + std::time::Duration::from_millis(500));
                     }
                     Ok(_) => {}
@@ -77,10 +78,21 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
 }
 
 async fn save_vars(app: &App) {
-    let Some((path, vars)) = app.engine.lock().take_unsaved_vars() else { return };
-    let r = tokio::task::spawn_blocking(move || store::write_json(&path, &vars)).await;
-    if let Ok(Err(e)) = r {
-        tracing::warn!("could not save variables: {e:#}");
+    let (vars, states) = {
+        let mut e = app.engine.lock();
+        (e.take_unsaved_vars(), e.take_unsaved_states())
+    };
+    if let Some((path, vars)) = vars {
+        let r = tokio::task::spawn_blocking(move || store::write_json(&path, &vars)).await;
+        if let Ok(Err(e)) = r {
+            tracing::warn!("could not save variables: {e:#}");
+        }
+    }
+    if let Some((path, states)) = states {
+        let r = tokio::task::spawn_blocking(move || store::write_json(&path, &states)).await;
+        if let Ok(Err(e)) = r {
+            tracing::warn!("could not save key states: {e:#}");
+        }
     }
 }
 

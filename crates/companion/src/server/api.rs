@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 
 use crate::actions::{self, Ctx, Nav};
 use crate::app::App;
-use crate::model::{self, Action};
+use crate::model::{self, Action, StepList};
 use crate::state::view::ViewPatch;
 use crate::state::{Change, key_path};
 use crate::tokens::{ApiScope, Token};
@@ -70,15 +70,10 @@ async fn press(State(app): State<Arc<App>>, headers: HeaderMap, Json(b): Json<Va
         (profile, key)
     };
     let Some(key) = key else { return err(StatusCode::NOT_FOUND, "key not found") };
-    let (list, off) = if key.kind == model::KeyKind::Toggle {
-        let on = app.engine.lock().flip_toggle(&key_path(&profile, page, key_id));
-        if on || key.off_actions.is_empty() { (key.actions.clone(), false) } else { (key.off_actions.clone(), true) }
-    } else {
-        (key.actions.clone(), false)
-    };
-    app.notify(Change::Pressed { profile: profile.clone(), page: page.into(), key: key_id.into(), label: key.label.clone(), device: format!("API: {}", t.name) });
     let ctx = Ctx { device: format!("api:{}", t.id), profile, page: page.into(), key: key_id.into(), local: false };
-    tokio::spawn(actions::run_steps(app.clone(), ctx, list, off));
+    let (list, steps) = actions::pick(&app, &ctx, &key, actions::Gesture::Press);
+    app.notify(Change::Pressed { profile: ctx.profile.clone(), page: page.into(), key: key_id.into(), label: key.label.clone(), device: format!("API: {}", t.name) });
+    tokio::spawn(actions::run_steps(app.clone(), ctx, steps, list));
     StatusCode::ACCEPTED.into_response()
 }
 
@@ -94,7 +89,7 @@ async fn run_action(State(app): State<Arc<App>>, headers: HeaderMap, Json(b): Js
         return err(StatusCode::FORBIDDEN, "this action can't be run from the API");
     }
     let ctx = Ctx { device: format!("api:{}", t.id), profile: "api".into(), page: "api".into(), key: "api".into(), local: false };
-    tokio::spawn(actions::run_steps(app.clone(), ctx, vec![Action { review: false, ..action }], false));
+    tokio::spawn(actions::run_steps(app.clone(), ctx, vec![Action { review: false, ..action }], StepList::Main));
     StatusCode::ACCEPTED.into_response()
 }
 

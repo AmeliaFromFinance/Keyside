@@ -75,14 +75,16 @@ pub fn import_profile(mut p: Profile) -> Result<Profile> {
     for pg in &mut p.pages {
         mark(pg);
     }
-    let check = LayoutFile { version: 1, rev: 0, default_profile: p.id.clone(), profiles: vec![p.clone()] };
+    let check = LayoutFile { version: 1, rev: 0, default_profile: p.id.clone(), profiles: vec![p.clone()], styles: Vec::new() };
     model::validate(&check).map_err(|e| anyhow::anyhow!("share code has an invalid layout: {e}"))?;
     Ok(p)
 }
 
 fn mark(pg: &mut Page) {
     for k in &mut pg.keys {
-        for a in k.actions.iter_mut().chain(k.off_actions.iter_mut()) {
+        // Styles belong to the layout they came from.
+        k.styles.clear();
+        for a in k.all_actions_mut() {
             if !SAFE_ON_IMPORT.contains(&a.kind.as_str()) {
                 a.review = true;
             }
