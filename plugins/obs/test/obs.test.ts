@@ -8,7 +8,7 @@ import { fakeServer, eventually } from "../../_lib/fake.ts";
 const sha = (s: string) => createHash("sha256").update(s).digest("base64");
 
 function fakeObs(password: string) {
-  const state = { program: "Live", preview: "", muted: true, recording: false, monitor: "OBS_MONITORING_TYPE_NONE" };
+  const state = { program: "Live", preview: "", muted: true, recording: false, monitor: "OBS_MONITORING_TYPE_NONE", streaming: false, bytes: 0 };
   const answer = (requestType: string, d: any): any => {
     switch (requestType) {
       case "GetSceneList":
@@ -33,7 +33,8 @@ function fakeObs(password: string) {
       case "GetStats":
         return { activeFps: 60, cpuUsage: 12.5, renderSkippedFrames: 0, renderTotalFrames: 1000, outputSkippedFrames: 30, outputTotalFrames: 1000 };
       case "GetStreamStatus":
-        return { outputActive: false };
+        // About 1000 kb/s at one poll every 2 seconds.
+        return state.streaming ? { outputActive: true, outputDuration: 65_000, outputBytes: (state.bytes += 250_000), outputSkippedFrames: 0, outputTotalFrames: 100 } : { outputActive: false };
       case "SetInputMute":
       case "SetCurrentProgramScene":
       case "ToggleRecord":
@@ -168,6 +169,33 @@ test("screenshots, audio monitoring and stream health", async () => {
   // 30 of 1000 encoded frames skipped: 3%.
   await eventually(() => h.view("health")?.badge === "DROPPING", 5000);
   assert.equal(h.view("health")?.sub, "Encoding 3.0% dropped");
+  await h.stop();
+  await obs.close();
+});
+
+test("stream dashboard figures: bitrate, time live and variables", async () => {
+  const obs = await fakeObs("pw");
+  obs.state.streaming = true;
+  const h = createTestHost(plugin, { connection: { host: "127.0.0.1", port: obs.port, password: "pw" }, prefix: "obs" });
+  await h.start();
+  await h.sync([
+    { id: "rate", action: "stats", settings: { show: "bitrate" } },
+    { id: "live", action: "stats", settings: { show: "live" } },
+    { id: "rec", action: "stats", settings: { show: "record" } },
+  ]);
+  await eventually(() => h.status()?.state === "connected");
+  await eventually(() => h.view("live")?.tone === "danger");
+  const since = Number(h.view("live")?.since);
+  assert.ok(Math.abs(Date.now() - 65_000 - since) < 3000, "counts from when the stream started");
+  assert.equal(h.view("rec")?.sub, "Not recording");
+  await eventually(() => /kb\/s$/.test(String(h.view("rate")?.sub)), 9000);
+  const kbps = Number(h.variable("bitrate"));
+  assert.ok(kbps > 700 && kbps < 1400, `bitrate ${kbps}`);
+  assert.equal(h.variable("cpu"), 12.5);
+  assert.equal(h.variable("fps"), 60);
+  assert.equal(h.variable("dropped"), 3);
+  // Pressing a figure does nothing.
+  await h.press("rate", "stats", { show: "bitrate" });
   await h.stop();
   await obs.close();
 });

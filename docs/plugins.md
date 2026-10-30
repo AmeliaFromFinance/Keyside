@@ -14,6 +14,8 @@ Plugins only connect to the addresses you enter here.
 
 Tip: turn on **Show a live thumbnail** on a scene key to see the scene on the key.
 
+**Stream health** keys show dropped frames, CPU, FPS, bitrate, or how long you've been live or recording. A [stream dashboard](stream-tools.md#stream-dashboard) page sets several up at once.
+
 ## Streamlabs Desktop
 
 1. In Streamlabs: **Settings > Remote Control**. Click the QR code, then **Show details**.
@@ -73,6 +75,8 @@ Some events (subs, cheers, ads) need Affiliate or Partner status. So do polls, p
 Twitch only lets an app change channel point rewards it created. A **Channel point reward** key creates its reward the first time you turn it on, then switches it on and off. Rewards you made on Twitch itself can't be changed from Keyside.
 
 If you signed in before polls and predictions were added, Keyside asks you to sign in once more so Twitch can allow them.
+
+Channel point redemptions show up in the **Alerts** feed. Commands like `!brb` and any redemption can press a key: see [chat triggers](stream-tools.md#chat-triggers).
 
 ## YouTube Live
 

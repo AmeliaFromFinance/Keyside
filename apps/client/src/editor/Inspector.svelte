@@ -5,6 +5,7 @@
   import IconPicker from "./IconPicker.svelte";
   import SettingsForm from "./SettingsForm.svelte";
   import SdPanel from "./SdPanel.svelte";
+  import TimerOverlay from "./TimerOverlay.svelte";
   import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits, selection, duplicateKeys, copyKeys, deleteKeys, clearSelection, moveToPage, keySteps, plainPressReason } from "./state.svelte.ts";
   import { actionMatches, searchWords } from "./search.ts";
   import { req, deck } from "../lib/deck.svelte.ts";
@@ -637,6 +638,7 @@
               {#if admin && w === "on" && def && key}<SdPanel instance="{ed.profile}/{ed.page}/{key.id}/{i}" dirty={ed.dirty} rev={ed.baseRev} />{:else if def}<p class="muted">{t("Stream Deck plugin settings open in the editor on the PC.")}</p>{/if}
             {:else}
               <SettingsForm schema={def?.settings} values={a.settings} type={a.type} onchange={(v) => editStep(w, i, (q) => (q.settings = v))} />
+              {#if admin && a.type === "core.timer"}<TimerOverlay name={a.settings.name} />{/if}
             {/if}
           </div>
         {/if}

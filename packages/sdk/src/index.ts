@@ -36,6 +36,27 @@ export interface Pill {
   since?: number;
 }
 
+/**
+ * A feed line. Chat plugins should also fill in kind, source and roles, so chat triggers
+ * (!brb, channel point rewards) work with them.
+ */
+export interface FeedEntry {
+  text: string;
+  author?: string;
+  /** #rrggbb */
+  color?: string;
+  /** "chat" for messages, "redeem" for channel point redemptions. Anything else is an alert. */
+  kind?: "chat" | "redeem" | "follow" | "sub" | "cheer" | "raid" | "alert";
+  /** "twitch", "youtube" or "kick". Defaults to the plugin prefix. */
+  source?: string;
+  /** What the author is in that channel. Members count as "sub". */
+  roles?: Array<"broadcaster" | "mod" | "vip" | "sub">;
+  /** Reward title, for redemptions. */
+  reward?: string;
+  /** What the viewer typed with a redemption. */
+  input?: string;
+}
+
 export interface Option {
   value: string;
   label: string;
@@ -100,7 +121,7 @@ export interface Host {
   /** Publishes {prefix.name} for labels and conditions. */
   setVar(name: string, value: VarValue): void;
   /** Adds a line to a feed declared in the manifest (chat, alerts). Text only. */
-  feed(name: string, item: { text: string; author?: string; color?: string }): void;
+  feed(name: string, item: FeedEntry): void;
   /** Connection state shown in the deck header. `pills` adds up to three status chips, like REC. */
   status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pills?: Pill[] | Pill | null): void;
   toast(text: string, tone?: "default" | "success" | "warning" | "danger"): void;
@@ -254,7 +275,7 @@ class Runtime implements Host {
     this.#schedule();
   }
 
-  feed(name: string, item: { text: string; author?: string; color?: string }) {
+  feed(name: string, item: FeedEntry) {
     this.#notify("feed.push", { feed: name, item });
   }
 

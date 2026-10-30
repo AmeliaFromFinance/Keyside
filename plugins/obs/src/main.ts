@@ -39,7 +39,7 @@ const st = {
   thumbs: new Map<string, string>(),
   monitor: new Map<string, string>(),
   recordDir: "",
-  stats: null as null | { fps: number; cpu: number; render: number; encode: number; network: number },
+  stats: null as null | { fps: number; cpu: number; render: number; encode: number; network: number; kbps: number | null },
 };
 
 const MONITOR_OFF = "OBS_MONITORING_TYPE_NONE";
@@ -402,12 +402,22 @@ function view(k: Key): KeyView | null {
 
 /** One figure from OBS's stats. Warns when frames are being lost. */
 function statsView(show: string): KeyView {
+  // Clients count up from `since` on their own.
+  if (show === "live") return st.stream.active ? { since: st.stream.since, tone: "danger" } : { sub: "Offline" };
+  if (show === "record") {
+    if (!st.record.active) return { sub: "Not recording" };
+    return st.record.paused ? { sub: "Paused", badge: "PAUSED", badgeTone: "warning" } : { since: st.record.since, tone: "danger" };
+  }
   const x = st.stats;
   if (!x) return { sub: "Waiting for OBS" };
   const pct = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}%`;
   switch (show) {
     case "fps":
       return { sub: `${x.fps.toFixed(0)} fps` };
+    case "bitrate":
+      if (!st.stream.active) return { sub: "Offline" };
+      if (x.kbps === null) return { sub: "Measuring" };
+      return { sub: x.kbps >= 10_000 ? `${(x.kbps / 1000).toFixed(1)} Mb/s` : `${x.kbps} kb/s`, ...(x.kbps === 0 ? { badge: "NO DATA", badgeTone: "danger" as const } : {}) };
     case "cpu":
       return { sub: `CPU ${pct(x.cpu)}`, ...(x.cpu >= 90 ? { badge: "HIGH", badgeTone: "warning" as const } : {}) };
     default: {
@@ -419,18 +429,34 @@ function statsView(show: string): KeyView {
   }
 }
 
+/** Bytes sent at the last poll, to work out the bitrate. */
+let sent: { bytes: number; at: number } | null = null;
+
+/** Polls OBS only while a Stream health key is placed (a stream dashboard has several). */
 async function stats() {
   if (!st.ready || !host.keys("stats").length) return;
   const [g, net] = await batch([{ requestType: "GetStats" }, { requestType: "GetStreamStatus" }]).catch(() => [null, null]);
   if (!g) return;
   const share = (part: number, total: number) => (total > 0 ? (100 * part) / total : 0);
+  let kbps: number | null = null;
+  if (net?.outputActive) {
+    const now = { bytes: Number(net.outputBytes ?? 0), at: Date.now() };
+    if (sent && now.bytes >= sent.bytes && now.at > sent.at) kbps = Math.round(((now.bytes - sent.bytes) * 8) / (now.at - sent.at));
+    sent = now;
+  } else sent = null;
   st.stats = {
     fps: Number(g.activeFps ?? 0),
     cpu: Number(g.cpuUsage ?? 0),
     render: share(Number(g.renderSkippedFrames ?? 0), Number(g.renderTotalFrames ?? 0)),
     encode: share(Number(g.outputSkippedFrames ?? 0), Number(g.outputTotalFrames ?? 0)),
     network: net?.outputActive ? share(Number(net.outputSkippedFrames ?? 0), Number(net.outputTotalFrames ?? 0)) : 0,
+    kbps,
   };
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  host.setVar("bitrate", kbps ?? 0);
+  host.setVar("dropped", round1(Math.max(st.stats.render, st.stats.encode, st.stats.network)));
+  host.setVar("cpu", round1(st.stats.cpu));
+  host.setVar("fps", Math.round(st.stats.fps));
   render();
 }
 

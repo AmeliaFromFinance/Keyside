@@ -75,7 +75,7 @@ pub fn import_profile(mut p: Profile) -> Result<Profile> {
     for pg in &mut p.pages {
         mark(pg);
     }
-    let check = LayoutFile { version: 1, rev: 0, default_profile: p.id.clone(), profiles: vec![p.clone()], styles: Vec::new() };
+    let check = LayoutFile { version: 1, rev: 0, default_profile: p.id.clone(), profiles: vec![p.clone()], styles: Vec::new(), triggers: Vec::new() };
     model::validate(&check).map_err(|e| anyhow::anyhow!("share code has an invalid layout: {e}"))?;
     Ok(p)
 }

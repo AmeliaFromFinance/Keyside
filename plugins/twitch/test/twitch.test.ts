@@ -1,7 +1,7 @@
 import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import plugin, { SCOPES, endpoints } from "../src/main.ts";
+import plugin, { SCOPES, endpoints, roles } from "../src/main.ts";
 import { fakeServer, eventually } from "../../_lib/fake.ts";
 import { fakeHttp } from "../../_lib/fakehttp.ts";
 
@@ -28,6 +28,8 @@ async function fakeTwitch() {
         return { json: { data: [{ viewer_count: 17 }] } };
       case "GET /channels/followers":
         return { json: { total: 1200, data: [] } };
+      case "GET /subscriptions":
+        return { json: { total: 85, data: [] } };
       case "GET /channels":
         return { json: { data: [{ title: "Cozy", game_name: "Just Chatting" }] } };
       case "GET /chat/settings":
@@ -141,6 +143,9 @@ test("shield mode, polls, predictions and Keyside's own rewards", async () => {
     { id: "r", action: "reward", settings: { title: "Hydrate" } },
   ]);
   await eventually(() => h.status()?.state === "connected");
+  // Let the start-up reads finish, or they could overwrite what the presses below change.
+  await eventually(() => h.variable("subs") === 85 && tw.api.hits.some((x) => x.path === "/moderation/shield_mode"));
+  await h.settle();
 
   await h.press("s", "shield", { op: "toggle" });
   assert.equal(tw.api.hits.find((x) => x.method === "PUT")?.body.is_active, true);
@@ -176,4 +181,31 @@ test("asks to sign in again when the saved sign-in lacks newer permissions", asy
   await eventually(() => /WXYZ-1234/.test(String(h.status()?.detail)));
   await h.stop();
   await tw.close();
+});
+
+test("tags chat with roles and passes channel point redemptions on", async () => {
+  const tw = await fakeTwitch();
+  const h = createTestHost(plugin, { connection: { clientId: "abc", session: session("good") }, prefix: "twitch" });
+  await h.start();
+  await eventually(() => h.variable("subs") === 85);
+  await eventually(() => tw.api.hits.some((x) => x.body?.type === "channel.channel_points_custom_reward_redemption.add"));
+  const note = (type: string, event: object) => tw.es.broadcast({ metadata: { message_type: "notification", subscription_type: type }, payload: { event } });
+
+  note("channel.chat.message", { broadcaster_user_id: "42", chatter_user_id: "7", chatter_user_name: "Moss", message: { text: "!brb" }, badges: [{ set_id: "moderator" }, { set_id: "subscriber" }] });
+  await eventually(() => h.feed("chat").length === 1);
+  assert.deepEqual(h.feed("chat")[0], { author: "Moss", text: "!brb", kind: "chat", source: "twitch", roles: ["mod", "sub"] });
+
+  note("channel.channel_points_custom_reward_redemption.add", { user_name: "Quiet", user_input: "with ice", reward: { title: "Hydrate", cost: 100 } });
+  await eventually(() => h.feed("events").length === 1);
+  assert.deepEqual(h.feed("events")[0], { author: "Quiet", text: "redeemed Hydrate", kind: "redeem", source: "twitch", reward: "Hydrate", input: "with ice" });
+  await eventually(() => h.variable("last_redeem") === "Quiet: Hydrate");
+
+  await h.stop();
+  await tw.close();
+});
+
+test("works out roles from badges", () => {
+  assert.deepEqual(roles({ badges: [{ set_id: "vip" }, { set_id: "founder" }] }), ["vip", "sub"]);
+  assert.deepEqual(roles({ badges: [], chatter_user_id: "42", broadcaster_user_id: "42" }), ["broadcaster"]);
+  assert.deepEqual(roles({}), []);
 });

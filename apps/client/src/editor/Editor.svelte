@@ -12,6 +12,7 @@
   import StreamDeck from "./StreamDeck.svelte";
   import Profiles from "./Profiles.svelte";
   import Styles from "./Styles.svelte";
+  import Triggers from "./Triggers.svelte";
   import Splitter from "./Splitter.svelte";
   import KeySearch from "./KeySearch.svelte";
   import PushReview from "./PushReview.svelte";
@@ -27,7 +28,7 @@
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
-  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | "styles" | "search" | "push" | null;
+  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | "styles" | "search" | "push" | "triggers" | null;
   let panel = $state<Panel>(null);
   let menu = $state(false);
   let paletteOpen = $state(false);
@@ -248,6 +249,7 @@
       <button onclick={() => ((menu = false), (panel = "plugins"))}><Icon name="plug" size={18} />{t("Plugins")}</button>
       {#if admin}
         <button onclick={() => ((menu = false), (panel = "streamdeck"))}><Icon name="layout-grid" size={18} />{t("Stream Deck plugins")}</button>
+        <button onclick={() => ((menu = false), (panel = "triggers"))}><Icon name="messages-square" size={18} />{t("Chat triggers")}</button>
         <button onclick={() => ((menu = false), (panel = "devices"))}><Icon name="smartphone" size={18} />{t("Devices")}</button>
         <button onclick={() => ((menu = false), (panel = "review"))}><Icon name="shield-check" size={18} />{t("Review imported steps")}{#if reviewCount}<span class="count">{reviewCount}</span>{/if}</button>
         <button onclick={() => ((menu = false), (panel = "settings"))}><Icon name="settings-2" size={18} />{t("Settings")}</button>
@@ -326,6 +328,7 @@
 </Sheet>
 <Sheet open={panel === "profiles"} onclose={() => (panel = null)} title={t("Layouts")} wide><Profiles /></Sheet>
 <Sheet open={panel === "styles"} onclose={() => ((panel = null), (ed.styling = false))} title={t("Key styles")} wide><Styles /></Sheet>
+<Sheet open={panel === "triggers"} onclose={() => (panel = null)} title={t("Chat triggers")} wide><Triggers /></Sheet>
 
 <style>
   .editor {

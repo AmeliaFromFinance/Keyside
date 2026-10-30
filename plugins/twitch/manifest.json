@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.twitch",
   "name": "Twitch",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Keyside",
   "prefix": "twitch",
   "description": "Chat and alerts on your deck, plus markers, clips, ads, chat modes, title, shoutouts and raids.",
@@ -158,12 +158,14 @@
     { "name": "live", "title": "Live", "type": "boolean" },
     { "name": "viewers", "title": "Viewers", "type": "number" },
     { "name": "followers", "title": "Followers", "type": "number" },
+    { "name": "subs", "title": "Subscribers", "type": "number" },
     { "name": "title", "title": "Title", "type": "string" },
     { "name": "category", "title": "Category", "type": "string" },
     { "name": "last_follower", "title": "Latest follower", "type": "string" },
     { "name": "last_sub", "title": "Latest subscriber", "type": "string" },
     { "name": "last_cheer", "title": "Latest cheer", "type": "string" },
-    { "name": "last_raid", "title": "Latest raid", "type": "string" }
+    { "name": "last_raid", "title": "Latest raid", "type": "string" },
+    { "name": "last_redeem", "title": "Latest channel point redemption", "type": "string" }
   ],
   "feeds": [
     { "name": "chat", "title": "Chat" },

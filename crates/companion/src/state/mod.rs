@@ -357,6 +357,11 @@ impl Engine {
         self.notify(Change::Status);
     }
 
+    /// Every plugin connection, used in the layout or not.
+    pub fn connections(&self) -> Vec<ConnectionView> {
+        self.connections.values().cloned().collect()
+    }
+
     /// Connections of plugins the layout uses, and every status pill.
     pub fn status(&self) -> (Vec<ConnectionView>, Vec<Pill>) {
         debug_assert!(self.pills.iter().all(|(k, p)| *k == p.id));

@@ -13,6 +13,23 @@ export interface LayoutFile {
   profiles: Profile[];
   /** Named looks that keys share. Keys list the ids of the ones they use. */
   styles?: Style[];
+  /** Chat commands, keywords and channel point redemptions that press a key. */
+  triggers?: Trigger[];
+}
+
+export interface Trigger {
+  id: string;
+  /** Platform to listen to. Kick comes through Streamer.bot. */
+  source?: "any" | "twitch" | "youtube" | "kick";
+  /** command: first word of a message, like !brb. keyword: words anywhere in a message. redeem: channel point reward title. */
+  kind: "command" | "redeem" | "keyword";
+  match: string;
+  /** Who may set it off. Each level includes the ones above it. */
+  who?: "everyone" | "subs" | "mods" | "broadcaster";
+  /** Seconds before it can fire again. */
+  cooldown?: number;
+  target: { profile: string; page: string; key: string };
+  disabled?: boolean;
 }
 
 /** When the condition holds, keys using the style change their look. */

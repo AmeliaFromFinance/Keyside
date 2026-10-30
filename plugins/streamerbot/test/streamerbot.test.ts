@@ -2,7 +2,7 @@ import { createTestHost } from "@keyside/sdk/testing";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import plugin, { nextValue, varName } from "../src/main.ts";
+import plugin, { nextValue, roles, varName } from "../src/main.ts";
 import { fakeServer, eventually } from "../../_lib/fake.ts";
 
 const sha = (s: string) => createHash("sha256").update(s).digest("base64");
@@ -118,4 +118,42 @@ test("variable names are made safe", () => {
   assert.equal(varName("__x__"), "x");
   assert.equal(varName("9lives"), null);
   assert.equal(varName("{evil}.name"), "evil_name");
+});
+
+test("passes chat roles, platforms and redemptions on for chat triggers", async () => {
+  const sb = await fakeBot(null);
+  const h = createTestHost(plugin, { connection: { host: "127.0.0.1", port: sb.port } });
+  await h.start();
+  await eventually(() => h.status()?.state === "connected");
+  const sub = await sb.until((m) => m.request === "Subscribe" && m.events?.Twitch);
+  assert.ok(sub.events.Twitch.includes("RewardRedemption"));
+
+  sb.broadcast({ event: { source: "Twitch", type: "ChatMessage" }, data: { message: { displayName: "Fern", message: "!brb", role: 3, subscriber: true } } });
+  sb.broadcast({ event: { source: "Kick", type: "ChatMessage" }, data: { user: { name: "Moss", isSubscriber: true }, text: "!lurk" } });
+  sb.broadcast({ event: { source: "YouTube", type: "Message" }, data: { user: { name: "Ana", isOwner: true }, message: "hello" } });
+  sb.broadcast({ event: { source: "Twitch", type: "RewardRedemption" }, data: { user_name: "Quiet", user_input: "please", reward: { title: "Hydrate" } } });
+  sb.broadcast({ event: { source: "Twitch", type: "Follow" }, data: { user_name: "New" } });
+  await eventually(() => h.feed("chat").length === 3 && h.feed("events").length === 2);
+  assert.deepEqual(
+    h.feed("chat").map((i) => [i.author, i.text, i.source, i.roles]),
+    [
+      ["Fern", "!brb", "twitch", ["mod", "sub"]],
+      ["Moss", "!lurk", "kick", ["sub"]],
+      ["Ana", "hello", "youtube", ["broadcaster"]],
+    ],
+  );
+  assert.ok(h.feed("chat").every((i) => i.kind === "chat"));
+  assert.deepEqual(h.feed("events")[0], { author: "Quiet", text: "redeemed Hydrate", kind: "redeem", source: "twitch", reward: "Hydrate", input: "please" });
+  assert.equal(h.feed("events")[1].kind, "follow");
+  await h.stop();
+  await sb.close();
+});
+
+test("reads roles from every shape Streamer.bot uses", () => {
+  assert.deepEqual(roles({ user: { role: 4 } }), ["broadcaster"]);
+  assert.deepEqual(roles({ user: { role: 2, subscribed: true } }), ["vip", "sub"]);
+  assert.deepEqual(roles({ user: { badges: [{ name: "moderator" }, { name: "founder" }] } }), ["mod", "sub"]);
+  assert.deepEqual(roles({ user: { role: 1 } }), []);
+  assert.deepEqual(roles({ message: "plain text" }), []);
+  assert.deepEqual(roles(null), []);
 });

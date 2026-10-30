@@ -43,6 +43,8 @@ pub struct App {
     #[cfg(feature = "sound")]
     pub sound: crate::actions::sound::Sound,
     pub timers: Timers,
+    /// Chat trigger cooldowns and the chat rate.
+    pub chat: crate::triggers::Chat,
     pub recorder: Recorder,
     pub http: reqwest::Client,
     /// Device id -> open connections.
@@ -110,6 +112,7 @@ impl App {
             #[cfg(feature = "sound")]
             sound: crate::actions::sound::Sound::start(),
             timers: Timers::default(),
+            chat: crate::triggers::Chat::default(),
             recorder: Recorder::default(),
             http,
             online: Mutex::new(HashMap::new()),

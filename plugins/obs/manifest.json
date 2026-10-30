@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.obs",
   "name": "OBS Studio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Keyside",
   "prefix": "obs",
   "description": "Scenes, audio, recording, streaming, replay buffer, sources and filters, with live state on every key.",
@@ -224,10 +224,18 @@
       "id": "stats",
       "name": "Stream health",
       "icon": "gauge",
-      "description": "Shows dropped frames, CPU or FPS, updated every 2 seconds.",
+      "description": "Shows dropped frames, CPU, FPS, bitrate or how long you've been live or recording, updated every 2 seconds.",
       "settings": {
         "type": "object",
-        "properties": { "show": { "type": "string", "title": "Show", "enum": ["dropped", "cpu", "fps"], "enumNames": ["Dropped frames", "CPU", "FPS"], "default": "dropped" } }
+        "properties": {
+          "show": {
+            "type": "string",
+            "title": "Show",
+            "enum": ["dropped", "cpu", "fps", "bitrate", "live", "record"],
+            "enumNames": ["Dropped frames", "CPU", "FPS", "Bitrate", "Time live", "Time recording"],
+            "default": "dropped"
+          }
+        }
       }
     },
     {
@@ -258,6 +266,10 @@
     { "name": "replay", "title": "Replay buffer on", "type": "boolean" },
     { "name": "studio", "title": "Studio mode", "type": "boolean" },
     { "name": "collection", "title": "Scene collection", "type": "string" },
-    { "name": "profile", "title": "Profile", "type": "string" }
+    { "name": "profile", "title": "Profile", "type": "string" },
+    { "name": "bitrate", "title": "Bitrate in kb/s (while a Stream health key is placed)", "type": "number" },
+    { "name": "dropped", "title": "Dropped frames in % (while a Stream health key is placed)", "type": "number" },
+    { "name": "cpu", "title": "OBS CPU use in % (while a Stream health key is placed)", "type": "number" },
+    { "name": "fps", "title": "FPS (while a Stream health key is placed)", "type": "number" }
   ]
 }

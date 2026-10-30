@@ -517,6 +517,10 @@ fn review_list(app: &App) -> Value {
 /// Editors on other devices can rearrange anything, but can't add steps that start programs
 /// or approve imported steps. Those need the desktop editor.
 fn check_editor_changes(old: &LayoutFile, new: &LayoutFile) -> Result<(), OpError> {
+    // Triggers let chat press keys, so only the person at the PC sets them up.
+    if old.triggers != new.triggers {
+        return Err(OpError { code: "forbidden", message: "Chat triggers can only be changed on the PC".into() });
+    }
     let old_actions: Vec<&Action> = all_keys(old).flat_map(|(_, _, k)| k.all_actions()).collect();
     for (_, _, k) in all_keys(new) {
         for a in k.all_actions() {
@@ -699,6 +703,15 @@ mod tests {
         assert_eq!(list.as_array().unwrap().len(), 2);
         assert_eq!(list[1]["name"], json!("Start"));
         assert!(handle(&app, &phone, "templates.delete", json!({ "id": id })).await.is_ok());
+    }
+
+    #[test]
+    fn remote_editors_cannot_change_chat_triggers() {
+        let old = crate::state::default_layout();
+        let mut new = old.clone();
+        new.triggers.push(serde_json::from_value(json!({ "id": "t1", "kind": "command", "match": "!brb", "target": { "profile": "a", "page": "b", "key": "c" } })).unwrap());
+        assert!(check_editor_changes(&old, &new).is_err());
+        assert!(check_editor_changes(&new, &new).is_ok(), "existing triggers can stay");
     }
 
     #[test]

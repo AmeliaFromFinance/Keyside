@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.youtube",
   "name": "YouTube Live",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Keyside",
   "prefix": "youtube",
   "description": "Live chat, Super Chats, viewer count and stream health from your YouTube stream. Send chat messages and change the title.",
