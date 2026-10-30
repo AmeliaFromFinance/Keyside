@@ -114,6 +114,14 @@ Equibop, a Discord client for Linux, can't be controlled the way Discord can. Ke
 1. Under **App**, choose **Equibop (Linux)**. No application or secret is needed.
 2. Leave **Equibop install** on **Find it**, or pick **Installed package** or **Flatpak** if you have both.
 
+Keyside finds Equibop from the AUR, Flathub or other packages on its own. For the AppImage, make it reachable as `equibop` once:
+
+```sh
+mkdir -p ~/.local/bin && ln -sf ~/Applications/Equibop.AppImage ~/.local/bin/equibop
+```
+
+Change the path to wherever your AppImage is. If keys still fail, run `equibop --toggle-mic` in a terminal while Equibop is open. It should mute you.
+
 Mute, Deafen and Push to talk work. Joining channels and volume need the Discord app.
 
 Equibop doesn't report its state, so keys show what Keyside last sent. If you mute in Equibop itself, press the key once to get back in step. If Equibop isn't open, a key press starts it.

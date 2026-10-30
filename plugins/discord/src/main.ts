@@ -44,19 +44,28 @@ let launcher: string[] | null = null;
 
 /** Sends one toggle to the running Equibop. Starts Equibop if it isn't open. */
 async function toggleInEquibop(flag: "--toggle-mic" | "--toggle-deafen" | "--toggle-vad") {
-  let last = "";
+  let crashed: number | null = null;
+  let other = "";
   for (const l of launcher ? [launcher] : launchers()) {
     try {
       const { code } = await host.run([...l, flag]);
-      if (code !== null && code !== 0) throw new Error("not installed");
+      if (code !== null && code !== 0) {
+        crashed = code;
+        continue;
+      }
       if (!launcher) host.status("connected", "Equibop");
       launcher = l;
       return;
     } catch (e) {
-      last = errorText(e);
+      const msg = errorText(e);
+      if (!/not installed/.test(msg)) other = msg;
     }
   }
-  const msg = /not installed/.test(last) ? "Equibop isn't installed, or isn't on PATH" : last;
+  launcher = null;
+  const msg =
+    crashed !== null
+      ? `Equibop stopped with error ${crashed}. Check that \`equibop --toggle-mic\` works in a terminal.`
+      : other || "Equibop wasn't found. Install it from the AUR or Flathub. For the AppImage, link it as `~/.local/bin/equibop`.";
   host.status("error", msg);
   throw new Error(msg);
 }

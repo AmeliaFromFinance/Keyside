@@ -227,7 +227,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             if u.scheme() != "https" || url.len() > 2048 {
                 return Err(OpError::invalid("only https links"));
             }
-            open::that_detached(u.as_str()).map_err(|e| OpError::invalid(format!("could not open the link: {e}")))?;
+            crate::programs::open(u.as_str()).map_err(|e| OpError::invalid(format!("could not open the link: {e}")))?;
             Ok(Value::Null)
         }
         "editor.zoom" => {

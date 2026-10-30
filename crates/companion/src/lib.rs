@@ -11,6 +11,7 @@ pub mod ids;
 pub mod mdns;
 pub mod model;
 pub mod plugins;
+pub mod programs;
 pub mod recorder;
 pub mod server;
 pub mod share;

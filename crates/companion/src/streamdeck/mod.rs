@@ -388,7 +388,7 @@ fn open_url(app: &App, uuid: &str, url: &str) {
             _ => false,
         }
     };
-    if ok && allowed && open::that_detached(url).is_ok() {
+    if ok && allowed && crate::programs::open(url).is_ok() {
         let name = app.streamdeck.get(uuid).map(|i| i.manifest.name).unwrap_or_default();
         app.engine.lock().toast(format!("{name} opened a page in your browser"), Tone::Default);
     }

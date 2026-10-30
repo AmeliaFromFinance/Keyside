@@ -1005,7 +1005,7 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
                 }
                 r.last_browser = Some(Instant::now());
             }
-            open::that_detached(u.as_str()).map_err(|e| e.to_string())?;
+            crate::programs::open(u.as_str()).map_err(|e| e.to_string())?;
             app.engine.lock().toast(format!("{} opened a sign-in page in your browser", m.name), Tone::Default);
             Ok(Value::Null)
         }
@@ -1059,13 +1059,19 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
 }
 
 /// Runs one of a plugin's fixed commands: no shell, no output. A command still running after
-/// a few seconds (say it started the app itself) is left running.
+/// a few seconds (say it started the app itself) is left running. The program is also looked
+/// for in the usual install folders, since apps started from the desktop get a short PATH.
 async fn run_fixed(argv: &[String]) -> Result<Value, String> {
     // A few at a time, so a stuck key can't pile up processes.
     static SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
     let _slot = SLOTS.try_acquire().map_err(|_| "busy, try again")?;
-    let mut cmd = tokio::process::Command::new(&argv[0]);
+    #[cfg(unix)]
+    let program = crate::programs::find(&argv[0]).ok_or("not installed")?;
+    #[cfg(not(unix))]
+    let program = &argv[0];
+    let mut cmd = tokio::process::Command::new(program);
     cmd.args(&argv[1..]).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    crate::programs::apply_tokio(&mut cmd);
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // no console window
     let mut child = cmd.spawn().map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { "not installed".to_string() } else { e.to_string() })?;
@@ -1110,7 +1116,7 @@ async fn oauth_authorize(app: &Arc<App>, m: &Manifest, params: Value) -> Result<
         waits.retain(|_, w| w.plugin != m.id);
         waits.insert(state.clone(), OAuthWait { plugin: m.id.clone(), tx });
     }
-    if let Err(e) = open::that_detached(u.as_str()) {
+    if let Err(e) = crate::programs::open(u.as_str()) {
         host.oauth.lock().remove(&state);
         return Err(e.to_string());
     }

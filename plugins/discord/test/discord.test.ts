@@ -152,9 +152,23 @@ test("reports a missing Equibop", async () => {
   });
   await h.start();
   await h.sync([{ id: "m", action: "mute" }]);
-  await assert.rejects(h.press("m", "mute", { mode: "toggle" }), /isn't installed/);
+  await assert.rejects(h.press("m", "mute", { mode: "toggle" }), /wasn't found/);
   assert.equal(h.status()?.state, "error");
   assert.notEqual(h.view("m")?.badge, "MUTED");
+  await h.stop();
+});
+
+test("tells a crashing Equibop apart from a missing one", async () => {
+  const h = createTestHost(plugin, {
+    connection: { app: "equibop", install: "native" },
+    respond(s) {
+      if (s.method === "run") return { code: 127 };
+      return undefined;
+    },
+  });
+  await h.start();
+  await h.sync([{ id: "m", action: "mute" }]);
+  await assert.rejects(h.press("m", "mute", { mode: "toggle" }), /stopped with error 127/);
   await h.stop();
 });
 

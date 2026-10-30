@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
             let paths = keyside::config::Paths::new(args.data_dir.clone())?;
             let id = keyside::config::Identity::load_or_create(&paths)?;
             let port = keyside::config::Settings::load(&paths)?.admin_port;
-            open::that_detached(format!("http://127.0.0.1:{port}/#login={}", id.admin_token))?;
+            keyside::programs::open(&format!("http://127.0.0.1:{port}/#login={}", id.admin_token))?;
             Ok(())
         }
         ["reset-sign-in"] => {

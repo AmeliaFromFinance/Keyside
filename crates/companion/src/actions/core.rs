@@ -77,7 +77,7 @@ pub async fn run(app: &App, ctx: &Ctx, a: &Action) -> Res {
         "core.webhook" => webhook(app, m).await,
         "core.open" => {
             let u = http_url(req(m, "url")?)?;
-            open::that_detached(u.as_str()).map_err(|e| format!("could not open the link: {e}"))?;
+            crate::programs::open(u.as_str()).map_err(|e| format!("could not open the link: {e}"))?;
             Ok(None)
         }
         "core.launch" => launch(m),
@@ -162,6 +162,7 @@ fn launch(m: &Map<String, Value>) -> Res {
     if let Some(dir) = path.parent() {
         cmd.current_dir(dir);
     }
+    crate::programs::apply_std(&mut cmd);
     cmd.spawn().map_err(|e| format!("could not start {}: {e}", path.display()))?;
     Ok(None)
 }
