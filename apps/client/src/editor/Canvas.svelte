@@ -29,7 +29,10 @@
     placements,
     previewView,
     actionDef,
+    deckDials,
+    addDialRows,
   } from "./state.svelte.ts";
+  import { untrack } from "svelte";
   import { t, mark } from "../lib/i18n.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { haptic } from "../lib/native.ts";
@@ -55,6 +58,13 @@
   const hw = $derived(profile()?.deck);
   $effect(() => {
     if (hw && ed.ff !== "phone-portrait") ed.ff = "phone-portrait";
+  });
+  const dials = $derived(deckDials(hw));
+  /** Page row that holds the dial keys, below the deck keys. Null for decks without dials. */
+  const dialRow = $derived(hw && dials && pg && pg.rows > hw.rows ? hw.rows : null);
+  $effect(() => {
+    const pr = profile();
+    if (pr?.deck && dials) untrack(() => addDialRows(pr));
   });
 
   function place_(x: number, y: number, id: string | null) {
@@ -121,10 +131,6 @@
 
   /** The grid cell under a point, worked out from the grid's own column and row sizes. */
   function cellAt(px: number, py: number): [number, number] | null {
-    const g = deviceEl?.querySelector<HTMLElement>(".grid");
-    if (!g) return null;
-    const r = g.getBoundingClientRect();
-    const cs = getComputedStyle(g);
     const find = (track: string, gap: number, off: number) => {
       let pos = 0;
       const sizes = track.split(" ").map(parseFloat);
@@ -134,9 +140,15 @@
       }
       return -1;
     };
-    const x = find(cs.gridTemplateColumns, parseFloat(cs.columnGap) || 0, px - r.left);
-    const y = find(cs.gridTemplateRows, parseFloat(cs.rowGap) || 0, py - r.top);
-    return x < 0 || y < 0 ? null : [x, y];
+    // The dial row of a Stream Deck + is a grid of its own. `data-row` says which page row it is.
+    for (const g of deviceEl?.querySelectorAll<HTMLElement>(".grid") ?? []) {
+      const r = g.getBoundingClientRect();
+      const cs = getComputedStyle(g);
+      const x = find(cs.gridTemplateColumns, parseFloat(cs.columnGap) || 0, px - r.left);
+      const y = find(cs.gridTemplateRows, parseFloat(cs.rowGap) || 0, py - r.top);
+      if (x >= 0 && y >= 0) return [x, y + Number(g.closest<HTMLElement>("[data-row]")?.dataset.row ?? 0)];
+    }
+    return null;
   }
 
   function keyAt([cx, cy]: [number, number]): string | null {
@@ -412,6 +424,32 @@
   }
 </script>
 
+{#snippet dropCell(x: number, y: number)}
+  <button
+    class="drop"
+    class:dial={y === dialRow}
+    data-cell="{x},{y}"
+    class:ready={!!ed.armed || !!ed.moving || !!drag}
+    class:target={landing.has(`${x},${y}`)}
+    ondragover={(e) => e.preventDefault()}
+    ondrop={(e) => drop(e, x, y)}
+    onclick={() => (ed.armed || ed.moving ? place_(x, y, ed.armed) : clearSelection())}
+    aria-label={ed.moving ? t("Move here") : ed.armed ? t("Drop {name} here", { name: armedName }) : y === dialRow ? t("Dial {n}", { n: x + 1 }) : t("Empty cell")}
+  >
+    {#if ed.moving}
+      <Icon name="move" size={20} /><span>{t("Move here")}</span>
+    {:else if ed.armed}
+      <Icon name="plus" size={20} /><span>{t("Drop {name}", { name: t(armedName) })}</span>
+    {:else if y === dialRow}
+      <Icon name="circle-dot" size={20} /><span>{t("Dial {n}", { n: x + 1 })}</span>
+    {/if}
+  </button>
+{/snippet}
+
+{#snippet dialCell(x: number, _y: number)}
+  {@render dropCell(x, dialRow ?? 0)}
+{/snippet}
+
 <section class="canvas">
   <div class="bar">
     <div class="tabs" role="tablist">
@@ -432,7 +470,7 @@
     </div>
     <div class="controls">
       {#if hw}
-        <span class="fixed"><Icon name="layout-grid" size={16} />{hw.model} · {hw.cols} × {hw.rows}</span>
+        <span class="fixed"><Icon name="layout-grid" size={16} />{hw.model} · {hw.cols} × {hw.rows}{dials ? ` · ${t("{n} dials", { n: dials })}` : ""}</span>
       {:else if pg && place}
         <label>
           <span>{t("Grid")}</span>
@@ -461,7 +499,7 @@
         bind:this={deviceEl}
         class="device ff-{ed.ff}"
         class:hw
-        style:--hw-ratio={hw ? `${hw.cols} / ${hw.rows + 0.5}` : undefined}
+        style:--hw-ratio={hw ? `${hw.cols} / ${hw.rows + 0.5 + (dialRow !== null ? 1.3 : 0)}` : undefined}
         style:--hw-width={hw ? `${hw.cols * 130}px` : undefined}
         class:dragging={!!drag}
         role="presentation"
@@ -476,34 +514,32 @@
           <b>{pg.name}</b>
           <span class="live"><span class="dot" class:ok={deck.conn.s === "open"}></span>{t("live preview")}</span>
         </div>
-        <Grid
-          cols={place.cols}
-          rows={place.rows}
-          keys={views}
-          preview
-          selected={chosen}
-          dim={drag?.ids}
-          onselect={select}
-        >
-          {#snippet empty(x, y)}
-            <button
-              class="drop"
-              data-cell="{x},{y}"
-              class:ready={!!ed.armed || !!ed.moving || !!drag}
-              class:target={landing.has(`${x},${y}`)}
-              ondragover={(e) => e.preventDefault()}
-              ondrop={(e) => drop(e, x, y)}
-              onclick={() => (ed.armed || ed.moving ? place_(x, y, ed.armed) : clearSelection())}
-              aria-label={ed.moving ? t("Move here") : ed.armed ? t("Drop {name} here", { name: armedName }) : t("Empty cell")}
-            >
-              {#if ed.moving}
-                <Icon name="move" size={20} /><span>{t("Move here")}</span>
-              {:else if ed.armed}
-                <Icon name="plus" size={20} /><span>{t("Drop {name}", { name: t(armedName) })}</span>
-              {/if}
-            </button>
-          {/snippet}
-        </Grid>
+        <div class="keys" style:flex-grow={dialRow ?? 1}>
+          <Grid
+            cols={place.cols}
+            rows={dialRow ?? place.rows}
+            keys={dialRow === null ? views : views.filter((v) => v.y < dialRow!)}
+            preview
+            selected={chosen}
+            dim={drag?.ids}
+            onselect={select}
+            empty={dropCell}
+          />
+        </div>
+        {#if dialRow !== null}
+          <div class="dials" data-row={dialRow}>
+            <Grid
+              cols={dials}
+              rows={1}
+              keys={views.filter((v) => v.y === dialRow).map((v) => ({ ...v, y: 0 }))}
+              preview
+              selected={chosen}
+              dim={drag?.ids}
+              onselect={select}
+              empty={dialCell}
+            />
+          </div>
+        {/if}
       </div>
       <p class="caption">
         {#if ed.picking}
@@ -520,6 +556,9 @@
           {t("States are live from your apps. Changes reach devices when you push them.")}
         {/if}
       </p>
+      {#if dialRow !== null}
+        <p class="tip">{t("The bottom row is for the dials. Turning a dial moves its slider. Pressing it or tapping the touch strip presses its key.")}</p>
+      {/if}
       <p class="tip">
         {chosen.length > 1
           ? t("Drag one of the selected keys to move them all, or onto a page tab to move them there.")
@@ -672,6 +711,22 @@
     height: auto;
     width: min(100%, 980px);
     border-radius: 16px;
+  }
+  .keys,
+  .dials {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  .dials {
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .drop.dial {
+    border-radius: 50%;
+    border-color: var(--line);
+    color: var(--muted);
   }
   .device-head {
     display: flex;

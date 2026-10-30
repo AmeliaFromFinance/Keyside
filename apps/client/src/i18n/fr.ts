@@ -523,4 +523,13 @@ export default {
   "Show the side panel": "Afficher le panneau latéral",
   "Key settings": "Réglages de la touche",
   "Resize Pair a phone": "Redimensionner « Appairer un téléphone »",
+  "{n} dials": "{n} molettes",
+  "Dial {n}": "Molette {n}",
+  "The bottom row is for the dials. Turning a dial moves its slider. Pressing it or tapping the touch strip presses its key.": "La rangée du bas est pour les molettes. Tourner une molette déplace son curseur. L’enfoncer ou toucher la bande tactile appuie sur sa touche.",
+  "Brightness": "Luminosité",
+  "Turn dark when not used": "Éteindre sans utilisation",
+  "After {n} min": "Après {n} min",
+  "Show it on the deck when these apps are in front": "L’afficher sur le deck quand ces apps sont au premier plan",
+  "Program names, separated by commas. The deck shows its layout without apps the rest of the time.": "Noms de programmes séparés par des virgules. Le reste du temps, le deck affiche sa disposition sans apps.",
+  "Add another layout for this deck": "Ajouter une autre disposition pour ce deck",
 } as Record<string, string>;

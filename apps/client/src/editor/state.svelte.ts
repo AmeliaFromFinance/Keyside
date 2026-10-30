@@ -1,6 +1,6 @@
 // Editor state: a draft of the layout that only reaches devices on "Push to phones".
 
-import type { Action, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
+import type { Action, DeckLink, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
 import { req, listen, deck } from "../lib/deck.svelte.ts";
 import { t } from "../lib/i18n.svelte.ts";
 
@@ -252,8 +252,32 @@ function occupied(p: Page, skip?: string | string[]): Set<string> {
   return s;
 }
 
+/** Dials on a Stream Deck, by the model name the companion gives it. */
+export function deckDials(d: DeckLink | undefined): number {
+  return d ? (({ "Stream Deck +": 4, "Stream Deck + XL": 6 }) as Record<string, number>)[d.model] ?? 0 : 0;
+}
+
+/**
+ * On decks with dials, the page row below the keys holds one single-cell key per dial.
+ * False when a key at this spot would break that.
+ */
+export function dialOk(x: number, y: number, w: number, h: number, d: DeckLink | undefined = profile()?.deck): boolean {
+  const n = deckDials(d);
+  if (!d || !n || y + h <= d.rows) return true;
+  return y === d.rows && w === 1 && h === 1 && x < n;
+}
+
+/** Gives the pages of a deck layout made before dials were supported their dial row. */
+export function addDialRows(pr: Profile) {
+  const d = pr.deck;
+  if (!d || !deckDials(d) || !pr.pages.some((p) => p.rows === d.rows)) return;
+  change(() => {
+    for (const p of pr.pages) if (p.rows === d.rows) p.rows += 1;
+  });
+}
+
 export function fits(p: Page, x: number, y: number, w: number, h: number, skip?: string | string[]): boolean {
-  if (x < 0 || y < 0 || x + w > p.cols || y + h > p.rows) return false;
+  if (x < 0 || y < 0 || x + w > p.cols || y + h > p.rows || !dialOk(x, y, w, h)) return false;
   const occ = occupied(p, skip);
   for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (occ.has(`${x + dx},${y + dy}`)) return false;
   return true;
@@ -396,7 +420,7 @@ export function relocate(moves: Array<[string, number, number]>, dry = false): b
     const box = a.boxes.get(id);
     if (!box) return false;
     const [x, y] = a.turned ? [sy, sx] : [sx, sy];
-    if (x < 0 || y < 0 || x + box[2] > a.cols || y + box[3] > a.rows || !mark(x, y, box[2], box[3])) return false;
+    if (x < 0 || y < 0 || x + box[2] > a.cols || y + box[3] > a.rows || !dialOk(x, y, box[2], box[3]) || !mark(x, y, box[2], box[3])) return false;
     targets.push([id, x, y]);
   }
   if (dry) return true;
@@ -570,7 +594,8 @@ export function addPage(folder = false): string | undefined {
       cols: base?.cols ?? 3,
       rows: base?.rows ?? 5,
       folder: folder || undefined,
-      keys: folder ? [{ id: "back", x: 0, y: (base?.rows ?? 5) - 1, kind: "back", label: "Back", actions: [] }] : [],
+      // On decks with dials, Back goes on the last row of keys, not on a dial.
+      keys: folder ? [{ id: "back", x: 0, y: (deckDials(pr.deck) ? pr.deck!.rows : (base?.rows ?? 5)) - 1, kind: "back", label: "Back", actions: [] }] : [],
     }),
   );
   if (!folder) ed.page = id;

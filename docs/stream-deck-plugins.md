@@ -51,6 +51,24 @@ The first time you plug one in, Keyside makes a layout for it, named after the m
 
 To have a deck follow the active layout instead, open **Manage layouts** and press **Unlink** on its layout. Deleting the layout does the same, and Keyside won't make a new one for that deck.
 
+### Dials and the touch strip
+
+On a Stream Deck + or + XL, the editor shows a row of dials under the keys. Put a key on a dial like on any cell:
+
+- Turning the dial moves a slider key, the same way dragging it on a phone does (plugin sliders included). Each click moves it by the step of the slider, or 2% without a step.
+- Pressing the dial presses its key: it runs the steps, flips a toggle or opens a folder.
+- The touch strip shows the label and value of each dial key. Tapping a part of the strip presses the key of the dial below it.
+
+Layouts made for these decks before dials were supported get the dial row the next time the deck is plugged in or the layout is opened in the editor.
+
+### Brightness and sleep
+
+In **Manage layouts**, the card of a deck layout has the brightness of the deck and how long it waits before turning dark. Any press, turn or tap wakes it up again, and that press doesn't run anything. Both settings apply to all layouts of that deck.
+
+### Layouts for games and apps
+
+Press **Add another layout for this deck** to give a deck more layouts, for example one per game. Fill in the apps of a layout, and the deck shows it while one of those apps is in front. The rest of the time it shows its layout without apps (or its first one). This uses the same focus tracking as normal layouts, so **Switch layouts to match the app in front** needs to be on in the settings. Normal layouts don't switch for apps listed on deck layouts.
+
 Folders and back keys work as usual. When Keyside quits, the deck goes back to its Elgato logo. Turn it off under **Settings > Use Stream Deck hardware plugged into this PC**.
 
 On Linux, give your user access to the device first:
