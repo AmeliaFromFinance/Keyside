@@ -136,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn finds_programs_on_path() {
         assert!(find("sh").is_some());
         assert!(find("definitely-not-a-program-keyside").is_none());
