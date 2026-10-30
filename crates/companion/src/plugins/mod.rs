@@ -34,6 +34,10 @@ const SLIDE_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_IMAGE_URL: usize = 350 * 1024;
 const CRASH_WINDOW: Duration = Duration::from_secs(300);
 const CRASH_LIMIT: usize = 5;
+/// How long a plugin started for the editor (options, a connection test) keeps running
+/// while no key uses it.
+const DEMAND_TTL: Duration = Duration::from_secs(600);
+const TEST_TIMEOUT: Duration = Duration::from_secs(12);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Step {
@@ -102,6 +106,9 @@ pub struct Host {
     pub staged: Mutex<HashMap<String, (package::Package, Instant)>>,
     /// Browser sign-ins waiting for their redirect, by OAuth state.
     oauth: Mutex<HashMap<String, OAuthWait>>,
+    /// Plugins the editor needs for a while although no key uses them, until the given time.
+    /// Keyed by plugin id, Stream Deck plugins included.
+    demand: Mutex<HashMap<String, Instant>>,
 }
 
 struct OAuthWait {
@@ -124,6 +131,8 @@ pub struct PluginInfo {
     pub icon: Option<String>,
     pub enabled: bool,
     pub status: String,
+    /// A key uses it, so it runs. Plugins nobody uses stay stopped.
+    pub in_use: bool,
     pub source: Source,
     pub signer: Option<String>,
     pub requested: Permissions,
@@ -167,6 +176,7 @@ impl Host {
             state: Mutex::new(State::default()),
             staged: Mutex::new(HashMap::new()),
             oauth: Mutex::new(HashMap::new()),
+            demand: Mutex::new(HashMap::new()),
         };
         let installed: BTreeMap<String, Installed> = store::read_json_or_reset(&host.index)?.unwrap_or_default();
         host.state.lock().installed = installed.into_iter().filter(|(_, i)| manifest::validate(&i.manifest).is_ok()).collect();
@@ -190,6 +200,23 @@ impl Host {
 
     fn save(&self, st: &State) -> Result<()> {
         store::write_json(&self.index, &st.installed)
+    }
+
+    /// (plugin, field) of every secret connection setting, for backups.
+    pub fn secret_fields(&self) -> Vec<(String, String)> {
+        let st = self.state.lock();
+        st.installed
+            .values()
+            .flat_map(|i| i.manifest.connection.iter().flat_map(|c| c.properties.iter()).filter(|(_, f)| f.is_secret()).map(|(n, _)| (i.manifest.id.clone(), n.clone())))
+            .collect()
+    }
+
+    /// Reads the plugin list and secrets again, after a restore. Plugins must be stopped.
+    pub fn reload(&self) {
+        let installed: BTreeMap<String, Installed> = store::read_json_or_reset(&self.index).ok().flatten().unwrap_or_default();
+        self.state.lock().installed = installed.into_iter().filter(|(_, i)| manifest::validate(&i.manifest).is_ok()).collect();
+        self.secrets.forget();
+        self.refresh_engine();
     }
 
     pub fn installed_ids(&self) -> HashSet<String> {
@@ -254,15 +281,25 @@ impl Host {
     }
 
     pub fn list(&self) -> Vec<PluginInfo> {
+        let used = self.in_use();
+        let ids: Vec<String> = self.state.lock().installed.keys().cloned().collect();
         // Engine first, then plugin state: never hold both locks at once.
-        let statuses: HashMap<String, String> = self.app().map(|a| a.engine.lock().status().0.into_iter().map(|c| (c.id, c.status)).collect()).unwrap_or_default();
+        let statuses: HashMap<String, String> = self
+            .app()
+            .map(|a| {
+                let e = a.engine.lock();
+                ids.iter().filter_map(|id| e.connection(id)).map(|c| (c.id, c.status)).collect()
+            })
+            .unwrap_or_default();
         let st = self.state.lock();
         st.installed
             .values()
             .map(|i| {
                 let m = &i.manifest;
+                let running = st.running.contains_key(&m.id);
                 let status = match statuses.get(&m.id) {
                     Some(s) if i.enabled => s.clone(),
+                    _ if i.enabled && !running && !used.contains(&m.id) => "idle".into(),
                     _ if i.enabled => "offline".into(),
                     _ => "disabled".into(),
                 };
@@ -277,6 +314,7 @@ impl Host {
                     icon: m.icon.clone(),
                     enabled: i.enabled,
                     status,
+                    in_use: used.contains(&m.id),
                     source: i.source,
                     signer: i.signer.clone(),
                     requested: m.permissions.clone(),
@@ -510,12 +548,124 @@ impl Host {
         }
     }
 
+    /// Starts the enabled plugins the layout uses.
     pub fn start_all(&self) {
-        let ids: Vec<String> = self.state.lock().installed.iter().filter(|(_, i)| i.enabled).map(|(k, _)| k.clone()).collect();
         self.refresh_engine();
-        for id in ids {
-            self.start(&id);
+        self.reconcile();
+    }
+
+    /// Ids of the plugins the layout uses, Stream Deck plugins included.
+    pub fn in_use(&self) -> HashSet<String> {
+        let prefixes: Vec<(String, String)> = self.state.lock().installed.values().map(|i| (i.manifest.id.clone(), i.manifest.prefix.clone())).collect();
+        let Some(app) = self.app() else { return HashSet::new() };
+        let e = app.engine.lock();
+        used_by(e.layout(), &prefixes)
+    }
+
+    /// Used by the layout, or asked for by the editor a short while ago.
+    pub fn wanted(&self, id: &str, used: &HashSet<String>) -> bool {
+        used.contains(id) || self.demand.lock().get(id).is_some_and(|t| *t > Instant::now())
+    }
+
+    /// Lets a plugin run for a while even though no key uses it.
+    pub fn lease(&self, id: &str) {
+        self.demand.lock().insert(id.to_string(), Instant::now() + DEMAND_TTL);
+    }
+
+    /// Starts plugins the layout now uses and stops the ones it no longer needs.
+    pub fn reconcile(&self) {
+        let Some(app) = self.app() else { return };
+        self.demand.lock().retain(|_, t| *t > Instant::now());
+        let used = self.in_use();
+        let (enabled, running): (Vec<String>, Vec<String>) = {
+            let st = self.state.lock();
+            (st.installed.iter().filter(|(_, i)| i.enabled).map(|(k, _)| k.clone()).collect(), st.running.keys().cloned().collect())
+        };
+        for id in &enabled {
+            if self.wanted(id, &used) && !running.contains(id) {
+                self.launch(id);
+            }
         }
+        for id in &running {
+            if !self.wanted(id, &used) {
+                tracing::info!(plugin = %id, "no key uses this plugin anymore; stopping it");
+                self.stop(id);
+            }
+        }
+        crate::streamdeck::reconcile(&app, &used);
+    }
+
+    /// Starts a plugin for the editor, even when no key uses it yet, and waits up to `wait`
+    /// for it to come up. True when it is running.
+    pub async fn ensure(&self, id: &str, wait: Duration) -> bool {
+        self.lease(id);
+        let Some(app) = self.app() else { return false };
+        if let Some(uuid) = id.strip_prefix(crate::streamdeck::PREFIX) {
+            return crate::streamdeck::ensure(&app, uuid, wait).await;
+        }
+        if !self.state.lock().running.contains_key(id) {
+            self.launch(id);
+        }
+        let until = Instant::now() + wait;
+        while self.peer(id).is_none() {
+            if Instant::now() > until || !self.state.lock().running.contains_key(id) {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        true
+    }
+
+    /// Restarts a plugin and waits for it to report whether it reached its app.
+    pub async fn test(&self, id: &str) -> Result<Value> {
+        let app = self.app().context("shutting down")?;
+        let sd = id.strip_prefix(crate::streamdeck::PREFIX);
+        let enabled = match sd {
+            Some(uuid) => app.streamdeck.get(uuid).map(|i| i.enabled),
+            None => self.get(id).map(|i| i.enabled),
+        };
+        match enabled {
+            None => bail!("plugin not installed"),
+            Some(false) => return Ok(json!({ "status": "disabled", "ms": 0 })),
+            Some(true) => {}
+        }
+        self.lease(id);
+        let t0 = Instant::now();
+        match sd {
+            Some(uuid) => {
+                crate::streamdeck::stop(&app, uuid);
+                crate::streamdeck::start(&app, uuid);
+            }
+            None => self.restart(id),
+        }
+        loop {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            let c = app.engine.lock().connection(id);
+            let done = c.as_ref().is_some_and(|c| c.status != "connecting");
+            if done || t0.elapsed() > TEST_TIMEOUT {
+                let (status, detail) = c.map(|c| (c.status, c.detail)).unwrap_or_else(|| ("offline".into(), None));
+                return Ok(json!({ "status": status, "detail": detail, "ms": t0.elapsed().as_millis() as u64, "timedOut": !done }));
+            }
+        }
+    }
+
+    /// Health of every installed plugin, Stream Deck plugins included.
+    pub fn health(&self) -> Value {
+        let Some(app) = self.app() else { return json!({}) };
+        let used = self.in_use();
+        let mut ids: Vec<(String, bool)> = self.state.lock().installed.keys().map(|id| (id.clone(), self.peer(id).is_some())).collect();
+        ids.extend(app.streamdeck.health_ids());
+        let now = crate::server::conn::now_ms();
+        let mut e = app.engine.lock();
+        let mut out = Map::new();
+        for (id, connected) in ids {
+            let r = e.health.report(&id, now);
+            let mut v = serde_json::to_value(r).unwrap_or(Value::Null);
+            v["inUse"] = json!(used.contains(&id));
+            v["running"] = json!(connected);
+            out.insert(id, v);
+        }
+        Value::Object(out)
     }
 
     pub fn stop_all(&self) {
@@ -545,7 +695,14 @@ impl Host {
         }
     }
 
+    /// Starts a plugin when the layout uses it (or the editor asked for it).
     pub fn start(&self, id: &str) {
+        if self.wanted(id, &self.in_use()) {
+            self.launch(id);
+        }
+    }
+
+    fn launch(&self, id: &str) {
         let Some(app) = self.app() else { return };
         let Some(inst) = self.get(id) else { return };
         if !inst.enabled {
@@ -649,6 +806,10 @@ impl Host {
     }
 
     pub async fn options(&self, plugin: &str, action: &str, field: &str, settings: &Map<String, Value>) -> Result<Value, String> {
+        // The editor may ask before any pushed key uses the plugin.
+        if self.peer(plugin).is_none() {
+            self.ensure(plugin, OPTIONS_TIMEOUT).await;
+        }
         let peer = self.peer(plugin).ok_or("plugin is not running")?;
         let r = peer.request("options", json!({ "action": action, "field": field, "settings": settings }), OPTIONS_TIMEOUT).await?;
         let list = r.as_array().ok_or("plugin sent invalid options")?;
@@ -673,6 +834,33 @@ impl Host {
             sync_one(&app, &id).await;
         }
     }
+}
+
+/// Plugins a layout uses: through a step on a key, or through a variable or feed a key shows
+/// (like "{obs.scene}" in a label, or "twitch.chat" in a widget). Steps waiting for review
+/// don't count, since they can't run. `prefixes` lists (plugin id, variable prefix).
+pub fn used_by(layout: &crate::model::LayoutFile, prefixes: &[(String, String)]) -> HashSet<String> {
+    let mut used = HashSet::new();
+    let marks: Vec<(&String, String, String)> = prefixes.iter().map(|(id, p)| (id, format!("{{{p}."), format!("\"{p}."))).collect();
+    for (_, _, k) in crate::state::all_keys(layout) {
+        for a in k.actions.iter().chain(&k.off_actions) {
+            if !a.review
+                && let Some((id, _)) = a.plugin()
+            {
+                used.insert(id.to_string());
+            }
+        }
+        if marks.iter().all(|(id, _, _)| used.contains(*id)) {
+            continue;
+        }
+        let text = serde_json::to_string(k).unwrap_or_default();
+        for (id, template, name) in &marks {
+            if !used.contains(*id) && (text.contains(template.as_str()) || text.contains(name.as_str())) {
+                used.insert((*id).clone());
+            }
+        }
+    }
+    used
 }
 
 fn field_default(f: &manifest::Field) -> Option<Value> {
@@ -712,13 +900,24 @@ async fn supervise(app: Arc<App>, id: String, generation: u64, deno: PathBuf, mu
         }
         let Some(inst) = app.plugins.get(&id) else { return };
         let name = inst.manifest.name.clone();
-        app.engine.lock().set_connection(ConnectionView { id: id.clone(), name: name.clone(), status: "connecting".into(), detail: None });
+        {
+            let mut e = app.engine.lock();
+            e.set_connection(ConnectionView { id: id.clone(), name: name.clone(), status: "connecting".into(), detail: None });
+            e.health.started(&id, crate::server::conn::now_ms());
+        }
 
         let outcome = match run_once(&app, &inst, generation, &deno, &mut stop).await {
-            Ok(Run::Stopped) => return,
+            Ok(Run::Stopped) => {
+                app.engine.lock().health.exited(&id, crate::server::conn::now_ms(), false, None);
+                return;
+            }
             Ok(Run::Ended) => Ok(()),
             Err(e) => Err(e),
         };
+        {
+            let reason = outcome.as_ref().err().map(|e| format!("{e:#}"));
+            app.engine.lock().health.exited(&id, crate::server::conn::now_ms(), true, Some(reason.as_deref().unwrap_or("the plugin stopped on its own")));
+        }
         if !current(&app) {
             return;
         }
@@ -1220,6 +1419,30 @@ mod tests {
         assert!(app.plugins.configure("dev.example.net", &set(json!({ "host": "exfil.example" })), true).is_err());
         assert!(app.plugins.configure("dev.example.net", &set(json!({ "token": "t" })), true).is_ok(), "tokens are fine");
         assert!(app.plugins.configure("dev.example.net", &set(json!({ "host": "10.0.0.2" })), false).is_ok(), "the person can");
+    }
+
+    #[test]
+    fn finds_plugins_by_steps_and_by_the_variables_keys_show() {
+        let mut l = crate::state::default_layout();
+        let prefixes =
+            vec![("dev.keyside.obs".to_string(), "obs".to_string()), ("dev.keyside.twitch".to_string(), "twitch".to_string()), ("dev.keyside.hue".to_string(), "hue".to_string())];
+        let used = used_by(&l, &prefixes);
+        assert!(used.contains("dev.keyside.obs"));
+        assert!(!used.contains("dev.keyside.hue"));
+        let k = &mut l.profiles[0].pages[0].keys[0];
+        k.label = "{hue.lights} on".into();
+        k.actions.clear();
+        assert!(used_by(&l, &prefixes).contains("dev.keyside.hue"));
+        for p in &mut l.profiles {
+            for pg in &mut p.pages {
+                for k in &mut pg.keys {
+                    for a in &mut k.actions {
+                        a.review = true;
+                    }
+                }
+            }
+        }
+        assert!(!used_by(&l, &prefixes).contains("dev.keyside.obs"), "steps waiting for review can't run");
     }
 
     #[test]

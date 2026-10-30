@@ -15,7 +15,7 @@ use crate::crypto::channel::Session;
 use crate::devices::{PinCheck, Scope};
 use crate::model::{FormFactor, KeyKind, Tone};
 use crate::plugins::Step;
-use crate::state::view::KeyView;
+use crate::state::view::{KeyView, PageView};
 use crate::state::{Change, instance_id, key_path};
 
 const SEND_TIMEOUT: Duration = Duration::from_secs(10);
@@ -90,7 +90,7 @@ struct Conn {
     page: String,
     stack: Vec<String>,
     sent: HashMap<String, KeyView>,
-    sent_shape: Option<(String, u8, u8, Vec<String>)>,
+    sent_shape: Option<String>,
     locked: bool,
     holds: HashMap<String, u64>,
     hold_gen: u64,
@@ -179,7 +179,8 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
             }
             ch = changes.recv() => match ch {
                 Ok(Change::Keys | Change::Vars) => dirty_keys = true,
-                Ok(Change::Layout) => { c.fix_position(); dirty_full = true; }
+                // Pushes often change a few keys only; send_page sends the whole page when its shape changed.
+                Ok(Change::Layout) => { c.fix_position(); dirty_keys = true; }
                 Ok(Change::Profile) => {
                     let active = app.engine.lock().active_profile().to_string();
                     if active != c.profile && c.who.pages.is_none() {
@@ -251,6 +252,17 @@ fn finish(app: &App, who: &Who) {
     if !who.admin {
         app.notify(Change::Pending);
     }
+}
+
+/// Everything on a page except how the keys look. While it stays the same, only the keys
+/// that changed go out.
+fn shape(profile: &str, profile_name: &str, v: &PageView) -> String {
+    let keys: Vec<String> = v.keys.iter().map(|k| format!("{}:{}:{}:{}:{}", k.id, k.x, k.y, k.w, k.h)).collect();
+    serde_json::to_string(&(profile, profile_name, &v.id, &v.name, &v.subtitle, v.folder, v.cols, v.rows, v.index, v.count, keys)).unwrap_or_default()
+}
+
+fn changed_keys<'a>(sent: &HashMap<String, KeyView>, v: &'a PageView) -> Vec<&'a KeyView> {
+    v.keys.iter().filter(|k| sent.get(&k.id) != Some(*k)).collect()
 }
 
 pub fn now_ms() -> u64 {
@@ -348,13 +360,13 @@ impl Conn {
             self.sent_shape = None;
             return self.link.send(&json!({ "t": "page", "rev": rev, "profile": { "id": self.profile, "name": profile_name }, "page": Value::Null, "locked": false })).await;
         };
-        let shape = (view.id.clone(), view.cols, view.rows, view.keys.iter().map(|k| format!("{}:{}:{}:{}:{}", k.id, k.x, k.y, k.w, k.h)).collect::<Vec<_>>());
+        let shape = shape(&self.profile, &profile_name, &view);
         if full || self.sent_shape.as_ref() != Some(&shape) {
             self.sent = view.keys.iter().map(|k| (k.id.clone(), k.clone())).collect();
             self.sent_shape = Some(shape);
             return self.link.send(&json!({ "t": "page", "rev": rev, "profile": { "id": self.profile, "name": profile_name }, "page": view, "locked": false })).await;
         }
-        let changed: Vec<&KeyView> = view.keys.iter().filter(|k| self.sent.get(&k.id) != Some(*k)).collect();
+        let changed = changed_keys(&self.sent, &view);
         if changed.is_empty() {
             return Ok(());
         }
@@ -625,5 +637,42 @@ async fn apply_slide(app: &Arc<App>, profile: &str, page: &str, id: &str, key: &
             }
             None => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::Engine;
+
+    #[test]
+    fn variable_changes_resend_only_the_keys_that_show_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut e, _) = Engine::load(crate::config::Paths { root: dir.path().into() }).unwrap();
+        let mut l = e.layout().clone();
+        let (pid, pg) = (l.default_profile.clone(), l.profiles[0].home_page.clone());
+        let page = l.profiles[0].pages.iter_mut().find(|p| p.id == pg).unwrap();
+        page.keys[0].label = "Viewers {user.viewers}".into();
+        e.replace_layout(l.clone()).unwrap();
+        let ff = FormFactor::PhonePortrait;
+        let before = e.page_view(&pid, &pg, ff, None).unwrap();
+        let sent: HashMap<String, KeyView> = before.keys.iter().map(|k| (k.id.clone(), k.clone())).collect();
+        e.set_var("user.viewers", serde_json::json!(42));
+        let after = e.page_view(&pid, &pg, ff, None).unwrap();
+        assert_eq!(shape(&pid, "x", &before), shape(&pid, "x", &after), "same page, no full resend");
+        let changed = changed_keys(&sent, &after);
+        assert_eq!(changed.len(), 1);
+        assert_eq!(changed[0].label, "Viewers 42");
+
+        // A push that only relabels a key keeps the shape too; a renamed page doesn't.
+        let page = l.profiles[0].pages.iter_mut().find(|p| p.id == pg).unwrap();
+        page.keys[1].label = "Renamed".into();
+        e.replace_layout(l.clone()).unwrap();
+        let pushed = e.page_view(&pid, &pg, ff, None).unwrap();
+        assert_eq!(shape(&pid, "x", &before), shape(&pid, "x", &pushed));
+        assert_eq!(changed_keys(&sent, &pushed).len(), 2);
+        l.profiles[0].pages.iter_mut().find(|p| p.id == pg).unwrap().name = "Other".into();
+        e.replace_layout(l).unwrap();
+        assert_ne!(shape(&pid, "x", &before), shape(&pid, "x", &e.page_view(&pid, &pg, ff, None).unwrap()));
     }
 }

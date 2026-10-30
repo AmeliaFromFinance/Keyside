@@ -225,7 +225,10 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
         let Some(inst) = app.streamdeck.get(&uuid) else { return };
         let token = app.streamdeck.state.lock().running.get(&uuid).map(|r| r.token.clone()).unwrap_or_default();
         let mut child = match command(&app, &inst, &token).and_then(|mut c| c.spawn().context("starting the plugin")) {
-            Ok(c) => c,
+            Ok(c) => {
+                app.engine.lock().health.started(&inst.plugin_id(), crate::server::conn::now_ms());
+                c
+            }
             Err(e) => {
                 app.engine.lock().set_connection(ConnectionView { id: inst.plugin_id(), name: inst.manifest.name.clone(), status: "error".into(), detail: Some(format!("{e:#}")) });
                 return;
@@ -268,6 +271,10 @@ async fn supervise(app: Arc<App>, uuid: String, generation: u64, mut stop: tokio
             let _ = tokio::time::timeout(Duration::from_millis(500), r).await;
         }
         let why = last_error.lock().take();
+        {
+            let reason = why.clone().unwrap_or_else(|| format!("exited ({})", status.as_ref().map(|s| s.to_string()).unwrap_or_else(|e| e.to_string())));
+            app.engine.lock().health.exited(&inst.plugin_id(), crate::server::conn::now_ms(), true, Some(&reason));
+        }
         let crashes = {
             let mut st = app.streamdeck.state.lock();
             let Some(r) = st.running.get_mut(&uuid) else { return };

@@ -73,6 +73,8 @@ pub struct App {
     pub zoom_hook: RwLock<Option<ZoomHook>>,
     /// The editor window's current zoom.
     pub editor_zoom: RwLock<f64>,
+    /// A backup uploaded for restoring, waiting for the person to confirm: (id, when, backup).
+    pub staged_backup: Mutex<Option<(String, std::time::Instant, crate::backup::Backup)>>,
 }
 
 pub type ZoomHook = Box<dyn Fn(Option<f64>) -> f64 + Send + Sync>;
@@ -124,6 +126,7 @@ impl App {
             login_fails: Mutex::new((0, None)),
             zoom_hook: RwLock::new(None),
             editor_zoom: RwLock::new(1.0),
+            staged_backup: Mutex::new(None),
         });
         app.plugins.attach(&app);
         Ok(app)

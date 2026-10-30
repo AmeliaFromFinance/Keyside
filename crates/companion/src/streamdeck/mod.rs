@@ -10,7 +10,7 @@ mod inspector;
 pub mod manifest;
 mod runtime;
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -156,6 +156,15 @@ impl Hub {
         store::write_json(&self.root.join("plugins.json"), &st.installed)
     }
 
+    /// Reads the plugin list again, after a restore. Plugins must be stopped.
+    pub fn reload(&self) {
+        let installed = store::read_json_or_reset(&self.root.join("plugins.json")).ok().flatten().unwrap_or_default();
+        let mut st = self.state.lock();
+        st.installed = installed;
+        st.views.clear();
+        self.images.lock().clear();
+    }
+
     pub fn plugin_dir(&self, uuid: &str) -> PathBuf {
         self.root.join("plugins").join(uuid)
     }
@@ -170,6 +179,12 @@ impl Hub {
 
     pub fn get(&self, uuid: &str) -> Option<Installed> {
         self.state.lock().installed.get(uuid).cloned()
+    }
+
+    /// Plugin ids ("sd.<uuid>") of every installed plugin, and whether each is connected.
+    pub fn health_ids(&self) -> Vec<(String, bool)> {
+        let st = self.state.lock();
+        st.installed.values().map(|i| (i.plugin_id(), st.running.get(&i.uuid).is_some_and(|r| r.tx.is_some()))).collect()
     }
 
     /// Plugin ids ("sd.<uuid>") that are on, for the "missing plugin" check on keys.
@@ -817,21 +832,56 @@ pub fn inspector_origin(app: &App) -> Option<String> {
     app.streamdeck.inspector_port.get().map(|p| format!("http://localhost:{p}"))
 }
 
-/// Starts the plugin socket, the settings panel server and every enabled plugin.
+/// Starts the plugin socket, the settings panel server and every enabled plugin the layout uses.
 pub async fn start_all(app: &Arc<App>) -> Result<()> {
     let _ = app.streamdeck.admin_port.set(app.settings.read().admin_port);
     runtime::listen(app.clone()).await?;
     inspector::listen(app.clone()).await?;
-    let ids: Vec<String> = app.streamdeck.state.lock().installed.values().filter(|i| i.enabled).map(|i| i.uuid.clone()).collect();
-    for id in ids {
-        start(app, &id);
-    }
+    reconcile(app, &app.plugins.in_use());
     refresh_engine(app);
     Ok(())
 }
 
+/// Starts a plugin when a key uses it (or the editor asked for it).
 pub fn start(app: &Arc<App>, uuid: &str) {
-    runtime::start(app, uuid);
+    if app.plugins.wanted(&format!("{PREFIX}{uuid}"), &app.plugins.in_use()) {
+        runtime::start(app, uuid);
+    }
+}
+
+/// Starts the plugins the layout uses and stops the others. `used` comes from `Host::in_use`.
+pub fn reconcile(app: &Arc<App>, used: &HashSet<String>) {
+    let (enabled, running): (Vec<String>, Vec<String>) = {
+        let st = app.streamdeck.state.lock();
+        (st.installed.values().filter(|i| i.enabled).map(|i| i.uuid.clone()).collect(), st.running.keys().cloned().collect())
+    };
+    for uuid in &enabled {
+        if !running.contains(uuid) && app.plugins.wanted(&format!("{PREFIX}{uuid}"), used) {
+            runtime::start(app, uuid);
+        }
+    }
+    for uuid in &running {
+        if !app.plugins.wanted(&format!("{PREFIX}{uuid}"), used) {
+            tracing::info!(plugin = %uuid, "no key uses this Stream Deck plugin anymore; stopping it");
+            stop(app, uuid);
+        }
+    }
+}
+
+/// Starts a plugin for the editor and waits up to `wait` until it has connected.
+pub async fn ensure(app: &Arc<App>, uuid: &str, wait: Duration) -> bool {
+    let connected = |app: &App| app.streamdeck.state.lock().running.get(uuid).map(|r| r.tx.is_some());
+    if connected(app).is_none() {
+        runtime::start(app, uuid);
+    }
+    let until = Instant::now() + wait;
+    loop {
+        match connected(app) {
+            Some(true) => return true,
+            Some(false) if Instant::now() < until => tokio::time::sleep(Duration::from_millis(100)).await,
+            _ => return false,
+        }
+    }
 }
 
 pub fn stop_all(app: &App) {
@@ -852,6 +902,7 @@ pub fn stop(app: &App, uuid: &str) {
             let _ = s.send(());
         }
         let mut e = app.engine.lock();
+        e.health.exited(&format!("{PREFIX}{uuid}"), crate::server::conn::now_ms(), false, None);
         for id in r.instances.keys() {
             e.set_override(id, None);
         }

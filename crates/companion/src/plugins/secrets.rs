@@ -59,6 +59,11 @@ impl Secrets {
         Ok(())
     }
 
+    /// Drops the cached file, so the next read sees what is on disk.
+    pub fn forget(&self) {
+        *self.cache.lock() = None;
+    }
+
     fn load(&self) -> BTreeMap<String, String> {
         let mut c = self.cache.lock();
         if c.is_none() {

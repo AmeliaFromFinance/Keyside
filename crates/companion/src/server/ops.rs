@@ -174,6 +174,16 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             need_edit(who)?;
             Ok(serde_json::to_value(app.plugins.list()).unwrap_or(Value::Null))
         }
+        "history.list" => {
+            need_edit(who)?;
+            Ok(serde_json::to_value(crate::history::list(app.paths.root())).unwrap_or(Value::Null))
+        }
+        "history.get" => {
+            need_edit(who)?;
+            let rev = a.get("rev").and_then(Value::as_u64).ok_or_else(|| OpError::invalid("missing rev"))?;
+            let l = crate::history::get(app.paths.root(), rev).ok_or_else(|| OpError::not_found("that version is no longer kept"))?;
+            Ok(serde_json::to_value(l).unwrap_or(Value::Null))
+        }
 
         // Everything below changes the PC itself and only works from the local editor.
         "companion.info" => {
@@ -191,6 +201,46 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
                 "zoom": *app.editor_zoom.read(),
                 "zoomAuto": st.editor_zoom.is_none(),
             }))
+        }
+        // First run: nothing pushed or paired yet, and the setup wasn't finished or skipped.
+        "setup.state" => {
+            need_admin(who)?;
+            let fresh = !app.settings.read().setup_done && app.engine.lock().layout().rev == 0 && app.devices.lock().list(&|_| false).is_empty();
+            Ok(json!({ "fresh": fresh }))
+        }
+        "setup.done" => {
+            need_admin(who)?;
+            let mut next = app.settings.read().clone();
+            next.setup_done = true;
+            next.save(&app.paths).map_err(OpError::failed)?;
+            *app.settings.write() = next;
+            Ok(Value::Null)
+        }
+        "backup.restore" => {
+            need_admin(who)?;
+            let id = s(&a, "id")?;
+            let staged = {
+                let mut st = app.staged_backup.lock();
+                match st.take() {
+                    Some((sid, at, b)) if sid == id && at.elapsed() < std::time::Duration::from_secs(1800) => b,
+                    other => {
+                        *st = other;
+                        return Err(OpError::not_found("upload expired, pick the file again"));
+                    }
+                }
+            };
+            let pass = a.get("passphrase").and_then(Value::as_str);
+            // A wrong passphrase leaves the upload in place for another try.
+            if let Err(e) = crate::backup::check_passphrase(&staged, pass) {
+                *app.staged_backup.lock() = Some((id.to_string(), std::time::Instant::now(), staged));
+                return Err(OpError::invalid(format!("{e:#}")));
+            }
+            crate::backup::restore(app, staged, pass).await.map_err(|e| OpError::failed(format!("{e:#}")))
+        }
+        "backup.cancel" => {
+            need_admin(who)?;
+            *app.staged_backup.lock() = None;
+            Ok(Value::Null)
         }
         "settings.get" => {
             need_admin(who)?;
@@ -423,6 +473,14 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             app.plugins.restart(s(&a, "id")?);
             Ok(Value::Null)
         }
+        "plugins.health" => {
+            need_admin(who)?;
+            Ok(app.plugins.health())
+        }
+        "plugins.test" => {
+            need_admin(who)?;
+            app.plugins.test(s(&a, "id")?).await.map_err(OpError::failed)
+        }
         "sound.stop" => {
             need_edit(who)?;
             #[cfg(feature = "sound")]
@@ -536,7 +594,12 @@ async fn save_layout(app: &Arc<App>, who: &Who, a: &Value) -> R {
             mark_for_review(e.layout(), &mut new);
         }
         crate::streamdeck::keep_settings(e.layout(), &mut new);
+        let before = e.layout().clone();
         let rev = e.replace_layout(new).map_err(OpError::failed)?;
+        let entry = crate::history::Entry { rev, at: super::conn::now_ms(), by: who.name.clone(), device: who.device.clone(), layout: e.layout().clone() };
+        if let Err(err) = crate::history::record(app.paths.root(), &before, entry) {
+            tracing::warn!("could not keep the pushed layout in the history: {err:#}");
+        }
         if !who.admin {
             e.toast(format!("Layout changed by {}", who.name), Tone::Default);
         }

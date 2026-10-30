@@ -78,6 +78,8 @@ pub struct Engine {
     tx: broadcast::Sender<Change>,
     /// User variables changed since the last save. Saved by `flush_vars`, off the lock.
     vars_dirty: bool,
+    /// Uptime, crashes and recent status messages of each plugin.
+    pub health: crate::health::Tracker,
 }
 
 /// Instance ids name one action on one key: "profile/page/key/n", or ".../o<n>" for off actions.
@@ -130,6 +132,7 @@ impl Engine {
                 installed: HashSet::new(),
                 tx,
                 vars_dirty: false,
+                health: Default::default(),
             },
             rx,
         ))
@@ -289,6 +292,7 @@ impl Engine {
 
     pub fn set_connection(&mut self, c: ConnectionView) {
         if self.connections.get(&c.id) != Some(&c) {
+            self.health.status(&c.id, crate::server::conn::now_ms(), &c.status, c.detail.as_deref());
             self.connections.insert(c.id.clone(), c);
             self.notify(Change::Status);
         }
@@ -330,6 +334,19 @@ impl Engine {
         debug_assert!(self.pills.iter().all(|(k, p)| *k == p.id));
         let used: HashSet<&str> = all_keys(&self.layout).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).filter_map(|a| a.plugin().map(|(id, _)| id)).collect();
         (self.connections.values().filter(|c| used.contains(c.id.as_str())).cloned().collect(), self.pills.values().cloned().collect())
+    }
+
+    /// Latest status of one plugin, whether or not the layout uses it.
+    pub fn connection(&self, id: &str) -> Option<ConnectionView> {
+        self.connections.get(id).cloned()
+    }
+
+    /// Takes over user variables from a restored backup.
+    pub fn restore_vars(&mut self, user: HashMap<String, Value>) {
+        self.vars.retain(|k, _| !k.starts_with("user."));
+        self.vars.extend(user.into_iter().filter(|(k, _)| k.starts_with("user.")));
+        self.vars_dirty = false;
+        self.notify(Change::Vars);
     }
 
     /// Flips a toggle key and returns its new state.

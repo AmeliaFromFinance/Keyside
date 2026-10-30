@@ -78,6 +78,11 @@ impl Assets {
         Ok(Self { dir, index: Mutex::new(index) })
     }
 
+    /// Reads the index again, after a restore.
+    pub fn reload(&self) {
+        *self.index.lock() = store::read_json_or_reset(&self.dir.join("index.json")).ok().flatten().unwrap_or_default();
+    }
+
     pub fn put(&self, name: &str, bytes: &[u8]) -> Result<Meta> {
         let Some((kind, mime, ext)) = sniff(bytes) else { bail!("unsupported file type") };
         let limit = if kind == Kind::Image { MAX_IMAGE } else { MAX_SOUND };
