@@ -3,6 +3,7 @@
 import type { Action, Condition, DeckLink, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
 import { req, listen, deck } from "../lib/deck.svelte.ts";
 import { t } from "../lib/i18n.svelte.ts";
+import { portable } from "./keysearch.ts";
 
 export interface FieldSchema {
   type: "string" | "number" | "integer" | "boolean" | "object";
@@ -105,6 +106,7 @@ export async function load(keepDraft = true) {
   const [layout, catalog] = await Promise.all([req<LayoutFile>("layout.get"), req<Catalog>("catalog.get")]);
   ed.catalog = catalog;
   ed.baseRev = layout.rev;
+  void loadTemplates();
   let draft: LayoutFile | null = null;
   if (keepDraft) {
     try {
@@ -181,6 +183,9 @@ export function redo() {
   ed.dirty = true;
   persist();
 }
+
+/** The layout as devices have it, from the last push or load. */
+export const lastPushed = () => saved;
 
 export const canUndo = () => history.undo > 0;
 export const canRedo = () => history.redo > 0;
@@ -532,14 +537,34 @@ export function duplicateKeys(ids: string[]) {
 
 export const duplicateKey = (id: string) => duplicateKeys([id]);
 
-/** Copied or cut keys, to paste on any page. Kept for this session only. */
-export const clipboard = $state({ keys: [] as Key[] });
+/**
+ * Copied or cut keys, to paste on any page of any layout. Kept in this browser, so they
+ * survive a reload and reach other editor tabs.
+ */
+const CLIP = "keyside.clipboard";
+export const clipboard = $state({ keys: readClipboard() });
+
+function readClipboard(): Key[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLIP) ?? "null");
+    return Array.isArray(v?.keys) ? v.keys : [];
+  } catch {
+    return [];
+  }
+}
+
+if (typeof window !== "undefined") addEventListener("storage", (e) => e.key === CLIP && (clipboard.keys = readClipboard()));
 
 export function copyKeys(ids: string[], cut = false) {
   const p = page();
   if (!p || !ids.length) return;
   const keys = snapshot(p, ids);
   clipboard.keys = keys;
+  try {
+    localStorage.setItem(CLIP, JSON.stringify({ keys }));
+  } catch {
+    /* storage full or blocked: pasting still works in this tab */
+  }
   const name = keyName(keys.length, keys[0]?.label);
   if (cut) {
     deleteKeys(ids);
@@ -549,15 +574,77 @@ export function copyKeys(ids: string[], cut = false) {
 
 export const copyKey = (id: string, cut = false) => copyKeys([id], cut);
 
-/** Pastes at a cell, keeping the copied keys' arrangement when it fits there. */
-export function pasteKey(x?: number, y?: number) {
+/**
+ * Places copies of keys on the current page and selects them. At a cell, the group keeps its
+ * arrangement when it fits there. Folder keys from another layout are left out.
+ */
+export function placeKeys(source: Key[], x?: number, y?: number): boolean {
   const p = page();
-  if (!p || !clipboard.keys.length) return;
-  const made = placeCopies(p, clipboard.keys, x !== undefined && y !== undefined ? [x, y] : undefined);
-  if (!made) return notify(t("No free space on this page"));
+  if (!p || !source.length) return false;
+  const { keys, dropped } = portable(JSON.parse(JSON.stringify(source)) as Key[], profile()?.pages.map((pg) => pg.id) ?? []);
+  if (!keys.length) {
+    notify(t("Folders can only be pasted in their own layout"));
+    return false;
+  }
+  // Styles belong to one layout: keep only the ones this layout has.
+  const styles = new Set((ed.layout?.styles ?? []).map((s) => s.id));
+  for (const k of keys) {
+    if (!k.styles) continue;
+    k.styles = k.styles.filter((id) => styles.has(id));
+    if (!k.styles.length) delete k.styles;
+  }
+  const made = placeCopies(p, keys, x !== undefined && y !== undefined ? [x, y] : undefined);
+  if (!made) {
+    notify(t("No free space on this page"));
+    return false;
+  }
   change(() => p.keys.push(...made));
   ed.picked = made.map((k) => k.id);
   ed.key = made.at(-1)!.id;
+  if (dropped) notify(t("Folders can only be pasted in their own layout"));
+  return true;
+}
+
+/** Pastes at a cell, keeping the arrangement of the copied keys when it fits there. */
+export function pasteKey(x?: number, y?: number) {
+  placeKeys(clipboard.keys, x, y);
+}
+
+export interface KeyTemplate {
+  id: string;
+  name: string;
+  keys: Key[];
+}
+
+/** Saved key templates, shared by every editor of this companion. */
+export const templates = $state({ list: [] as KeyTemplate[], asking: null as string[] | null });
+
+export async function loadTemplates() {
+  try {
+    templates.list = await req<KeyTemplate[]>("templates.list");
+  } catch {
+    /* older companion or not connected */
+  }
+}
+
+/** Opens the "Save as template" dialog for these keys of the current page. */
+export function askTemplate(ids: string[]) {
+  templates.asking = ids.length ? ids : null;
+}
+
+export async function saveTemplate(name: string, ids: string[]) {
+  const p = page();
+  if (!p) return;
+  const { keys, dropped } = portable(snapshot(p, ids), []);
+  if (!keys.length) throw new Error(t("Folders can't be saved as templates"));
+  const made = await req<KeyTemplate>("templates.save", { name, keys });
+  templates.list = [...templates.list.filter((x) => x.id !== made.id), made];
+  notify(dropped ? t("Saved {name} without its folders", { name: made.name }) : t("Saved template {name}", { name: made.name }));
+}
+
+export function placeTemplate(id: string, x?: number, y?: number): boolean {
+  const tpl = templates.list.find((x) => x.id === id);
+  return !!tpl && placeKeys(tpl.keys, x, y);
 }
 
 /** Moves keys to another page of the same layout, into its free spots. */
@@ -777,6 +864,7 @@ export function startLive() {
   poll = setInterval(fetchLive, 1000);
   const off = listen((m) => {
     if (m.t === "event" && m.name === "admin.changed") void reloadCatalog().catch(() => {});
+    if (m.t === "event" && m.name === "templates.changed") void loadTemplates();
   });
   return () => {
     if (poll) clearInterval(poll);

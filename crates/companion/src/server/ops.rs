@@ -77,7 +77,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             Ok(json!({
                 "core": core,
                 "plugins": app.plugins.catalog().into_iter().filter_map(|p| serde_json::to_value(p).ok()).chain(app.streamdeck.catalog()).collect::<Vec<_>>(),
-                "assets": app.assets.list(),
+                "assets": app.assets.list().into_iter().filter(|m| m.pack.is_none()).collect::<Vec<_>>(),
                 "midi": midi,
                 "variables": all_variables(app),
             }))
@@ -123,6 +123,43 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
         "assets.delete" => {
             need_admin(who)?;
             Ok(json!(app.assets.delete(s(&a, "id")?).map_err(OpError::failed)?))
+        }
+        "templates.list" => {
+            need_edit(who)?;
+            Ok(serde_json::to_value(app.templates.list()).unwrap_or(Value::Null))
+        }
+        "templates.save" => {
+            need_edit(who)?;
+            let mut keys: Vec<model::Key> =
+                serde_json::from_value(a.get("keys").cloned().unwrap_or(Value::Null)).map_err(|e| OpError::invalid(format!("keys are invalid: {e}")))?;
+            if !who.admin {
+                review_template(&app.engine.lock().layout().clone(), &mut keys)?;
+            }
+            let t = app.templates.add(s(&a, "name")?, keys).map_err(|e| OpError::invalid(e.to_string()))?;
+            app.notify(Change::Templates);
+            Ok(serde_json::to_value(t).unwrap_or(Value::Null))
+        }
+        "templates.rename" => {
+            need_edit(who)?;
+            if !app.templates.rename(s(&a, "id")?, s(&a, "name")?).map_err(|e| OpError::invalid(e.to_string()))? {
+                return Err(OpError::not_found("template not found"));
+            }
+            app.notify(Change::Templates);
+            Ok(Value::Null)
+        }
+        "templates.delete" => {
+            need_edit(who)?;
+            let gone = app.templates.delete(s(&a, "id")?).map_err(OpError::failed)?;
+            app.notify(Change::Templates);
+            Ok(json!(gone))
+        }
+        "iconpacks.list" => {
+            need_edit(who)?;
+            Ok(serde_json::to_value(app.assets.packs()).unwrap_or(Value::Null))
+        }
+        "iconpacks.delete" => {
+            need_admin(who)?;
+            Ok(json!(app.assets.delete_pack(s(&a, "id")?, &icons_in_use(app)).map_err(OpError::failed)?))
         }
         "variables.list" => {
             need_edit(who)?;
@@ -452,6 +489,14 @@ pub fn stage(app: &App, pkg: crate::plugins::package::Package, source: Source) -
     info
 }
 
+/// Asset ids that keys, their feedback or templates show, so deleting an icon pack keeps them.
+pub fn icons_in_use(app: &App) -> std::collections::HashSet<String> {
+    let layout = app.engine.lock().layout().clone();
+    let templates = app.templates.list();
+    let keys = all_keys(&layout).map(|(_, _, k)| k).chain(templates.iter().flat_map(|t| &t.keys));
+    keys.flat_map(|k| k.icon.iter().chain(k.feedback.iter().filter_map(|f| f.style.icon.as_ref()))).filter_map(|i| i.strip_prefix("asset:").map(str::to_string)).collect()
+}
+
 fn all_variables(app: &App) -> Value {
     serde_json::to_value(app.engine.lock().vars_with_prefix("")).unwrap_or(Value::Null)
 }
@@ -480,6 +525,23 @@ fn check_editor_changes(old: &LayoutFile, new: &LayoutFile) -> Result<(), OpErro
             }
             if !a.review && !old_actions.iter().any(|o| o.same_as(a) && !o.review) && old_actions.iter().any(|o| o.same_as(a) && o.review) {
                 return Err(OpError { code: "forbidden", message: "Imported steps can only be approved on the PC".into() });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Templates saved from other devices follow the same rules as their layout changes: no new
+/// steps that start programs, and new keyboard steps wait for approval on the PC.
+fn review_template(layout: &LayoutFile, keys: &mut [model::Key]) -> Result<(), OpError> {
+    let known: Vec<&Action> = all_keys(layout).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).collect();
+    for k in keys.iter_mut() {
+        for a in k.actions.iter_mut().chain(k.off_actions.iter_mut()) {
+            if actions::is_admin_only(a) && !known.iter().any(|o| o.same_as(a)) {
+                return Err(OpError { code: "forbidden", message: format!("\"{}\" can only be saved on the PC", k.label) });
+            }
+            if actions::PC_REVIEW.contains(&a.kind.as_str()) && !known.iter().any(|o| o.same_as(a) && !o.review) {
+                a.review = true;
             }
         }
     }
@@ -613,6 +675,30 @@ mod tests {
         }
         mark_for_review(&base, &mut moved);
         assert!(!moved.profiles[0].pages[0].keys[0].actions[0].review);
+    }
+
+    #[tokio::test]
+    async fn templates_from_other_devices_follow_the_review_rules() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+        let admin = Who { admin: true, device: String::new(), name: String::new(), scope: Scope::Editor, pages: None };
+        let phone = Who { admin: false, ..admin.clone() };
+        let deck = Who { scope: Scope::Deck, ..phone.clone() };
+        let key = |kind: &str, settings: Value| json!([{ "id": "k1", "x": 2, "y": 1, "kind": "button", "label": "Go", "actions": [{ "type": kind, "settings": settings }] }]);
+        let launch = key("core.launch", json!({ "path": "/bin/sh" }));
+        assert!(handle(&app, &phone, "templates.save", json!({ "name": "x", "keys": launch })).await.is_err());
+        assert!(handle(&app, &deck, "templates.list", json!({})).await.is_err(), "deck-only devices can't edit");
+        let saved = handle(&app, &phone, "templates.save", json!({ "name": "Keys", "keys": key("core.keys", json!({ "keys": "ctrl+c" })) })).await.ok().unwrap();
+        assert_eq!(saved["keys"][0]["actions"][0]["review"], json!(true));
+        assert_eq!(saved["keys"][0]["x"], json!(0));
+        let ok = handle(&app, &admin, "templates.save", json!({ "name": "Launch", "keys": launch })).await.ok().unwrap();
+        assert!(ok["keys"][0]["actions"][0].get("review").is_none_or(|r| r == &json!(false)));
+        let id = ok["id"].as_str().unwrap().to_string();
+        assert!(handle(&app, &phone, "templates.rename", json!({ "id": id, "name": "Start" })).await.is_ok());
+        let list = handle(&app, &phone, "templates.list", json!({})).await.ok().unwrap();
+        assert_eq!(list.as_array().unwrap().len(), 2);
+        assert_eq!(list[1]["name"], json!("Start"));
+        assert!(handle(&app, &phone, "templates.delete", json!({ "id": id })).await.is_ok());
     }
 
     #[test]

@@ -43,6 +43,46 @@ pub fn safe_path(p: &str) -> bool {
         && p.split('/').all(|c| !c.is_empty() && c != "." && c != ".." && !c.chars().any(char::is_control))
 }
 
+/// Unpacks a zip into memory, with limits on the file count, each file and the total. Fails on
+/// unsafe paths, links, repeated names and entries that unpack to more than they declare.
+pub fn read_zip(bytes: &[u8], max_files: usize, max_file: u64, max_total: u64) -> Result<Vec<(String, Vec<u8>)>> {
+    let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).context("not a zip file")?;
+    if zip.len() > max_files {
+        bail!("zip has more than {max_files} files");
+    }
+    let mut total = 0u64;
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    for i in 0..zip.len() {
+        let mut f = zip.by_index(i)?;
+        let name = f.name()?.to_string();
+        if f.is_dir() {
+            continue;
+        }
+        if f.is_symlink() || !safe_path(&name) {
+            bail!("zip contains an unsafe path: {name}");
+        }
+        if f.size() > max_file {
+            bail!("{name} is too large");
+        }
+        total += f.size();
+        if total > max_total {
+            bail!("zip unpacks to more than {} MB", max_total / (1024 * 1024));
+        }
+        let declared = f.size();
+        let mut buf = Vec::with_capacity(declared as usize);
+        // Read one byte past the declared size to catch lying headers.
+        (&mut f).take(declared + 1).read_to_end(&mut buf)?;
+        if buf.len() as u64 != declared {
+            bail!("{name} does not match its declared size");
+        }
+        if files.iter().any(|(n, _)| *n == name) {
+            bail!("zip lists {name} twice");
+        }
+        files.push((name, buf));
+    }
+    Ok(files)
+}
+
 fn digest_list(files: &[(String, Vec<u8>)]) -> Vec<u8> {
     let mut list: Vec<(&str, String)> =
         files.iter().filter(|(n, _)| n != SIG_FILE).map(|(n, b)| (n.as_str(), Sha256::digest(b).iter().map(|x| format!("{x:02x}")).collect())).collect();
@@ -83,40 +123,7 @@ impl Package {
             bail!("package is larger than 50 MB");
         }
         let sha256 = Sha256::digest(bytes).iter().map(|x| format!("{x:02x}")).collect();
-        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).context("not a zip file")?;
-        if zip.len() > MAX_FILES {
-            bail!("package has more than {MAX_FILES} files");
-        }
-        let mut total = 0u64;
-        let mut files = Vec::new();
-        for i in 0..zip.len() {
-            let mut f = zip.by_index(i)?;
-            let name = f.name()?.to_string();
-            if f.is_dir() {
-                continue;
-            }
-            if f.is_symlink() || !safe_path(&name) {
-                bail!("package contains an unsafe path: {name}");
-            }
-            if f.size() > MAX_FILE {
-                bail!("{name} is too large");
-            }
-            total += f.size();
-            if total > MAX_TOTAL {
-                bail!("package unpacks to more than 50 MB");
-            }
-            let declared = f.size();
-            let mut buf = Vec::with_capacity(declared as usize);
-            // Read one byte past the declared size to catch lying headers.
-            (&mut f).take(declared + 1).read_to_end(&mut buf)?;
-            if buf.len() as u64 != declared {
-                bail!("{name} does not match its declared size");
-            }
-            if files.iter().any(|(n, _)| *n == name) {
-                bail!("package lists {name} twice");
-            }
-            files.push((name, buf));
-        }
+        let files = read_zip(bytes, MAX_FILES, MAX_FILE, MAX_TOTAL)?;
         Self::build(files, sha256)
     }
 

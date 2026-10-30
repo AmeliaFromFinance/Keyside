@@ -34,6 +34,7 @@ pub struct App {
     pub engine: Mutex<Engine>,
     pub devices: Mutex<Devices>,
     pub assets: Assets,
+    pub templates: crate::templates::Templates,
     pub plugins: Host,
     pub streamdeck: crate::streamdeck::Hub,
     pub registry: Registry,
@@ -85,6 +86,7 @@ impl App {
         let (engine, _) = Engine::load(paths.clone())?;
         let devices = Devices::load(paths.file("devices.json"))?;
         let assets = Assets::open(paths.dir("assets")?)?;
+        let templates = crate::templates::Templates::open(paths.file("templates.json"))?;
         let plugins = Host::open(paths.root())?;
         let streamdeck = crate::streamdeck::Hub::open(paths.root())?;
         let tokens = Tokens::load(paths.file("tokens.json"))?;
@@ -99,6 +101,7 @@ impl App {
             engine: Mutex::new(engine),
             devices: Mutex::new(devices),
             assets,
+            templates,
             plugins,
             streamdeck,
             registry: Registry::default(),

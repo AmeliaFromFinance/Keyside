@@ -654,7 +654,7 @@ fn check_key_steps(k: &Key) -> Result<(), Invalid> {
     Ok(())
 }
 
-fn validate_page(pg: &Page, page_ids: &HashSet<&str>, style_ids: &HashSet<&str>) -> Result<(), Invalid> {
+pub(crate) fn validate_page(pg: &Page, page_ids: &HashSet<&str>, style_ids: &HashSet<&str>) -> Result<(), Invalid> {
     if !valid_id(&pg.id) {
         return bad("invalid page id");
     }

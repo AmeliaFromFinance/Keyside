@@ -31,8 +31,12 @@
     actionDef,
     deckDials,
     addDialRows,
+    templates,
+    placeTemplate,
+    askTemplate,
   } from "./state.svelte.ts";
   import { untrack } from "svelte";
+  import { droppedImage, startCrop } from "./images.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { haptic } from "../lib/native.ts";
@@ -51,7 +55,9 @@
     const live = new Map((ed.live?.id === pg.id ? ed.live.keys : []).map((k) => [k.id, k]));
     return pg.keys.filter((k) => place.at.has(k.id)).map((k) => previewView(k, live.get(k.id), place.at.get(k.id)));
   });
-  const armedName = $derived(ed.armed ? (actionDef(ed.armed)?.name ?? ed.armed.replace("kind:", "")) : "");
+  const armedName = $derived(
+    ed.armed?.startsWith("tpl:") ? (templates.list.find((x) => `tpl:${x.id}` === ed.armed)?.name ?? "") : ed.armed ? (actionDef(ed.armed)?.name ?? ed.armed.replace("kind:", "")) : "",
+  );
   const variant = $derived(!!pg?.variants?.[ed.ff]);
   const tabs = $derived((profile()?.pages ?? []).filter((p) => !p.folder || p.id === ed.page));
   /** Set when this layout is for a physical Stream Deck: fixed grid, one arrangement. */
@@ -75,7 +81,8 @@
       return;
     }
     if (!id || variant) return;
-    if (id.startsWith("kind:")) {
+    if (id.startsWith("tpl:")) placeTemplate(id.slice(4), x, y);
+    else if (id.startsWith("kind:")) {
       const kind = id.slice(5) as KeyKind;
       if (kind === "folder") {
         const target = addPage(true);
@@ -302,6 +309,7 @@
               { label: t("Copy"), icon: "copy", hint: `${mod}C`, run: () => copyKeys(ids) },
               { label: t("Cut"), icon: "scissors", hint: `${mod}X`, run: () => copyKeys(ids, true) },
               moveTo,
+              { label: t("Save as template"), icon: "bookmark", run: () => askTemplate(ids) },
               { label: t("Clear selection"), icon: "x", hint: "Esc", run: clearSelection },
               { label: t("Delete {n} keys", { n: ids.length }), icon: "trash-2", hint: t("Del"), danger: true, run: () => deleteKeys(ids) },
             ]
@@ -313,6 +321,7 @@
               { label: t("Copy"), icon: "copy", hint: `${mod}C`, run: () => copyKeys([k.id]) },
               { label: t("Cut"), icon: "scissors", hint: `${mod}X`, run: () => copyKeys([k.id], true) },
               moveTo,
+              { label: t("Save as template"), icon: "bookmark", disabled: k.kind === "folder", run: () => askTemplate([k.id]) },
               { label: t("Delete"), icon: "trash-2", hint: t("Del"), danger: true, run: () => deleteKeys([k.id]) },
             ],
       };
@@ -387,10 +396,35 @@
     else pick(id, add);
   }
 
-  /** Actions dragged in from the palette. */
+  /** Actions dragged in from the palette. Image files go on to the device handler below. */
   function drop(e: DragEvent, x: number, y: number) {
+    if (e.dataTransfer?.types.includes("Files")) return;
     e.preventDefault();
     place_(x, y, e.dataTransfer?.getData("application/x-keyside-action") || ed.armed);
+  }
+
+  /** An image file dragged from the desktop: the cell it would land on. */
+  let fileOver = $state<string | null>(null);
+
+  function fileDrag(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    const cell = cellAt(e.clientX, e.clientY);
+    const key = cell ? keyAt(cell) : null;
+    fileOver = cell && (key || !variant) ? (key ?? `${cell[0]},${cell[1]}`) : null;
+  }
+
+  function fileDrop(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    fileOver = null;
+    const cell = cellAt(e.clientX, e.clientY);
+    const file = droppedImage(e.dataTransfer.files);
+    if (!cell || !file) return;
+    const key = keyAt(cell);
+    if (!key && variant) return notify(t("Add new keys in the main arrangement"));
+    startCrop(file, key, cell);
   }
 
   function customize() {
@@ -430,7 +464,7 @@
     class:dial={y === dialRow}
     data-cell="{x},{y}"
     class:ready={!!ed.armed || !!ed.moving || !!drag}
-    class:target={landing.has(`${x},${y}`)}
+    class:target={landing.has(`${x},${y}`) || fileOver === `${x},${y}`}
     ondragover={(e) => e.preventDefault()}
     ondrop={(e) => drop(e, x, y)}
     onclick={() => (ed.armed || ed.moving ? place_(x, y, ed.armed) : clearSelection())}
@@ -502,7 +536,11 @@
         style:--hw-ratio={hw ? `${hw.cols} / ${hw.rows + 0.5 + (dialRow !== null ? 1.3 : 0)}` : undefined}
         style:--hw-width={hw ? `${hw.cols * 130}px` : undefined}
         class:dragging={!!drag}
+        class:filedrag={!!fileOver}
         role="presentation"
+        ondragover={fileDrag}
+        ondragleave={(e) => !deviceEl?.contains(e.relatedTarget as Node) && (fileOver = null)}
+        ondrop={fileDrop}
         onpointerdown={pdown}
         onpointermove={pmove}
         onpointerup={(e) => pup(e)}
@@ -520,7 +558,7 @@
             rows={dialRow ?? place.rows}
             keys={dialRow === null ? views : views.filter((v) => v.y < dialRow!)}
             preview
-            selected={chosen}
+            selected={fileOver && !fileOver.includes(",") ? [fileOver] : chosen}
             dim={drag?.ids}
             onselect={select}
             empty={dropCell}
@@ -681,6 +719,9 @@
   }
   .device.dragging {
     cursor: grabbing;
+  }
+  .device.filedrag {
+    border-color: var(--accent);
   }
   /* A physical Stream Deck: its own shape instead of a phone's. */
   .device.hw {
