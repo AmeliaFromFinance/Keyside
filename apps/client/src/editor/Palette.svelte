@@ -254,6 +254,9 @@
     background: var(--accent-bg);
     border: 1px dashed var(--accent);
   }
+  .item > :global(svg) {
+    flex-shrink: 0;
+  }
   .name {
     flex: 1;
     min-width: 0;
@@ -261,10 +264,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* Long descriptions trail off instead of pushing the name out. The full text is in the tooltip. */
   .hint {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 55%;
     color: var(--muted);
     font-size: 0.85rem;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .armed .hint {
     color: var(--accent);
