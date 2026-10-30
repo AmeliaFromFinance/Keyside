@@ -6,6 +6,12 @@ A key whose app isn't connected shows a **Set up** button in the editor. The app
 
 Plugins only connect to the addresses you enter here.
 
+A plugin only runs while a key on a pushed layout uses it, through a step or a variable it shows (like `{obs.scene}`). The others show **not in use** and stay stopped. Reading lists in the editor (like OBS scenes) or pressing **Test connection** starts a plugin for about ten minutes.
+
+### Health
+
+Open a plugin to see how it is doing: how long it has been running, restarts and crashes in the last hour, the last error with its time, and its recent status messages. **Test connection** restarts the plugin and tells you whether it reached its app. Stream Deck plugins show the same under **Stream Deck plugins**.
+
 ## OBS Studio
 
 1. In OBS: **Tools > WebSocket Server Settings**. Turn on the server.

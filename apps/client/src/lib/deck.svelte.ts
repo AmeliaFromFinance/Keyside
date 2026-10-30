@@ -172,9 +172,9 @@ export function unlock(pin: string) {
   conn?.send({ t: "unlock", pin });
 }
 
-export function req<T = any>(op: string, args?: unknown): Promise<T> {
+export function req<T = any>(op: string, args?: unknown, timeout?: number): Promise<T> {
   if (!conn) return Promise.reject(new Error("not connected"));
-  return conn.req<T>(op, args);
+  return conn.req<T>(op, args, timeout);
 }
 
 /** Image assets are cached by id, they never change. */

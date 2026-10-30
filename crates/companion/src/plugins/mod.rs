@@ -653,7 +653,10 @@ impl Host {
     pub fn health(&self) -> Value {
         let Some(app) = self.app() else { return json!({}) };
         let used = self.in_use();
-        let mut ids: Vec<(String, bool)> = self.state.lock().installed.keys().map(|id| (id.clone(), self.peer(id).is_some())).collect();
+        let mut ids: Vec<(String, bool)> = {
+            let st = self.state.lock();
+            st.installed.keys().map(|id| (id.clone(), st.running.get(id).is_some_and(|r| r.peer.is_some()))).collect()
+        };
         ids.extend(app.streamdeck.health_ids());
         let now = crate::server::conn::now_ms();
         let mut e = app.engine.lock();
@@ -689,6 +692,8 @@ impl Host {
         }
         if let Some(app) = self.app() {
             let mut e = app.engine.lock();
+            // Noted here, not when the process is gone, so a restart can't race with it.
+            e.health.exited(id, crate::server::conn::now_ms(), false, None);
             let mine: HashSet<String> = e.instances_for(id).into_iter().map(|i| i.id).collect();
             e.remove_connection(id);
             e.clear_overrides_with_prefix(|inst| mine.contains(inst));
@@ -907,19 +912,17 @@ async fn supervise(app: Arc<App>, id: String, generation: u64, deno: PathBuf, mu
         }
 
         let outcome = match run_once(&app, &inst, generation, &deno, &mut stop).await {
-            Ok(Run::Stopped) => {
-                app.engine.lock().health.exited(&id, crate::server::conn::now_ms(), false, None);
-                return;
-            }
+            // `stop` already noted it.
+            Ok(Run::Stopped) => return,
             Ok(Run::Ended) => Ok(()),
             Err(e) => Err(e),
         };
+        if !current(&app) {
+            return;
+        }
         {
             let reason = outcome.as_ref().err().map(|e| format!("{e:#}"));
             app.engine.lock().health.exited(&id, crate::server::conn::now_ms(), true, Some(reason.as_deref().unwrap_or("the plugin stopped on its own")));
-        }
-        if !current(&app) {
-            return;
         }
         {
             let mut st = app.plugins.state.lock();
@@ -1373,6 +1376,10 @@ mod tests {
         std::fs::write(src.path().join("main.js"), "").unwrap();
         let pkg = package::Package::from_dir(src.path()).unwrap();
         app.plugins.install(&pkg, Source::File, false).unwrap();
+        // No key uses it: listed and reported, but not started.
+        assert_eq!(app.plugins.list()[0].status, "idle");
+        assert_eq!(app.plugins.health()["dev.example.tpl"]["inUse"], false);
+        assert!(app.plugins.state.lock().running.is_empty());
         app.engine.lock().set_var("user.who", json!("Fernando the Great"));
         let settings = json!({ "filled": "hi {user.who}", "plain": "{user.who}", "args": { "a": "{user.who}!", "b": "{nope}" } });
         let step = Step { instance: "i".into(), action: "go".into(), settings: settings.as_object().unwrap().clone() };

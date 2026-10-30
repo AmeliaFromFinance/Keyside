@@ -3,6 +3,7 @@
   import { req } from "../lib/deck.svelte.ts";
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
   import { inDesktopApp, zoomTo } from "../lib/zoom.ts";
+  import Backup from "./Backup.svelte";
 
   interface Info {
     name: string;
@@ -150,6 +151,8 @@
     <button class="btn" onclick={create} disabled={!newScopes.length}>{t("Create token")}</button>
   </div>
 </section>
+
+<Backup onrestored={() => void refresh().catch((e) => (error = e.message))} />
 
 <style>
   .fp {

@@ -72,7 +72,7 @@ Inside the frames, JSON objects with a `t` field. The full list with types is in
 
 From the device: `viewport`, `input` (key down, up, cancel), `slide`, `nav`, `ping`, `unlock` (PIN), `req` (editor operations).
 
-From the companion: `welcome`, `page`, `keys` (changed keys only), `status`, `toast`, `pong`, `result`, `event`, `locked`, `unlocked`, `bye`.
+From the companion: `welcome`, `page`, `keys` (changed keys only, also after a push that leaves the page itself as it was), `status`, `toast`, `pong`, `result`, `event`, `locked`, `unlocked`, `bye`.
 
 ## Limits
 

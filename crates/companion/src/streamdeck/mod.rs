@@ -746,6 +746,7 @@ pub async fn op(app: &Arc<App>, op: &str, a: &Value) -> Result<Value> {
     match op {
         "streamdeck.list" => {
             let have_deno = crate::plugins::sandbox::find_deno().is_some();
+            let used = app.plugins.in_use();
             let st = hub.state.lock();
             let list: Vec<Value> = st
                 .installed
@@ -761,6 +762,7 @@ pub async fn op(app: &Arc<App>, op: &str, a: &Value) -> Result<Value> {
                         "runtime": i.manifest.runtime(),
                         "enabled": i.enabled,
                         "running": running,
+                        "inUse": used.contains(&i.plugin_id()),
                         "blocked": i.blocked(have_deno),
                         "net": i.net,
                         "allNet": i.all_net,

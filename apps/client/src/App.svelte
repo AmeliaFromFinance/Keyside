@@ -1,7 +1,6 @@
 <script lang="ts">
   import Deck from "./components/Deck.svelte";
   import Pair from "./components/Pair.svelte";
-  import Editor from "./editor/Editor.svelte";
   import { companions, parsePairLink, type PairParams, type StoredCompanion } from "./lib/companions.ts";
   import { connect, deck, disconnect } from "./lib/deck.svelte.ts";
   import { isNative } from "./lib/native.ts";
@@ -16,6 +15,12 @@
   let notice = $state("");
 
   const local = ["127.0.0.1", "localhost", "[::1]"].includes(location.hostname) && location.protocol === "http:" && !isNative();
+
+  // Phones only load the editor when someone opens it, so the deck starts faster.
+  let editorChunk: Promise<typeof import("./editor/Editor.svelte")> | null = null;
+  const loadEditor = () => (editorChunk ??= import("./editor/Editor.svelte"));
+  // The PC opens the editor right away: fetch it while signing in.
+  if (local) void loadEditor();
 
   async function startAdmin() {
     const hash = new URLSearchParams(location.hash.slice(1));
@@ -102,7 +107,16 @@
     onforget={admin ? undefined : forget}
   />
 {:else if view === "editor"}
-  <Editor {admin} ondeck={() => (view = "deck")} />
+  {#await loadEditor()}
+    <div class="center"><p>{t("Loading…")}</p></div>
+  {:then { default: Editor }}
+    <Editor {admin} ondeck={() => (view = "deck")} />
+  {:catch}
+    <div class="center">
+      <p>{t("The editor didn't load. Check the connection and try again.")}</p>
+      <button class="btn" onclick={() => location.reload()}>{t("Reload")}</button>
+    </div>
+  {/await}
 {/if}
 
 <style>
