@@ -10,7 +10,7 @@ use super::conn::Who;
 use crate::actions::{self, Ctx};
 use crate::app::App;
 use crate::devices::{PIN_SECRET, Scope, valid_pin};
-use crate::model::{self, Action, LayoutFile, Tone};
+use crate::model::{self, Action, LayoutFile, StepList, Tone};
 use crate::plugins::{Source, manifest};
 use crate::state::{Change, all_keys};
 use crate::tokens::ApiScope;
@@ -101,7 +101,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
                 return Err(OpError::forbidden());
             }
             let ctx = Ctx { device: who.device.clone(), profile: "test".into(), page: "test".into(), key: "test".into(), local: who.admin };
-            tokio::spawn(actions::run_steps(app.clone(), ctx, list.into_iter().map(|x| Action { review: false, ..x }).collect(), false));
+            tokio::spawn(actions::run_steps(app.clone(), ctx, list.into_iter().map(|x| Action { review: false, ..x }).collect(), StepList::Main));
             Ok(Value::Null)
         }
         "action.test" => {
@@ -111,7 +111,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
                 return Err(OpError::forbidden());
             }
             let ctx = Ctx { device: who.device.clone(), profile: "test".into(), page: "test".into(), key: "test".into(), local: who.admin };
-            tokio::spawn(actions::run_steps(app.clone(), ctx, vec![Action { review: false, ..action }], false));
+            tokio::spawn(actions::run_steps(app.clone(), ctx, vec![Action { review: false, ..action }], StepList::Main));
             Ok(Value::Null)
         }
         "assets.put" => {
@@ -364,7 +364,7 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
                 }
                 for pg in &mut p.pages {
                     for k in &mut pg.keys {
-                        for act in k.actions.iter_mut().chain(k.off_actions.iter_mut()) {
+                        for act in k.all_actions_mut() {
                             act.review = false;
                         }
                     }
@@ -460,7 +460,7 @@ fn review_list(app: &App) -> Value {
     let l = app.engine.lock().layout().clone();
     let mut out = Vec::new();
     for (p, pg, k) in all_keys(&l) {
-        for act in k.actions.iter().chain(&k.off_actions) {
+        for act in k.all_actions() {
             if act.review {
                 out.push(json!({ "profile": p.name, "profileId": p.id, "page": pg.name, "key": k.label, "type": act.kind, "settings": act.settings }));
             }
@@ -472,9 +472,9 @@ fn review_list(app: &App) -> Value {
 /// Editors on other devices can rearrange anything, but can't add steps that start programs
 /// or approve imported steps. Those need the desktop editor.
 fn check_editor_changes(old: &LayoutFile, new: &LayoutFile) -> Result<(), OpError> {
-    let old_actions: Vec<&Action> = all_keys(old).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).collect();
+    let old_actions: Vec<&Action> = all_keys(old).flat_map(|(_, _, k)| k.all_actions()).collect();
     for (_, _, k) in all_keys(new) {
-        for a in k.actions.iter().chain(&k.off_actions) {
+        for a in k.all_actions() {
             if actions::is_admin_only(a) && !old_actions.iter().any(|o| o.same_as(a)) {
                 return Err(OpError { code: "forbidden", message: format!("\"{}\" can only be added on the PC", k.label) });
             }
@@ -488,11 +488,11 @@ fn check_editor_changes(old: &LayoutFile, new: &LayoutFile) -> Result<(), OpErro
 
 /// Keyboard steps a remote editor added stay off until they're approved on the PC.
 fn mark_for_review(old: &LayoutFile, new: &mut LayoutFile) {
-    let approved: Vec<Action> = all_keys(old).flat_map(|(_, _, k)| k.actions.iter().chain(&k.off_actions)).filter(|a| !a.review).cloned().collect();
+    let approved: Vec<Action> = all_keys(old).flat_map(|(_, _, k)| k.all_actions()).filter(|a| !a.review).cloned().collect();
     for p in &mut new.profiles {
         for pg in &mut p.pages {
             for k in &mut pg.keys {
-                for a in k.actions.iter_mut().chain(k.off_actions.iter_mut()) {
+                for a in k.all_actions_mut() {
                     if !a.review && actions::PC_REVIEW.contains(&a.kind.as_str()) && !approved.iter().any(|o| o.same_as(a)) {
                         a.review = true;
                     }
@@ -507,7 +507,7 @@ fn clean_layout(app: &App, l: &mut LayoutFile) {
     for p in &mut l.profiles {
         for pg in &mut p.pages {
             for k in &mut pg.keys {
-                for a in k.actions.iter_mut().chain(k.off_actions.iter_mut()) {
+                for a in k.all_actions_mut() {
                     let schema = match a.plugin() {
                         Some((plugin, action)) => app.plugins.action_def(plugin, action).and_then(|d| d.settings),
                         None => catalog::core_schema(&a.kind),

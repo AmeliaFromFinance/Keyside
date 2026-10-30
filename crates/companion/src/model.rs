@@ -13,6 +13,12 @@ pub const MAX_PROFILES: usize = 20;
 pub const MAX_PAGES: usize = 50;
 pub const MAX_ACTIONS: usize = 32;
 pub const MAX_ACTION_SETTINGS: usize = 64 * 1024;
+pub const MAX_STATES: usize = 8;
+pub const MAX_STYLES: usize = 64;
+/// Styles one key can use.
+pub const MAX_KEY_STYLES: usize = 8;
+pub const LONG_MS: u32 = 500;
+pub const DOUBLE_MS: u32 = 300;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +28,18 @@ pub struct LayoutFile {
     pub rev: u64,
     pub default_profile: String,
     pub profiles: Vec<Profile>,
+    /// Named looks that keys can share, like "red while live".
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub styles: Vec<Style>,
+}
+
+/// A named rule: when the condition holds, keys using the style change their look.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Style {
+    pub id: String,
+    pub name: String,
+    pub when: Condition,
+    pub style: FeedbackStyle,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -87,6 +105,8 @@ pub enum KeyKind {
     Back,
     Slider,
     Widget,
+    /// Steps through 2 to 8 states, one per press.
+    Multi,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -136,6 +156,84 @@ pub struct Key {
     pub slider: Option<Slider>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub widget: Option<Widget>,
+    /// Multi-state keys: each press runs the current state and moves on to the next.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub states: Vec<KeyState>,
+    /// Multi-state keys: show the state whose value this variable has, whatever changed it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow: Option<String>,
+    /// Run instead of the normal steps when the key is held for `long_ms`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub long_actions: Vec<Action>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_ms: Option<u32>,
+    /// Run instead of the normal steps on two taps within `double_ms`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub double_actions: Vec<Action>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub double_ms: Option<u32>,
+    /// Ids of layout styles this key uses, applied in order before its own feedback.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub styles: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KeyState {
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<KeyColor>,
+    #[serde(default)]
+    pub actions: Vec<Action>,
+    /// Value of the followed variable that means this state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<Value>,
+}
+
+/// One of the step lists on a key. Plugins see it in instance ids.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StepList {
+    Main,
+    /// Toggles: when turned off.
+    Off,
+    /// Multi-state keys: the steps of one state.
+    State(usize),
+    Long,
+    Double,
+}
+
+impl StepList {
+    /// What goes before the step number in an instance id.
+    pub fn tag(self) -> String {
+        match self {
+            StepList::Main => String::new(),
+            StepList::Off => "o".into(),
+            StepList::State(i) => format!("s{i}."),
+            StepList::Long => "l".into(),
+            StepList::Double => "d".into(),
+        }
+    }
+
+    /// Reads "o3", "s1.0", "7" and so on back into a list and step number.
+    pub fn parse(s: &str) -> Option<(StepList, usize)> {
+        let num = |t: &str| t.parse::<usize>().ok().filter(|_| !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()));
+        if let Some(rest) = s.strip_prefix('o') {
+            return Some((StepList::Off, num(rest)?));
+        }
+        if let Some(rest) = s.strip_prefix('l') {
+            return Some((StepList::Long, num(rest)?));
+        }
+        if let Some(rest) = s.strip_prefix('d') {
+            return Some((StepList::Double, num(rest)?));
+        }
+        if let Some((i, n)) = s.strip_prefix('s').and_then(|r| r.split_once('.')) {
+            return Some((StepList::State(num(i)?), num(n)?));
+        }
+        Some((StepList::Main, num(s)?))
+    }
 }
 
 impl Key {
@@ -145,6 +243,72 @@ impl Key {
     pub fn h(&self) -> u8 {
         self.h.unwrap_or(1)
     }
+
+    pub fn steps(&self, list: StepList) -> &[Action] {
+        match list {
+            StepList::Main => &self.actions,
+            StepList::Off => &self.off_actions,
+            StepList::State(i) => self.states.get(i).map(|s| s.actions.as_slice()).unwrap_or(&[]),
+            StepList::Long => &self.long_actions,
+            StepList::Double => &self.double_actions,
+        }
+    }
+
+    pub fn steps_mut(&mut self, list: StepList) -> Option<&mut Vec<Action>> {
+        match list {
+            StepList::Main => Some(&mut self.actions),
+            StepList::Off => Some(&mut self.off_actions),
+            StepList::State(i) => self.states.get_mut(i).map(|s| &mut s.actions),
+            StepList::Long => Some(&mut self.long_actions),
+            StepList::Double => Some(&mut self.double_actions),
+        }
+    }
+
+    /// Every step list on the key, including empty ones.
+    pub fn step_lists(&self) -> impl Iterator<Item = (StepList, &[Action])> {
+        [(StepList::Main, self.actions.as_slice()), (StepList::Off, &self.off_actions), (StepList::Long, &self.long_actions), (StepList::Double, &self.double_actions)]
+            .into_iter()
+            .chain(self.states.iter().enumerate().map(|(i, s)| (StepList::State(i), s.actions.as_slice())))
+    }
+
+    pub fn all_actions(&self) -> impl Iterator<Item = &Action> {
+        self.step_lists().flat_map(|(_, l)| l.iter())
+    }
+
+    pub fn all_actions_mut(&mut self) -> impl Iterator<Item = &mut Action> {
+        self.actions
+            .iter_mut()
+            .chain(self.off_actions.iter_mut())
+            .chain(self.long_actions.iter_mut())
+            .chain(self.double_actions.iter_mut())
+            .chain(self.states.iter_mut().flat_map(|s| s.actions.iter_mut()))
+    }
+
+    /// Has a step that acts for as long as the key is held, like push-to-talk.
+    pub fn acts_while_held(&self) -> bool {
+        self.all_actions().any(acts_while_held)
+    }
+
+    /// Hold to confirm, repeat and "while held" steps all need the key to fire the moment
+    /// it goes down, so they rule out long press and double tap.
+    pub fn needs_plain_press(&self) -> bool {
+        self.hold.is_some_and(|h| h > 0) || self.repeat.is_some() || self.acts_while_held()
+    }
+
+    /// Long press and double tap, when this key can use them: (long press ms, double tap ms).
+    pub fn gestures(&self) -> (Option<u32>, Option<u32>) {
+        if !matches!(self.kind, KeyKind::Button | KeyKind::Toggle | KeyKind::Multi) || self.needs_plain_press() {
+            return (None, None);
+        }
+        let long = (!self.long_actions.is_empty()).then(|| self.long_ms.unwrap_or(LONG_MS));
+        let double = (!self.double_actions.is_empty()).then(|| self.double_ms.unwrap_or(DOUBLE_MS));
+        (long, double)
+    }
+}
+
+/// Plugin steps set to act while the key is held, like "Talk while held".
+pub fn acts_while_held(a: &Action) -> bool {
+    a.plugin().is_some() && ["mode", "op"].iter().any(|f| a.settings.get(*f).and_then(Value::as_str) == Some("hold"))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -217,6 +381,8 @@ pub struct Feedback {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct FeedbackStyle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<KeyColor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -326,6 +492,24 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
     if l.profiles.is_empty() || l.profiles.len() > MAX_PROFILES {
         return bad("a layout needs 1 to 20 profiles");
     }
+    if l.styles.len() > MAX_STYLES {
+        return bad(format!("at most {MAX_STYLES} key styles"));
+    }
+    let mut style_ids = HashSet::new();
+    for st in &l.styles {
+        if !valid_id(&st.id) || !style_ids.insert(st.id.as_str()) {
+            return bad("style ids must be unique");
+        }
+        if st.name.trim().is_empty() {
+            return bad("every style needs a name");
+        }
+        text("style name", &st.name, 40)?;
+        check_condition("style", &st.when)?;
+        if let Some(Value::String(v)) = &st.when.value {
+            text("style value", v, 200)?;
+        }
+        check_look(&st.style)?;
+    }
     let mut profile_ids = HashSet::new();
     for p in &l.profiles {
         if !valid_id(&p.id) || !profile_ids.insert(p.id.as_str()) {
@@ -353,7 +537,7 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
             return bad("home page does not exist");
         }
         for pg in &p.pages {
-            validate_page(pg, &page_ids)?;
+            validate_page(pg, &page_ids, &style_ids)?;
         }
     }
     if !profile_ids.contains(l.default_profile.as_str()) {
@@ -362,7 +546,65 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
     Ok(())
 }
 
-fn validate_page(pg: &Page, page_ids: &HashSet<&str>) -> Result<(), Invalid> {
+fn check_condition(what: &str, c: &Condition) -> Result<(), Invalid> {
+    if !valid_var_name(&c.var) {
+        return bad(format!("{what} variable is invalid"));
+    }
+    if c.value.as_ref().is_some_and(|v| !(v.is_string() || v.is_number() || v.is_boolean())) {
+        return bad(format!("{what} value must be text, a number or true/false"));
+    }
+    Ok(())
+}
+
+fn check_look(s: &FeedbackStyle) -> Result<(), Invalid> {
+    for (n, v) in [("label", &s.label), ("sub", &s.sub), ("badge", &s.badge), ("meta", &s.meta)] {
+        opt_text(n, v, 64)?;
+    }
+    if s.icon.as_deref().is_some_and(|i| !valid_icon(i)) {
+        return bad("invalid icon");
+    }
+    Ok(())
+}
+
+fn check_key_steps(k: &Key) -> Result<(), Invalid> {
+    if k.long_ms.is_some_and(|ms| !(200..=5_000).contains(&ms)) {
+        return bad("long press must be between 200 ms and 5 seconds");
+    }
+    if k.double_ms.is_some_and(|ms| !(100..=1_000).contains(&ms)) {
+        return bad("double tap window must be between 100 ms and 1 second");
+    }
+    check_actions(&k.label, &k.long_actions)?;
+    check_actions(&k.label, &k.double_actions)?;
+    if (!k.long_actions.is_empty() || !k.double_actions.is_empty()) && k.needs_plain_press() {
+        return bad(format!("key \"{}\": long press and double tap can't be combined with hold to confirm, repeat or steps that act while held", k.label));
+    }
+    if k.kind == KeyKind::Multi && !(2..=MAX_STATES).contains(&k.states.len()) {
+        return bad(format!("key \"{}\" needs 2 to {MAX_STATES} states", k.label));
+    }
+    if k.states.len() > MAX_STATES {
+        return bad(format!("at most {MAX_STATES} states per key"));
+    }
+    for st in &k.states {
+        text("state label", &st.label, 64)?;
+        opt_text("state second line", &st.sub, 64)?;
+        if st.icon.as_deref().is_some_and(|i| !valid_icon(i)) {
+            return bad("invalid icon");
+        }
+        check_actions(&k.label, &st.actions)?;
+        if st.value.as_ref().is_some_and(|v| !(v.is_string() || v.is_number() || v.is_boolean())) {
+            return bad("state value must be text, a number or true/false");
+        }
+        if let Some(Value::String(v)) = &st.value {
+            text("state value", v, 200)?;
+        }
+    }
+    if k.follow.as_deref().is_some_and(|f| !valid_var_name(f)) {
+        return bad("followed variable is invalid");
+    }
+    Ok(())
+}
+
+fn validate_page(pg: &Page, page_ids: &HashSet<&str>, style_ids: &HashSet<&str>) -> Result<(), Invalid> {
     if !valid_id(&pg.id) {
         return bad("invalid page id");
     }
@@ -401,6 +643,13 @@ fn validate_page(pg: &Page, page_ids: &HashSet<&str>) -> Result<(), Invalid> {
         }
         check_actions(&k.label, &k.actions)?;
         check_actions(&k.label, &k.off_actions)?;
+        check_key_steps(k)?;
+        if k.styles.len() > MAX_KEY_STYLES {
+            return bad(format!("at most {MAX_KEY_STYLES} styles per key"));
+        }
+        if k.styles.iter().any(|s| !style_ids.contains(s.as_str())) {
+            return bad(format!("key \"{}\" uses a style that doesn't exist", k.label));
+        }
         match k.kind {
             KeyKind::Folder => {
                 if !k.target.as_deref().is_some_and(|t| page_ids.contains(t)) {
@@ -429,19 +678,8 @@ fn validate_page(pg: &Page, page_ids: &HashSet<&str>) -> Result<(), Invalid> {
             return bad("at most 8 feedback rules per key");
         }
         for f in &k.feedback {
-            if !valid_var_name(&f.when.var) {
-                return bad("feedback variable is invalid");
-            }
-            let s = &f.style;
-            for (n, v) in [("label", &s.label), ("sub", &s.sub), ("badge", &s.badge), ("meta", &s.meta)] {
-                opt_text(n, v, 64)?;
-            }
-            if s.icon.as_deref().is_some_and(|i| !valid_icon(i)) {
-                return bad("invalid icon");
-            }
-            if f.when.value.as_ref().is_some_and(|v| !(v.is_string() || v.is_number() || v.is_boolean())) {
-                return bad("feedback value must be text, a number or true/false");
-            }
+            check_condition("feedback", &f.when)?;
+            check_look(&f.style)?;
         }
     }
     for v in pg.variants.values() {
@@ -491,6 +729,98 @@ mod tests {
         let mut l = sample();
         l.profiles[0].pages[0].keys[0].actions[0].kind = "rm -rf".into();
         assert!(validate(&l).is_err());
+    }
+
+    #[test]
+    fn old_layouts_load_and_save_unchanged() {
+        let l = sample();
+        let back = serde_json::to_value(&l).unwrap();
+        let k = &back["profiles"][0]["pages"][0]["keys"][0];
+        for f in ["states", "follow", "longActions", "longMs", "doubleActions", "doubleMs", "styles"] {
+            assert!(k.get(f).is_none(), "{f} stays out of old keys");
+        }
+        assert!(back.get("styles").is_none());
+    }
+
+    #[test]
+    fn multi_state_keys_need_2_to_8_states() {
+        let state = |n: usize| serde_json::json!({ "label": format!("S{n}"), "actions": [] });
+        let mut l = sample();
+        let k = &mut l.profiles[0].pages[0].keys[0];
+        k.kind = KeyKind::Multi;
+        assert!(validate(&l).is_err(), "no states");
+        for n in 1..=8 {
+            l.profiles[0].pages[0].keys[0].states = (0..n).map(|i| serde_json::from_value(state(i)).unwrap()).collect();
+            assert_eq!(validate(&l).is_ok(), n >= 2, "{n} states");
+        }
+        l.profiles[0].pages[0].keys[0].states.push(serde_json::from_value(state(9)).unwrap());
+        assert!(validate(&l).is_err(), "9 states");
+        let mut l2 = sample();
+        let k = &mut l2.profiles[0].pages[0].keys[0];
+        k.kind = KeyKind::Multi;
+        k.states = (0..2).map(|i| serde_json::from_value(state(i)).unwrap()).collect();
+        k.follow = Some("bad name".into());
+        assert!(validate(&l2).is_err());
+        l2.profiles[0].pages[0].keys[0].follow = Some("obs.scene".into());
+        l2.profiles[0].pages[0].keys[0].states[0].value = Some(serde_json::json!({ "x": 1 }));
+        assert!(validate(&l2).is_err(), "values are text, numbers or true/false");
+    }
+
+    #[test]
+    fn long_press_and_double_tap_rule_out_holding() {
+        let step: Action = serde_json::from_value(serde_json::json!({ "type": "core.wait", "settings": { "ms": 1 } })).unwrap();
+        let mut l = sample();
+        l.profiles[0].pages[0].keys[0].long_actions = vec![step.clone()];
+        validate(&l).unwrap();
+        l.profiles[0].pages[0].keys[0].long_ms = Some(100);
+        assert!(validate(&l).is_err(), "too short");
+        l.profiles[0].pages[0].keys[0].long_ms = Some(800);
+        l.profiles[0].pages[0].keys[0].double_actions = vec![step.clone()];
+        l.profiles[0].pages[0].keys[0].double_ms = Some(2000);
+        assert!(validate(&l).is_err(), "too long");
+        l.profiles[0].pages[0].keys[0].double_ms = None;
+        validate(&l).unwrap();
+        for f in [|k: &mut Key| k.hold = Some(1000), |k: &mut Key| k.repeat = Some(500)] {
+            let mut l = l.clone();
+            f(&mut l.profiles[0].pages[0].keys[0]);
+            assert!(validate(&l).is_err());
+        }
+        let mut l = l.clone();
+        let ptt: Action = serde_json::from_value(serde_json::json!({ "type": "dev.keyside.discord/mute", "settings": { "mode": "hold" } })).unwrap();
+        l.profiles[0].pages[0].keys[0].actions.push(ptt);
+        assert!(validate(&l).is_err(), "talk while held");
+    }
+
+    #[test]
+    fn styles_are_checked_and_must_exist() {
+        let mut l = sample();
+        l.styles = vec![
+            serde_json::from_value(
+                serde_json::json!({ "id": "live", "name": "Live", "when": { "var": "obs.streaming", "op": "truthy" }, "style": { "color": "red", "badge": "LIVE" } }),
+            )
+            .unwrap(),
+        ];
+        l.profiles[0].pages[0].keys[0].styles = vec!["live".into()];
+        validate(&l).unwrap();
+        l.profiles[0].pages[0].keys[0].styles = vec!["gone".into()];
+        assert!(validate(&l).is_err());
+        let mut l2 = l.clone();
+        l2.profiles[0].pages[0].keys[0].styles.clear();
+        l2.styles.push(l2.styles[0].clone());
+        assert!(validate(&l2).is_err(), "duplicate id");
+        l2.styles.pop();
+        l2.styles[0].name = " ".into();
+        assert!(validate(&l2).is_err(), "needs a name");
+    }
+
+    #[test]
+    fn step_lists_round_trip_through_instance_tags() {
+        for (l, n) in [(StepList::Main, 3), (StepList::Off, 0), (StepList::State(7), 12), (StepList::Long, 1), (StepList::Double, 31)] {
+            assert_eq!(StepList::parse(&format!("{}{n}", l.tag())), Some((l, n)));
+        }
+        assert_eq!(StepList::parse("s1"), None);
+        assert_eq!(StepList::parse("+1"), None);
+        assert_eq!(StepList::parse(""), None);
     }
 
     #[test]

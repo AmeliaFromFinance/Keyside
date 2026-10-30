@@ -279,6 +279,7 @@ mod tests {
             progress: None,
             since: None,
             hold: None,
+            state: None,
             disabled: false,
             lines: None,
         }

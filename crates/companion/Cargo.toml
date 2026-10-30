@@ -107,3 +107,4 @@ large_enum_variant = "allow"
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { version = "1", features = ["test-util"] }
