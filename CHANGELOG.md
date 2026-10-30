@@ -33,6 +33,7 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Discord: says to open Discord and press Authorize, and explains what to do if it was missed, cancelled or the redirect is missing.
 - Equibop: found in `~/.local/bin` and other usual folders even when they aren't on the desktop's PATH, and a crashing Equibop is no longer reported as not installed.
 - Linux AppImage: programs, links and sign-in pages Keyside opens no longer inherit the AppImage's library settings, which could stop them from starting.
+- Deck: tap the connection bar to fold it into one slim row with a status dot per app. The phone remembers the choice.
 - Deck: tap a toast to dismiss it. Toasts also go away on their own.
 - Deck: the lock button works on phones that cancel a long press for their own menus, and a quick tap explains that it needs a hold. Held keys with pictures no longer get cut short by the iPhone's "Save image" callout.
 - "Last seen" shows days and years instead of thousands of hours.

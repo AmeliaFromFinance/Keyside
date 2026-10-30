@@ -505,4 +505,6 @@ export default {
   "Set up": "Configurer",
   "{name} isn't connected yet.": "{name} n'est pas encore connecté.",
   "{name} isn't running.": "{name} ne tourne pas.",
+  "Show connections": "Afficher les connexions",
+  "Hide connections": "Masquer les connexions",
 } as Record<string, string>;

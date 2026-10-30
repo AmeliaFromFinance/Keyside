@@ -27,6 +27,23 @@
   let lockTimer: ReturnType<typeof setTimeout> | null = null;
   let lockArming = $state(false);
   let awake = $state(readAwake());
+  let folded = $state(readFlag("statusFolded"));
+
+  function readFlag(name: string) {
+    try {
+      return localStorage.getItem(name) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function toggleStatus() {
+    folded = !folded;
+    try {
+      localStorage.setItem("statusFolded", folded ? "1" : "0");
+    } catch {
+      /* storage blocked */
+    }
+  }
 
   function readAwake() {
     try {
@@ -138,8 +155,8 @@
       </div>
     </header>
 
-    <section class="status" aria-live="polite">
-      <div class="line">
+    <section class="status" class:folded aria-live="polite">
+      <button class="line" aria-expanded={!folded} title={folded ? t("Show connections") : t("Hide connections")} onclick={toggleStatus}>
         <span class="dot" class:ok={online} class:busy={deck.conn.s === "connecting"} class:bad={deck.conn.s === "closed"}></span>
         <span class="who">
           {#if online}
@@ -152,9 +169,17 @@
             {t("Offline, retrying")}
           {/if}
         </span>
+        {#if folded}
+          <!-- Folded: one dot per app and alert, so problems still show. -->
+          <span class="mini" aria-hidden="true">
+            {#each deck.connections as c (c.id)}<span class="dot" class:ok={c.status === "connected"} class:busy={c.status === "connecting"} class:bad={c.status === "error"}></span>{/each}
+            {#each deck.pills as p (p.id)}<span class="dot tone-{p.tone}"></span>{/each}
+          </span>
+        {/if}
         {#if online}<span class="mono latency">{deck.latency} ms</span>{/if}
-      </div>
-      {#if deck.connections.length || deck.pills.length}
+        {#if deck.connections.length || deck.pills.length}<span class="chev" class:open={!folded}><Icon name="chevron-down" size={18} /></span>{/if}
+      </button>
+      {#if !folded && (deck.connections.length || deck.pills.length)}
         <div class="chips">
           {#each deck.connections as c (c.id)}
             <span class="chip" title={c.detail ? plain(c.detail) : undefined}><span class="dot" class:ok={c.status === "connected"} class:busy={c.status === "connecting"} class:bad={c.status === "error"}></span>{c.name}</span>
@@ -312,11 +337,47 @@
     flex-direction: column;
     gap: 10px;
   }
+  .status.folded {
+    padding: 8px 14px;
+  }
   .line {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    min-height: 28px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
     font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mini {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 40%;
+  }
+  .mini .dot {
+    width: 7px;
+    height: 7px;
+  }
+  .mini .tone-danger {
+    background: var(--danger);
+  }
+  .mini .tone-accent {
+    background: var(--accent);
+  }
+  .chev {
+    display: flex;
+    color: var(--muted);
+    transition: transform 150ms ease;
+  }
+  .chev.open {
+    transform: rotate(180deg);
   }
   .line .dot {
     width: 10px;
