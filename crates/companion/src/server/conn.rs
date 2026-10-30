@@ -203,6 +203,9 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
                 Ok(Change::Pending | Change::Plugins) if c.who.admin => {
                     if c.link.send(&json!({ "t": "event", "name": "admin.changed" })).await.is_err() { break; }
                 }
+                Ok(Change::Templates) if c.who.can_edit() => {
+                    if c.link.send(&json!({ "t": "event", "name": "templates.changed" })).await.is_err() { break; }
+                }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Lagged(_)) => { dirty_full = true; dirty_status = true; }
                 Err(broadcast::error::RecvError::Closed) => break,

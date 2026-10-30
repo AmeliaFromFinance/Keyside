@@ -53,6 +53,8 @@ pub enum Change {
     Updated(String),
     Pending,
     Plugins,
+    /// Key templates changed. Every editor reloads them.
+    Templates,
     Pressed {
         profile: String,
         page: String,

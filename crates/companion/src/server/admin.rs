@@ -155,6 +155,21 @@ async fn upload_asset(State(app): State<Arc<App>>, headers: HeaderMap, body: Byt
     }
 }
 
+async fn upload_iconpack(State(app): State<Arc<App>>, headers: HeaderMap, body: Bytes) -> Response {
+    if !csrf_ok(&app, &headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let name = headers.get("x-file-name").and_then(|v| v.to_str().ok()).unwrap_or("Icons").to_string();
+    let in_use = super::ops::icons_in_use(&app);
+    let a = app.clone();
+    let done = tokio::task::spawn_blocking(move || crate::iconpack::parse(&body, &name).and_then(|p| a.assets.add_pack(p, &in_use))).await;
+    match done {
+        Ok(Ok((pack, skipped))) => Json(json!({ "id": pack.id, "name": pack.name, "icons": pack.icons.len(), "skipped": skipped })).into_response(),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, format!("{e:#}")).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
 /// Where OAuth providers send the browser back after sign-in. No session cookie arrives on
 /// this cross-site redirect, so the random single-use state is what ties it to a plugin.
 async fn oauth_callback(State(app): State<Arc<App>>, axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>) -> Response {
@@ -202,6 +217,7 @@ pub async fn start(app: Arc<App>, port: u16) -> anyhow::Result<()> {
         .route("/oauth/callback", get(oauth_callback))
         .route("/admin/upload/plugin", post(upload_plugin).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
         .route("/admin/upload/streamdeck", post(upload_streamdeck).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
+        .route("/admin/upload/iconpack", post(upload_iconpack).layer(DefaultBodyLimit::max(crate::iconpack::MAX_ZIP as usize)))
         .route("/admin/upload/asset", post(upload_asset).layer(DefaultBodyLimit::max(crate::assets::MAX_SOUND)))
         .nest("/api/v1", super::api::router())
         .fallback(fallback)

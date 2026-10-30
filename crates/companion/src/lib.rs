@@ -7,6 +7,7 @@ pub mod config;
 pub mod crypto;
 pub mod devices;
 pub mod focus;
+pub mod iconpack;
 pub mod ids;
 pub mod mdns;
 pub mod model;
@@ -18,6 +19,7 @@ pub mod share;
 pub mod state;
 pub mod store;
 pub mod streamdeck;
+pub mod templates;
 pub mod tokens;
 
 use std::sync::Arc;
