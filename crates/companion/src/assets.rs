@@ -103,6 +103,11 @@ impl Assets {
         Ok(Self { dir, index: Mutex::new(index), packs: Mutex::new(packs) })
     }
 
+    /// Reads the index again, after a restore.
+    pub fn reload(&self) {
+        *self.index.lock() = store::read_json_or_reset(&self.dir.join("index.json")).ok().flatten().unwrap_or_default();
+    }
+
     pub fn put(&self, name: &str, bytes: &[u8]) -> Result<Meta> {
         let mut idx = self.index.lock();
         let meta = self.insert(&mut idx, name, bytes, None)?;

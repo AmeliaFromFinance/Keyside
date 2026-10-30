@@ -65,6 +65,13 @@ impl Templates {
         Ok(Self { path, list: Mutex::new(list) })
     }
 
+    /// Reads the file again, after a restore.
+    pub fn reload(&self) -> Result<()> {
+        let fresh = Self::open(self.path.clone())?;
+        *self.list.lock() = fresh.list.into_inner();
+        Ok(())
+    }
+
     pub fn list(&self) -> Vec<Template> {
         self.list.lock().clone()
     }

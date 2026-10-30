@@ -81,7 +81,7 @@
 
   {#if ed.error}<p class="bad" role="alert">{ed.error}</p>{/if}
   <div class="buttons">
-    <span class="count">{total ? t("{n} changes", { n: total }) : ""}</span>
+    <span class="count">{total === 1 ? t("1 change") : total ? t("{n} changes", { n: total }) : ""}</span>
     <button class="btn" onclick={oncancel}>{t("Keep editing")}</button>
     <button class="btn primary" onclick={onpush} disabled={ed.pushing}><Icon name="send" size={18} />{ed.pushing ? t("Pushing…") : t("Push to phones")}</button>
   </div>

@@ -2,6 +2,7 @@
   import Icon from "../components/Icon.svelte";
   import SettingsForm from "./SettingsForm.svelte";
   import Rich from "./Rich.svelte";
+  import Health from "./Health.svelte";
   import type { Schema } from "./state.svelte.ts";
   import { reloadCatalog } from "./state.svelte.ts";
   import { req, deck } from "../lib/deck.svelte.ts";
@@ -23,6 +24,7 @@
     homepage?: string;
     enabled: boolean;
     status: string;
+    inUse: boolean;
     source: "bundled" | "registry" | "file";
     signer?: string;
     requested: Perms;
@@ -40,8 +42,8 @@
     installed?: { version: string; signer?: string };
   }
 
-  /** `focus` opens that plugin and scrolls to it. */
-  let { admin = false, focus = null }: { admin?: boolean; focus?: string | null } = $props();
+  /** `focus` opens that plugin and scrolls to it. With `only`, nothing else shows (the setup wizard). */
+  let { admin = false, focus = null, only = false }: { admin?: boolean; focus?: string | null; only?: boolean } = $props();
 
   const statusText: Record<string, string> = {
     connected: mark("connected"),
@@ -49,6 +51,7 @@
     offline: mark("offline"),
     error: mark("needs attention"),
     disabled: mark("off"),
+    idle: mark("not in use"),
   };
 
   let list = $state<Info[]>([]);
@@ -67,6 +70,7 @@
   // Status changes arrive live, so a sign-in code or "press Authorize" shows up right away.
   const live = (p: Info) => deck.connections.find((c) => c.id === p.id);
   const stateOf = (p: Info) => (p.enabled ? (live(p)?.status ?? p.status) : "disabled");
+  const shown = $derived(only ? list.filter((p) => p.id === focus) : list);
 
   // Setup steps can show {redirect}: the sign-in return address on this PC's editor port.
   const redirect = `http://127.0.0.1:${location.port || "80"}/oauth/callback`;
@@ -157,18 +161,18 @@
     {/each}
   </section>
 {:else}
-  {#if admin}
+  {#if admin && !only}
     <div class="row">
       <button class="btn" onclick={browse}><Icon name="download" size={18} />{t("Browse plugins")}</button>
       <label class="btn"><Icon name="file-up" size={18} />{t("Install from file")}<input type="file" accept=".pdp,application/zip" class="sr-only" onchange={uploadFile} /></label>
     </div>
   {/if}
 
-  {#each list as p (p.id)}
+  {#each shown as p (p.id)}
     {@const st = stateOf(p)}
     {@const detail = p.enabled ? live(p)?.detail : undefined}
     <div class="plugin" class:off={!p.enabled} id="plugin-{p.id}">
-      <button class="head" onclick={() => (open = open === p.id ? null : p.id)} aria-expanded={open === p.id}>
+      <button class="head" onclick={() => (open = open === p.id && !only ? null : p.id)} aria-expanded={open === p.id}>
         <span class="dot" class:ok={st === "connected"} class:busy={st === "connecting"} class:bad={st === "error"}></span>
         <span class="name"><b>{p.name}</b> <span class="mono muted">{p.version}</span></span>
         {#if p.needsApproval}<span class="tag warn">{t("Needs approval")}</span>{/if}
@@ -179,6 +183,7 @@
         <div class="body">
           {#if p.description}<p class="muted">{p.description}</p>{/if}
           {#if detail && st !== "connected"}<div class="state" class:bad={st === "error"} role="status"><Rich text={detail} /></div>{/if}
+          {#if st === "idle"}<p class="muted">{t("It starts once a key on a pushed layout uses it. Test connection starts it for a few minutes.")}</p>{/if}
           {#if p.setup?.length && admin}
             <ol class="setup">{#each p.setup as step, i (i)}<li><Rich text={t(step, { redirect })} /></li>{/each}</ol>
           {/if}
@@ -194,6 +199,7 @@
             <button class="btn primary" onclick={() => run(() => req("plugins.approve", { id: p.id }))}>{t("Allow")}</button>
           {/if}
           <p class="muted">{t("Variables start with {prefix}.", { prefix: `${p.prefix}.` })}</p>
+          {#if admin && p.enabled}<Health id={p.id} />{/if}
           {#if admin}
             <div class="row">
               <button class="btn" onclick={() => run(() => req("plugins.enable", { id: p.id, enabled: !p.enabled }))}>{p.enabled ? t("Turn off") : t("Turn on")}</button>

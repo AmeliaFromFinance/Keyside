@@ -33,7 +33,7 @@ before(async () => {
 
 after(() => child?.kill());
 
-async function variables(): Promise<Record<string, unknown>> {
+async function req(op: string, args?: unknown): Promise<any> {
   const token = JSON.parse(readFileSync(join(dir, "data", "identity.json"), "utf8")).admin_token;
   const login = await fetch(`http://127.0.0.1:${ADMIN}/admin/login`, {
     method: "POST",
@@ -49,17 +49,32 @@ async function variables(): Promise<Record<string, unknown>> {
     };
   });
   await new Promise((r) => (ws.onopen = r));
-  ws.send(JSON.stringify({ t: "req", id: 1, op: "variables.list" }));
+  ws.send(JSON.stringify({ t: "req", id: 1, op, args }));
   const v = await result;
   ws.close();
   return v;
 }
 
+const variables = (): Promise<Record<string, unknown>> => req("variables.list");
+
+/** Plugins only run while a key uses them, so put the probe on a key. */
+async function useProbe() {
+  const layout = await req("layout.get");
+  layout.profiles[0].pages[0].keys.push({ id: "probe", x: 0, y: 4, kind: "button", label: "Probe", actions: [{ type: "dev.keyside.test-probe/noop", settings: {} }] });
+  layout.profiles[0].pages[0].keys = layout.profiles[0].pages[0].keys.filter((k: any) => k.id === "probe" || !(k.x === 0 && k.y === 4));
+  await req("layout.save", { layout, baseRev: layout.rev });
+}
+
 test("a plugin can't reach anything it wasn't granted", { skip: (!existsSync(bin) && "companion not built") || (!hasDeno && "Deno not installed") }, async () => {
   let vars: Record<string, unknown> = {};
+  let placed = false;
   for (let i = 0; i < 100; i++) {
     await sleep(200);
     try {
+      if (!placed) {
+        await useProbe();
+        placed = true;
+      }
       vars = await variables();
       if (vars["probe.done"]) break;
     } catch {

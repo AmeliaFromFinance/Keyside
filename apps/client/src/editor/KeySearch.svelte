@@ -49,8 +49,9 @@
     }
   }
 
+  // The dialog moves focus to its first button when it opens, so focus the box after that.
   function focus(el: HTMLInputElement) {
-    el.focus();
+    requestAnimationFrame(() => el.focus());
   }
 </script>
 

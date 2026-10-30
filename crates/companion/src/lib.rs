@@ -3,10 +3,13 @@
 pub mod actions;
 pub mod app;
 pub mod assets;
+pub mod backup;
 pub mod config;
 pub mod crypto;
 pub mod devices;
 pub mod focus;
+pub mod health;
+pub mod history;
 pub mod iconpack;
 pub mod ids;
 pub mod mdns;
@@ -50,11 +53,13 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     focus::spawn(app.clone());
 
     // Keep plugins in step with layout changes, and save user variables and key states a
-    // little after they change.
+    // little after they change. Plugins run only while a key uses them, or for a while after
+    // the editor needed one.
     let mut rx = app.engine.lock().subscribe();
     let a = app.clone();
     tokio::spawn(async move {
         let mut save_at: Option<tokio::time::Instant> = None;
+        let mut tidy = tokio::time::interval(std::time::Duration::from_secs(60));
         loop {
             let due = async {
                 match save_at {
@@ -64,13 +69,17 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
             };
             tokio::select! {
                 c = rx.recv() => match c {
-                    Ok(Change::Layout) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => a.plugins.sync_all().await,
+                    Ok(Change::Layout) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        a.plugins.reconcile();
+                        a.plugins.sync_all().await;
+                    }
                     Ok(Change::Vars | Change::Keys) => {
                         save_at.get_or_insert(tokio::time::Instant::now() + std::time::Duration::from_millis(500));
                     }
                     Ok(_) => {}
                     Err(_) => break,
                 },
+                _ = tidy.tick() => a.plugins.reconcile(),
                 _ = due => {
                     save_at = None;
                     save_vars(&a).await;

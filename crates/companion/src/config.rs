@@ -60,6 +60,8 @@ pub struct Settings {
     pub locale: String,
     /// Editor zoom in the desktop app. None picks one from the screen size.
     pub editor_zoom: Option<f64>,
+    /// The first-run setup was finished or skipped.
+    pub setup_done: bool,
 }
 
 impl Default for Settings {
@@ -77,6 +79,7 @@ impl Default for Settings {
             registry_url: DEFAULT_REGISTRY.into(),
             locale: "en".into(),
             editor_zoom: None,
+            setup_done: false,
         }
     }
 }

@@ -4,6 +4,31 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
+- Setup wizard on first run and from the editor menu: pick your apps, get a starter layout with a page for each, connect each plugin, pair a phone.
+- Multi-state keys: 2 to 8 states, each with its own label, icon, colour and steps. They can follow a variable so the key shows the real state.
+- Toggles and multi-state keys keep their position when Keyside restarts.
+- Long press and double tap steps on buttons, toggles and multi-state keys, with adjustable times, on phones and Stream Decks.
+- Key styles: named "when this variable matches, look like this" rules that any key can use, managed from the editor menu.
+- Editor: search every key in every layout with Ctrl+K or the search button, and jump straight to it.
+- Editor: copied keys survive switching layouts and reloading, and paste into other layouts with their steps.
+- Key templates: save one or more keys as a template and place them from the top of the button palette in any editor.
+- "Push to phones" shows a short review of what changed since the last push. Ctrl+S still pushes right away.
+- Drop an image file onto a key or an empty cell to use it as the key picture, with a square crop and zoom step.
+- Import Stream Deck icon packs (.streamDeckIconPack) or zips of images. Each pack gets its own searchable tab in the icon picker.
+- Push history: the last 20 pushed layouts, with a preview of what restoring one would change.
+- Backup and restore in Settings, optionally with passwords and keys encrypted by a passphrase.
+- Plugin health: uptime, restarts and crashes in the last hour, last error, recent status messages and a connection test, for Keyside and Stream Deck plugins.
+- Stream dashboard: "Add page → Stream dashboard" makes a page of live tiles for the connected apps.
+- OBS Stream health keys can show bitrate and time live or recording, and publish {obs.bitrate}, {obs.dropped}, {obs.cpu} and {obs.fps}. New {core.chat_rate} and {twitch.subs}.
+- Overlays for OBS browser sources: /overlay/timer/<name> and /overlay/text?t=…. Timer steps have a "Copy overlay link" button.
+- Chat triggers: a chat command, words in chat or a channel point reward can press a key, with platform, who-may-use-it and cooldown settings.
+- Twitch: channel point redemptions show in Alerts.
+- Stream Deck + and + XL: put keys on the dials. Turning a dial moves its slider, pressing it or tapping the touch strip presses its key, and the strip shows each key's label and value.
+- Physical Stream Decks: brightness and a time after which the deck turns dark, in Manage layouts. The press that wakes it runs nothing.
+- Physical Stream Decks can have several layouts, each shown while one of its apps is in front.
+- Plugins only run while a key uses them. Phones get only the keys that changed after a push, and no longer download the editor or other languages.
+- Plugin SDK: feed items can carry kind, source, author roles and reward details for chat triggers.
+- "Export JSON" moved into the editor menu.
 - Streamer.bot: works with versions that don't send a Hello, with authentication that isn't enforced, and reads globals in the shape Streamer.bot sends. Kick chat and alerts.
 - Meld Studio: keys for vertical screenshots and for showing or dismissing the replay of the last clip.
 - OBS: scenes are listed in the order OBS shows them.

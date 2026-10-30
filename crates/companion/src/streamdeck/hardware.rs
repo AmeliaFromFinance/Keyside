@@ -164,8 +164,8 @@ mod imp {
     use crate::actions::{self, Ctx, Nav};
     use crate::app::App;
     use crate::model::{DeckLink, FormFactor, KeyKind, Tone};
-    use crate::state::{Change, key_path};
     use crate::state::view::KeyView;
+    use crate::state::{Change, key_path};
 
     const SCAN_EVERY: Duration = Duration::from_secs(3);
     /// A value turned in on the deck wins over the one the key reports for this long, so

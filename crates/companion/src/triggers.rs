@@ -457,4 +457,45 @@ mod tests {
         handle(&app, chat("!brb again", &["mod"]));
         assert!(app.engine.lock().toggle_state(&key_path(&p, &pg, "pause")));
     }
+
+    #[tokio::test]
+    async fn a_trigger_steps_a_multi_state_key_and_runs_its_steps() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = crate::app::App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+        let mut l = app.engine.lock().layout().clone();
+        let (profile, page) = (l.profiles[0].id.clone(), l.profiles[0].pages[0].id.clone());
+        let set = |v: &str| json!({ "type": "core.var", "settings": { "name": "user.scene", "op": "set", "value": v } });
+        let key: crate::model::Key = serde_json::from_value(json!({
+            "id": "k1", "x": 0, "y": 4, "kind": "multi", "label": "Scene", "actions": [],
+            "states": [{ "label": "A", "actions": [set("a")] }, { "label": "B", "actions": [set("b")] }]
+        }))
+        .unwrap();
+        l.profiles[0].pages[0].keys.retain(|k| !(k.x == 0 && k.y == 4));
+        l.profiles[0].pages[0].keys.push(key);
+        l.triggers = vec![serde_json::from_value(json!({ "id": "t1", "kind": "command", "match": "scene", "target": { "profile": profile, "page": page, "key": "k1" } })).unwrap()];
+        crate::model::validate(&l).unwrap();
+        app.engine.lock().replace_layout(l).unwrap();
+
+        let var = || app.engine.lock().var("user.scene");
+        handle(&app, chat("!scene", &[]));
+        for _ in 0..50 {
+            if var().is_some() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(var(), Some(json!("a")), "first press runs the first state");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        // A second message from someone else gets past duplicate filtering and steps on.
+        let mut next = chat("!scene", &[]);
+        next.author = "moss".into();
+        handle(&app, next);
+        for _ in 0..50 {
+            if var() == Some(json!("b")) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(var(), Some(json!("b")));
+    }
 }

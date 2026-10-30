@@ -2,6 +2,7 @@
   import Icon from "../components/Icon.svelte";
   import { req } from "../lib/deck.svelte.ts";
   import { reloadCatalog } from "./state.svelte.ts";
+  import Health from "./Health.svelte";
   import { t, mark } from "../lib/i18n.svelte.ts";
 
   type Runtime = "node" | "native" | "html";
@@ -14,6 +15,7 @@
     runtime: Runtime | null;
     enabled: boolean;
     running: boolean;
+    inUse: boolean;
     blocked: string | null;
     net: string[];
     allNet: boolean;
@@ -151,7 +153,7 @@
         <span class="dot" class:ok={p.running} class:bad={!!p.blocked}></span>
         <span class="name"><b>{p.name}</b> <span class="mono muted">{p.version}</span></span>
         {#if p.unsandboxed}<span class="tag warn">{t("Unsandboxed")}</span>{/if}
-        <span class="muted status">{p.blocked ? t(p.blocked) : !p.enabled ? t("off") : p.running ? t("running") : t("starting")}</span>
+        <span class="muted status">{p.blocked ? t(p.blocked) : !p.enabled ? t("off") : p.running ? t("running") : p.inUse ? t("starting") : t("not in use")}</span>
       </button>
       {#if open === p.uuid}
         <div class="body">
@@ -169,6 +171,7 @@
               <label class="check"><input type="radio" name="net-{p.uuid}" checked={access(p) === "all"} onchange={() => setAccess(p, "all")} />{t("Any site, including devices on your network")}</label>
             </fieldset>
           {/if}
+          {#if p.enabled && !p.blocked}<Health id="sd.{p.uuid}" />{/if}
           <div class="row">
             <button class="btn" disabled={busy} onclick={() => run(() => req("streamdeck.grant", { uuid: p.uuid, enabled: !p.enabled }))}>{p.enabled ? t("Turn off") : t("Turn on")}</button>
             {#if p.runtime === "native" && p.unsandboxed}
