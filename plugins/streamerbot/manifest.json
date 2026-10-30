@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.streamerbot",
   "name": "Streamer.bot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "sb",
   "description": "Run Streamer.bot actions, show its global variables and mirror chat and alerts from the platforms it is connected to.",
@@ -31,7 +31,13 @@
         "type": "object",
         "properties": {
           "actionName": { "type": "string", "title": "Action", "x-options": "dynamic" },
-          "args": { "type": "object", "title": "Arguments", "description": "Available in Streamer.bot as %name%.", "additionalProperties": { "type": "string" } }
+          "args": {
+            "type": "object",
+            "title": "Arguments",
+            "description": "Available in Streamer.bot as %name%. Values can use Keyside variables, like {obs.scene}.",
+            "additionalProperties": { "type": "string" },
+            "x-template": true
+          }
         },
         "required": ["actionName"]
       }
@@ -45,9 +51,33 @@
         "type": "object",
         "properties": {
           "triggerName": { "type": "string", "title": "Trigger name", "maxLength": 100 },
-          "args": { "type": "object", "title": "Arguments", "additionalProperties": { "type": "string" } }
+          "args": { "type": "object", "title": "Arguments", "description": "Values can use Keyside variables.", "additionalProperties": { "type": "string" }, "x-template": true }
         },
         "required": ["triggerName"]
+      }
+    },
+    {
+      "id": "set-global",
+      "name": "Set global variable",
+      "icon": "variable",
+      "description": "Needs a small helper action in Streamer.bot. See the plugin setup guide.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "title": "Global variable", "x-options": "dynamic", "maxLength": 100 },
+          "op": { "type": "string", "title": "Change", "enum": ["set", "add", "toggle"], "enumNames": ["Set to", "Add", "Toggle true/false"], "default": "set" },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "maxLength": 1000,
+            "x-template": true,
+            "x-showWhen": { "op": ["set", "add"] },
+            "description": "Can use Keyside variables, like {twitch.viewers}."
+          },
+          "persisted": { "type": "boolean", "title": "Keep after Streamer.bot restarts", "default": true },
+          "helper": { "type": "string", "title": "Helper action", "maxLength": 100, "default": "Keyside: Set global" }
+        },
+        "required": ["name"]
       }
     }
   ],

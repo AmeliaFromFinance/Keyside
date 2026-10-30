@@ -1,0 +1,62 @@
+{
+  "id": "dev.keyside.streamelements",
+  "name": "StreamElements",
+  "version": "1.0.0",
+  "author": "Keyside",
+  "prefix": "se",
+  "description": "Tips and alerts in your events feed, and keys to skip, pause, mute or replay StreamElements alerts.",
+  "homepage": "https://streamelements.com/dashboard/account/channels",
+  "license": "GPL-3.0-or-later",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "hand-coins",
+  "permissions": { "net": ["api.streamelements.com", "astro.streamelements.com"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "token": {
+        "type": "string",
+        "format": "secret",
+        "title": "JWT token",
+        "description": "StreamElements dashboard: Account, Channels, Show secrets. Copy the JWT token. Treat it like a password."
+      }
+    },
+    "required": ["token"]
+  },
+  "actions": [
+    { "id": "skip", "name": "Skip alert", "icon": "skip-forward" },
+    {
+      "id": "pause",
+      "name": "Pause alerts",
+      "icon": "pause",
+      "kind": "toggle",
+      "description": "Holds alerts in the queue until you resume.",
+      "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Pause", "Resume"], "default": "toggle" } } }
+    },
+    {
+      "id": "mute",
+      "name": "Mute alert sounds",
+      "icon": "volume-x",
+      "kind": "toggle",
+      "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Mute", "Unmute"], "default": "toggle" } } }
+    },
+    {
+      "id": "replay",
+      "name": "Replay alert",
+      "icon": "rotate-ccw",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "which": { "type": "string", "title": "Replay", "enum": ["last", "tip"], "enumNames": ["The latest alert", "The latest tip"], "default": "last" }
+        }
+      }
+    }
+  ],
+  "variables": [
+    { "name": "last_tip", "title": "Latest tip", "type": "string" },
+    { "name": "last_follower", "title": "Latest follower", "type": "string" },
+    { "name": "last_sub", "title": "Latest subscriber", "type": "string" },
+    { "name": "last_cheer", "title": "Latest cheer", "type": "string" }
+  ],
+  "feeds": [{ "name": "events", "title": "Tips and alerts" }]
+}

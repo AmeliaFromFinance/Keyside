@@ -1,0 +1,6 @@
+{
+  "name": "@keyside/plugin-streamelements",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@keyside/sdk": "workspace:*" }
+}

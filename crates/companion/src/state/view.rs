@@ -259,6 +259,11 @@ fn loose_eq(a: &Value, b: &Value) -> bool {
 
 /// Replaces {name} with variable values. Unknown names become empty. Output is capped.
 pub fn template(s: &str, get: impl Fn(&str) -> Option<Value>) -> String {
+    fill(s, get, 128)
+}
+
+/// `template` with a chosen length cap, in characters.
+pub fn fill(s: &str, get: impl Fn(&str) -> Option<Value>, cap: usize) -> String {
     if !s.contains('{') {
         return s.to_string();
     }
@@ -277,12 +282,12 @@ pub fn template(s: &str, get: impl Fn(&str) -> Option<Value>) -> String {
                 rest = after;
             }
         }
-        if out.len() > 512 {
+        if out.len() > cap * 4 {
             break;
         }
     }
     out.push_str(rest);
-    out.chars().take(128).collect()
+    out.chars().take(cap).collect()
 }
 
 #[cfg(test)]

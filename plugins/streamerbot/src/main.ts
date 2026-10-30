@@ -15,6 +15,8 @@ const waiting = new Waiters<any>();
 let actions: Array<{ id: string; name: string; enabled: boolean }> = [];
 let ready = false;
 let globalsTimer: ReturnType<typeof setInterval> | null = null;
+/** Globals by their Streamer.bot name, for add and toggle. */
+const globals = new Map<string, unknown>();
 
 function url(): string | null {
   const h = String(setting(host.connection, "host", "127.0.0.1")).trim();
@@ -42,7 +44,9 @@ export function varName(name: string): string | null {
   return /^[a-z][a-z0-9_]*$/.test(clean) ? clean : null;
 }
 
-function setGlobal(name: string, value: unknown) {
+/** `pushed` values come from a broadcast, not from Streamer.bot's globals. */
+function setGlobal(name: string, value: unknown, pushed = false) {
+  if (!pushed && (globals.size < 1000 || globals.has(name))) globals.set(name, value);
   const n = varName(name);
   if (!n || n === "connected") return;
   const v = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : value == null ? null : JSON.stringify(value).slice(0, 500);
@@ -85,7 +89,7 @@ const text = (v: unknown) => (typeof v === "string" ? v : "");
 function onEvent(source: string, type: string, d: any) {
   if (source === "General" && type === "Custom") {
     const p = d?.keyside ?? d?.data?.keyside;
-    if (p && typeof p.var === "string") setGlobal(p.var, p.value);
+    if (p && typeof p.var === "string") setGlobal(p.var, p.value, true);
     return;
   }
   if (source === "Misc" && /GlobalVariable/.test(type)) {
@@ -172,9 +176,40 @@ async function run(s: Record<string, unknown>) {
   await request("DoAction", { action: { id: a.id, name: a.name }, args: s.args ?? {} });
 }
 
+/** The value a "Set global variable" key writes. */
+export function nextValue(op: unknown, current: unknown, input: string): string | number | boolean {
+  if (op === "toggle") return !(current === true || current === "true" || current === "True" || (typeof current === "number" && current !== 0));
+  if (op === "add") {
+    const n = Number(input.trim() || "1");
+    if (!Number.isFinite(n)) throw new Error("Add needs a number");
+    const now = Number(current ?? 0);
+    return (Number.isFinite(now) ? now : 0) + n;
+  }
+  const t = input.trim();
+  if (t === "true" || t === "false") return t === "true";
+  return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : input;
+}
+
+async function setRemote(s: Record<string, unknown>) {
+  if (!ready) throw new Error("Streamer.bot isn't connected");
+  const name = String(s.name ?? "").trim();
+  if (!name || name.length > 100) throw new Error("Pick a global variable");
+  const helperName = String(s.helper ?? "Keyside: Set global").trim();
+  const helper = actions.find((a) => a.name === helperName);
+  if (!helper) throw new Error(`Add the "${helperName}" action to Streamer.bot first. The plugin setup guide has it.`);
+  if (s.op === "add" || s.op === "toggle") {
+    const r = await request("GetGlobal", { variable: name, persisted: s.persisted !== false }).catch(() => null);
+    if (r && "value" in r) globals.set(name, r.value);
+  }
+  const value = nextValue(s.op, globals.get(name), String(s.value ?? ""));
+  await request("DoAction", { action: { id: helper.id, name: helper.name }, args: { keysideName: name, keysideValue: value, keysidePersisted: s.persisted !== false } });
+  setGlobal(name, value);
+}
+
 function connect() {
   sock?.stop();
   ready = false;
+  globals.clear();
   sock = new Reconnecting(url, {
     open() {
       host.status("connecting");
@@ -218,6 +253,14 @@ export default definePlugin({
         await request("ExecuteCodeTrigger", { triggerName: settings.triggerName, args: settings.args ?? {} });
       },
       appear: () => render(),
+    },
+    "set-global": {
+      press: ({ settings }) => setRemote(settings),
+      async options() {
+        if (!ready) throw new Error("Streamer.bot isn't connected");
+        await loadGlobals();
+        return [...globals.keys()].sort().map((n) => ({ value: n, label: n }));
+      },
     },
   },
 });

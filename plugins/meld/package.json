@@ -1,0 +1,6 @@
+{
+  "name": "@keyside/plugin-meld",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@keyside/sdk": "workspace:*" }
+}

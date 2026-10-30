@@ -18,6 +18,7 @@ const EFFECTS: Record<string, [command: string, read: (fx: any) => boolean]> = {
   robot: ["SetRobotEnabled", (fx) => !!fx.current?.robot?.is_enabled],
   hardtune: ["SetHardTuneEnabled", (fx) => !!fx.current?.hard_tune?.is_enabled],
 };
+const effect = (name: string) => (Object.hasOwn(EFFECTS, name) ? EFFECTS[name] : undefined);
 const NAMES: Record<string, string> = { LineIn: "Line in", Sample: "Samples", MicMonitor: "Mic monitor", LineOut: "Line out" };
 const UNSAFE = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -149,7 +150,7 @@ function view(k: Key): KeyView | null {
       return { value: clamp01(v), meta: `${Math.round(v * 100)}%` };
     }
     case "effect": {
-      const e = EFFECTS[String(s.effect ?? "fx")];
+      const e = effect(String(s.effect ?? "fx"));
       return full((fx) => (e && e[1](fx) ? on({}) : null));
     }
     case "preset":
@@ -208,7 +209,7 @@ function connect() {
 }
 
 async function setEffect(name: string, enabled: boolean) {
-  const e = EFFECTS[name];
+  const e = effect(name);
   if (!e) throw new Error("Unknown effect");
   if (!device()[1].effects) throw new Error("Effects need a full-size GoXLR");
   await command({ [e[0]]: enabled });
@@ -262,7 +263,7 @@ export default definePlugin({
         const name = String(settings.effect ?? "fx");
         if (settings.mode === "hold") return setEffect(name, true);
         const fx = device()[1].effects;
-        return setEffect(name, want(settings.mode ?? "toggle", !!fx && !!EFFECTS[name]?.[1](fx)));
+        return setEffect(name, want(settings.mode ?? "toggle", !!fx && !!effect(name)?.[1](fx)));
       },
       release({ settings }) {
         if (settings.mode === "hold") return setEffect(String(settings.effect ?? "fx"), false);

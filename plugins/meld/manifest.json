@@ -1,0 +1,144 @@
+{
+  "id": "dev.keyside.meld",
+  "name": "Meld Studio",
+  "version": "1.0.0",
+  "author": "Keyside",
+  "prefix": "meld",
+  "description": "Scenes, layers, effects, audio, recording and streaming in Meld Studio, with the live scene lit up.",
+  "homepage": "https://meldstudio.co",
+  "license": "GPL-3.0-or-later",
+  "host": "^1.0",
+  "entry": "main.js",
+  "icon": "clapperboard",
+  "permissions": { "net": ["{host}:{port}"] },
+  "connection": {
+    "type": "object",
+    "properties": {
+      "host": { "type": "string", "title": "Address", "default": "127.0.0.1" },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "default": 13376,
+        "minimum": 1,
+        "maximum": 65535,
+        "description": "Meld Studio listens on 13376 while it's open. For another PC, turn on Allow remote connections in Meld's advanced settings."
+      }
+    },
+    "required": ["host", "port"]
+  },
+  "actions": [
+    {
+      "id": "scene",
+      "name": "Scene",
+      "icon": "monitor",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "scene": { "type": "string", "title": "Scene", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["show", "stage"], "enumNames": ["Go live", "Stage it"], "default": "show" }
+        },
+        "required": ["scene"]
+      }
+    },
+    { "id": "go-live", "name": "Show staged scene", "icon": "arrow-right-left" },
+    {
+      "id": "record",
+      "name": "Record",
+      "icon": "circle-dot",
+      "kind": "toggle",
+      "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Start or stop", "Start", "Stop"], "default": "toggle" } } }
+    },
+    {
+      "id": "stream",
+      "name": "Stream",
+      "icon": "radio",
+      "kind": "toggle",
+      "settings": { "type": "object", "properties": { "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Start or stop", "Start", "Stop"], "default": "toggle" } } }
+    },
+    {
+      "id": "layer",
+      "name": "Layer",
+      "icon": "layers",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "layer": { "type": "string", "title": "Layer", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Show", "Hide"], "default": "toggle" }
+        },
+        "required": ["layer"]
+      }
+    },
+    {
+      "id": "effect",
+      "name": "Effect",
+      "icon": "sparkles",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "effect": { "type": "string", "title": "Effect", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        },
+        "required": ["effect"]
+      }
+    },
+    {
+      "id": "mute",
+      "name": "Mute audio",
+      "icon": "mic",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "track": { "type": "string", "title": "Audio track", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Mute", "Unmute"], "default": "toggle" }
+        },
+        "required": ["track"]
+      }
+    },
+    {
+      "id": "monitor",
+      "name": "Monitor audio",
+      "icon": "headphones",
+      "kind": "toggle",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "track": { "type": "string", "title": "Audio track", "x-options": "dynamic" },
+          "mode": { "type": "string", "title": "On press", "enum": ["toggle", "on", "off"], "enumNames": ["Toggle", "Turn on", "Turn off"], "default": "toggle" }
+        },
+        "required": ["track"]
+      }
+    },
+    {
+      "id": "gain",
+      "name": "Volume",
+      "icon": "sliders-vertical",
+      "kind": "slider",
+      "settings": { "type": "object", "properties": { "track": { "type": "string", "title": "Audio track", "x-options": "dynamic" } }, "required": ["track"] }
+    },
+    {
+      "id": "command",
+      "name": "Screenshot, clip or camera",
+      "icon": "camera",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "title": "Do",
+            "enum": ["screenshot", "clip", "vcam"],
+            "enumNames": ["Take a screenshot", "Save a clip", "Turn the virtual camera on or off"],
+            "default": "screenshot"
+          }
+        }
+      }
+    }
+  ],
+  "variables": [
+    { "name": "scene", "title": "Live scene", "type": "string" },
+    { "name": "streaming", "title": "Streaming", "type": "boolean" },
+    { "name": "recording", "title": "Recording", "type": "boolean" }
+  ]
+}

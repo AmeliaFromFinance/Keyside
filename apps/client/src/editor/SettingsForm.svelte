@@ -103,6 +103,7 @@
           <input class="input" placeholder={t("Value")} value={val} oninput={(e) => setEntry(name, i, k, e.currentTarget.value)} />
         </div>
       {/each}
+      {#if f.description}<small>{t(f.description)}</small>{/if}
     </div>
   {:else}
     <label class="field">

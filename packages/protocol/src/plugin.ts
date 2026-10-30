@@ -17,10 +17,14 @@ export type FieldSchema =
       "x-options"?: "dynamic";
       /** Kept by the plugin itself (such as a sign-in session) and hidden in the editor. */
       "x-hidden"?: boolean;
+      /** {variables} in the value are filled in when the key runs. */
+      "x-template"?: boolean;
+      /** Shown only while other fields have one of these values. */
+      "x-showWhen"?: Record<string, string[]>;
     }
   | { type: "number" | "integer"; title?: string; description?: string; default?: number; minimum?: number; maximum?: number }
   | { type: "boolean"; title?: string; description?: string; default?: boolean }
-  | { type: "object"; title?: string; description?: string; additionalProperties: { type: "string" } };
+  | { type: "object"; title?: string; description?: string; additionalProperties: { type: "string" }; "x-template"?: boolean };
 
 export interface SettingsSchema {
   type: "object";

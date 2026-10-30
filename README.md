@@ -46,15 +46,17 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | App | What you get |
 | --- | --- |
 | OBS Studio | Scenes (with live thumbnails), mute, volume, record and pause, chapters, split files, stream, replay buffer, virtual camera, studio mode, transitions, sources, filters, audio monitoring, media, text, screenshots, stream health, scene collections, profiles, hotkeys |
+| Meld Studio | Scenes, staging, layers, effects, mute, monitoring, volume, record, stream, screenshots, clips, virtual camera |
 | Streamlabs Desktop | Scenes, mute, volume, record, stream, replay buffer |
-| Streamer.bot | Run actions and custom triggers, globals as variables, chat and alerts |
+| Streamer.bot | Run actions and custom triggers with arguments, set globals, globals as variables, chat and alerts |
 | Twitch | Chat and alerts, markers, clips, ads, chat modes, title and category, shoutouts, raids, polls, predictions, channel point rewards, shield mode |
-| YouTube Live | Chat, Super Chats, members, viewer count, send messages |
+| YouTube Live | Chat, Super Chats, members, viewer count, stream health, send messages, change the title |
+| StreamElements | Tips and alerts in the feed, skip, pause, mute and replay alerts |
 | VTube Studio | Hotkeys, expressions, model switching, items, sliders that move model parameters |
 | VNyan, Warudo | Trigger node graphs and blueprints |
 | veadotube | Avatar states with thumbnails |
 | Discord | Mute, deafen, push to talk, noise suppression, echo cancellation, voice channels, mic and speaker volume. Equibop on Linux too |
-| Spotify | Now playing with album art, playback, volume, like, playlists |
+| Spotify | Now playing with album art, playback, volume, like, playlists, queue songs, switch devices |
 | GoXLR | Fader and cough mutes, channel volumes, voice effects and presets, samples, routing, profiles (through the GoXLR Utility) |
 | Voicemeeter | Mute, gain, routing, macro buttons, presets, the recorder and scripts over VBAN |
 | Elgato Key Light | Power, brightness, colour temperature, presets |

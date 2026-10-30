@@ -30,6 +30,31 @@ Your global variables show up as `{sb.name}`. To push a value from a Streamer.bo
 
 That sets `{sb.deaths}`.
 
+Arguments on **Run action** and **Custom trigger** keys can use Keyside variables, like `{obs.scene}`. They're filled in when you press the key.
+
+### Set global variable keys
+
+Streamer.bot can't set globals from outside, so these keys run a small helper action. Add it once:
+
+1. In Streamer.bot, create an action named `Keyside: Set global`.
+2. Add a sub-action: **Core > C# > Execute C# Code**, and paste:
+
+```csharp
+public class CPHInline
+{
+    public bool Execute()
+    {
+        if (!CPH.TryGetArg("keysideName", out string name) || string.IsNullOrWhiteSpace(name)) return false;
+        CPH.TryGetArg("keysideValue", out object value);
+        CPH.TryGetArg("keysidePersisted", out bool persisted);
+        CPH.SetGlobalVar(name, value, persisted);
+        return true;
+    }
+}
+```
+
+3. Compile and save it.
+
 ## Twitch
 
 Twitch needs an app registration of your own. It's free and takes a minute.
@@ -52,7 +77,9 @@ If you signed in before polls and predictions were added, Keyside asks you to si
 3. Paste the client ID and secret into Keyside and save.
 4. Open the link Keyside shows and enter the code.
 
-Chat updates every 15 seconds to stay within YouTube's daily quota.
+Chat updates every 15 seconds to stay within YouTube's daily quota. Viewer count and stream health update every minute; press a **Stream health** key to check now.
+
+**Change title** renames the live broadcast, or the next scheduled one if you're not live yet. Each change uses 50 of your 10,000 daily quota units.
 
 ## Spotify
 
@@ -64,6 +91,8 @@ Playback control needs Spotify Premium.
 4. Press any Spotify key. Your browser opens to sign in.
 
 If you changed the editor port in Keyside settings, use that port in the redirect URI.
+
+**Play on device** lists devices that have Spotify open. Keys remember the device by name.
 
 ## Discord
 
@@ -115,6 +144,24 @@ A **Move a parameter** slider takes that parameter over from face tracking while
 VBAN text can't report state back, so toggle keys follow what Keyside last sent.
 
 **Load preset** needs the full path of a settings file saved from Voicemeeter (**Menu > Save Settings**), on the Voicemeeter PC. **Macro button** presses buttons in Voicemeeter's Macro Buttons app, numbered from 1 in the order they appear there.
+
+## Meld Studio
+
+1. Open Meld Studio. Its API is on port `13376` while it runs.
+2. In Keyside, use address `127.0.0.1` for this PC. For Meld on another PC, turn on **Allow remote connections** in Meld's advanced settings and enter that PC's address.
+
+Meld's API has no password, so only allow remote connections on a network you trust.
+
+Scenes, layers, effects and audio tracks are picked from lists. Meld gives each one an id, so a key keeps working after you rename the scene, but not after you delete and remake it.
+
+## StreamElements
+
+1. In the StreamElements dashboard, open **Account**, then **Channels**, and click **Show secrets**.
+2. Copy the **JWT token** into Keyside and save.
+
+The JWT token gives full access to your StreamElements account, so Keyside keeps it in your system keychain. If it ever leaks, reset it on the same page.
+
+Tips, follows, subs, cheers and raids show up in the **Tips and alerts** feed. **Replay alert** works for alerts from the last week.
 
 ## GoXLR
 

@@ -1,10 +1,10 @@
 {
   "id": "dev.keyside.youtube",
   "name": "YouTube Live",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "youtube",
-  "description": "Live chat, Super Chats and viewer count from your YouTube stream, and sending chat messages.",
+  "description": "Live chat, Super Chats, viewer count and stream health from your YouTube stream. Send chat messages and change the title.",
   "homepage": "https://console.cloud.google.com/apis/credentials",
   "license": "GPL-3.0-or-later",
   "host": "^1.0",
@@ -25,13 +25,22 @@
     }
   },
   "actions": [
-    { "id": "send", "name": "Send chat message", "icon": "send", "settings": { "type": "object", "properties": { "message": { "type": "string", "title": "Message", "maxLength": 200 } }, "required": ["message"] } }
+    { "id": "send", "name": "Send chat message", "icon": "send", "settings": { "type": "object", "properties": { "message": { "type": "string", "title": "Message", "maxLength": 200 } }, "required": ["message"] } },
+    {
+      "id": "title",
+      "name": "Change title",
+      "icon": "pencil",
+      "description": "Sets the title of the live broadcast, or the next scheduled one.",
+      "settings": { "type": "object", "properties": { "title": { "type": "string", "title": "Title", "maxLength": 100 } }, "required": ["title"] }
+    },
+    { "id": "health", "name": "Stream health", "icon": "heart-pulse", "description": "What YouTube sees from your encoder. Press to check now." }
   ],
   "variables": [
     { "name": "live", "title": "Live", "type": "boolean" },
     { "name": "viewers", "title": "Viewers", "type": "number" },
     { "name": "likes", "title": "Likes", "type": "number" },
     { "name": "title", "title": "Title", "type": "string" },
+    { "name": "health", "title": "Stream health", "type": "string" },
     { "name": "last_superchat", "title": "Latest Super Chat", "type": "string" },
     { "name": "last_member", "title": "Latest member", "type": "string" }
   ],

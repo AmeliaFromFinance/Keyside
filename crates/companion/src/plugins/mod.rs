@@ -578,16 +578,43 @@ impl Host {
     }
 
     fn clean_steps(&self, plugin: &str, steps: Vec<Step>) -> Result<Vec<Step>, String> {
-        let st = self.state.lock();
-        let m = &st.installed.get(plugin).ok_or("plugin not installed")?.manifest;
-        steps
-            .into_iter()
-            .map(|mut s| {
-                let def = m.actions.iter().find(|a| a.id == s.action).ok_or_else(|| format!("{} has no action \"{}\"", m.name, s.action))?;
-                s.settings = manifest::clean_values(def.settings.as_ref(), &s.settings)?;
-                Ok(s)
-            })
-            .collect()
+        // Fields that take {variables}, with their length caps, per step.
+        let mut fills: Vec<Vec<(String, usize)>> = Vec::new();
+        let mut steps = {
+            let st = self.state.lock();
+            let m = &st.installed.get(plugin).ok_or("plugin not installed")?.manifest;
+            steps
+                .into_iter()
+                .map(|mut s| {
+                    let def = m.actions.iter().find(|a| a.id == s.action).ok_or_else(|| format!("{} has no action \"{}\"", m.name, s.action))?;
+                    s.settings = manifest::clean_values(def.settings.as_ref(), &s.settings)?;
+                    fills.push(def.settings.iter().flat_map(|sc| &sc.properties).filter_map(|(n, f)| Some((n.clone(), f.template_cap()?))).collect());
+                    Ok(s)
+                })
+                .collect::<Result<Vec<_>, String>>()?
+        };
+        if fills.iter().all(Vec::is_empty) {
+            return Ok(steps);
+        }
+        let Some(app) = self.app() else { return Ok(steps) };
+        let e = app.engine.lock();
+        let get = |n: &str| e.var(n);
+        for (s, fields) in steps.iter_mut().zip(&fills) {
+            for (name, cap) in fields {
+                match s.settings.get_mut(name) {
+                    Some(Value::String(v)) => *v = crate::state::view::fill(v, get, *cap),
+                    Some(Value::Object(o)) => {
+                        for v in o.values_mut() {
+                            if let Value::String(x) = v {
+                                *x = crate::state::view::fill(x, get, *cap);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(steps)
     }
 
     pub async fn slide(&self, plugin: &str, step: Step, value: f64) {
@@ -1074,6 +1101,37 @@ mod tests {
         assert!(!valid_image("https://evil.example/x.png"));
         assert!(!valid_image("data:text/html;base64,PHNjcmlwdD4="));
         assert!(!valid_image("data:image/png;base64,<script>"));
+    }
+
+    #[tokio::test]
+    async fn fills_variables_only_where_the_plugin_asks() {
+        let data = tempfile::tempdir().unwrap();
+        let app = App::new(crate::app::Options { data_dir: Some(data.path().into()), bundled_plugins: None }).unwrap();
+        let src = tempfile::tempdir().unwrap();
+        let text = |extra: Value| {
+            let mut f = json!({ "type": "string", "maxLength": 14 });
+            f.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            f
+        };
+        let manifest = json!({
+            "id": "dev.example.tpl", "name": "Tpl", "version": "1.0.0", "author": "Me", "prefix": "tpl", "host": "^1.0", "entry": "main.js",
+            "actions": [{ "id": "go", "name": "Go", "settings": { "type": "object", "properties": {
+                "filled": text(json!({ "x-template": true })),
+                "plain": text(json!({})),
+                "args": { "type": "object", "additionalProperties": { "type": "string" }, "x-template": true }
+            } } }]
+        });
+        std::fs::write(src.path().join("manifest.json"), manifest.to_string()).unwrap();
+        std::fs::write(src.path().join("main.js"), "").unwrap();
+        let pkg = package::Package::from_dir(src.path()).unwrap();
+        app.plugins.install(&pkg, Source::File, false).unwrap();
+        app.engine.lock().set_var("user.who", json!("Fernando the Great"));
+        let settings = json!({ "filled": "hi {user.who}", "plain": "{user.who}", "args": { "a": "{user.who}!", "b": "{nope}" } });
+        let step = Step { instance: "i".into(), action: "go".into(), settings: settings.as_object().unwrap().clone() };
+        let out = app.plugins.clean_steps("dev.example.tpl", vec![step]).unwrap().remove(0).settings;
+        assert_eq!(out["filled"], "hi Fernando th", "capped at the field's length");
+        assert_eq!(out["plain"], "{user.who}");
+        assert_eq!(out["args"], json!({ "a": "Fernando the Great!", "b": "" }));
     }
 
     #[tokio::test]

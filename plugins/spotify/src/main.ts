@@ -24,6 +24,7 @@ interface Player {
   shuffle: boolean;
   repeat: "off" | "context" | "track";
   liked: boolean;
+  device: string;
 }
 
 let host: Host;
@@ -99,6 +100,7 @@ async function poll(gen: number) {
         shuffle: !!p.shuffle_state,
         repeat: p.repeat_state ?? "off",
         liked,
+        device: String(p.device?.name ?? ""),
       };
       if (art && art !== artFor) await loadArt(art);
     }
@@ -148,6 +150,8 @@ function view(k: Key): KeyView | null {
       return p && p.repeat !== "off" ? { tone: "accent", badge: p.repeat === "track" ? "ONE" : "ALL", badgeTone: "accent" } : null;
     case "like":
       return p?.liked ? { tone: "accent", badge: "LIKED", badgeTone: "accent" } : null;
+    case "device":
+      return p?.device && p.device.toLowerCase() === String(k.settings.device ?? "").toLowerCase() ? { tone: "accent", badge: "PLAYING", badgeTone: "accent" } : null;
     default:
       return null;
   }
@@ -162,6 +166,12 @@ function render() {
   host.setVar("track", player?.track ?? "");
   host.setVar("artist", player?.artist ?? "");
   host.setVar("playing", !!player?.playing);
+  host.setVar("device", player?.device ?? "");
+}
+
+async function devices(): Promise<Array<{ id: string; name: string }>> {
+  const r = await api("GET", "/me/player/devices");
+  return (r?.devices ?? []).filter((d: any) => d?.id && d?.name && !d.is_restricted).map((d: any) => ({ id: String(d.id), name: String(d.name).slice(0, 100) }));
 }
 
 /** Accepts spotify:album:x or an open.spotify.com link. */
@@ -171,6 +181,13 @@ export function toUri(input: string): string {
   const m = s.match(/^https:\/\/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(album|playlist|artist|show|track|episode)\/([A-Za-z0-9]+)/);
   if (m) return `spotify:${m[1]}:${m[2]}`;
   throw new Error("That isn't a Spotify link");
+}
+
+/** Only single songs and episodes can be queued. */
+export function queueUri(input: string): string {
+  const uri = toUri(input);
+  if (!/^spotify:(track|episode):/.test(uri)) throw new Error("Only songs and episodes can be queued");
+  return uri;
 }
 
 async function act(fn: () => Promise<unknown>) {
@@ -237,6 +254,24 @@ export default definePlugin({
           const uri = toUri(String(settings.uri ?? ""));
           return api("PUT", "/me/player/play", /:(track|episode):/.test(uri) ? { uris: [uri] } : { context_uri: uri });
         }),
+      appear: render,
+    },
+    queue: {
+      press: ({ settings }) => act(() => api("POST", `/me/player/queue?uri=${encodeURIComponent(queueUri(String(settings.uri ?? "")))}`)),
+    },
+    device: {
+      // Saved by name, since some devices get a new id each time they connect.
+      press: ({ settings }) =>
+        act(async () => {
+          const name = String(settings.device ?? "").trim().toLowerCase();
+          const d = (await devices()).find((x) => x.name.toLowerCase() === name);
+          if (!d) throw new Error(`${String(settings.device ?? "That device").slice(0, 100)} isn't available. Open Spotify on it first.`);
+          await api("PUT", "/me/player", { device_ids: [d.id], play: settings.play !== false });
+        }),
+      async options() {
+        await ensureSignedIn();
+        return (await devices()).map((d) => ({ value: d.name, label: d.name }));
+      },
       appear: render,
     },
   },

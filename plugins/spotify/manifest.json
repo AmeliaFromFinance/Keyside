@@ -1,7 +1,7 @@
 {
   "id": "dev.keyside.spotify",
   "name": "Spotify",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Keyside",
   "prefix": "spotify",
   "description": "Playback controls and a now-playing key with album art. Controlling playback needs Spotify Premium.",
@@ -37,11 +37,33 @@
       "name": "Play playlist or album",
       "icon": "list-plus",
       "settings": { "type": "object", "properties": { "uri": { "type": "string", "title": "Spotify link or URI", "maxLength": 200 } }, "required": ["uri"] }
+    },
+    {
+      "id": "queue",
+      "name": "Add to queue",
+      "icon": "list-music",
+      "description": "Queues a song or podcast episode to play next.",
+      "settings": { "type": "object", "properties": { "uri": { "type": "string", "title": "Song link or URI", "maxLength": 200 } }, "required": ["uri"] }
+    },
+    {
+      "id": "device",
+      "name": "Play on device",
+      "icon": "speaker",
+      "description": "Moves playback to another speaker, phone or PC.",
+      "settings": {
+        "type": "object",
+        "properties": {
+          "device": { "type": "string", "title": "Device", "x-options": "dynamic", "maxLength": 100, "description": "Devices appear here while Spotify is open on them." },
+          "play": { "type": "boolean", "title": "Start playing there", "default": true }
+        },
+        "required": ["device"]
+      }
     }
   ],
   "variables": [
     { "name": "track", "title": "Track", "type": "string" },
     { "name": "artist", "title": "Artist", "type": "string" },
-    { "name": "playing", "title": "Playing", "type": "boolean" }
+    { "name": "playing", "title": "Playing", "type": "boolean" },
+    { "name": "device", "title": "Playing on", "type": "string" }
   ]
 }

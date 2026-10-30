@@ -56,6 +56,8 @@ test/main.test.ts tests that run without Keyside
 - **prefix**: short name for your variables, so `count` becomes `{counter.count}`.
 - **connection**: settings for the whole plugin, shown in the Plugins panel. `"format": "secret"` keeps a value in the system keychain. `"x-hidden": true` hides a field you manage yourself, like a sign-in session.
 - **actions**: each has its own settings form. Use `"x-options": "dynamic"` on a text field to fill a dropdown from your plugin.
+  - `"x-template": true` on a text or arguments field lets people use Keyside variables, like `{obs.scene}`. Keyside fills them in before your plugin sees the value.
+  - `"x-showWhen": { "mode": ["set", "add"] }` shows a text field only while the `mode` field has one of those values.
 - **icon**: any name from the editor's icon picker.
 
 ### Permissions

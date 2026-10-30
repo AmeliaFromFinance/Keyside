@@ -19,7 +19,10 @@ First release.
 - Home Assistant thermostats, light colour temperature, media players with covers and camera snapshots.
 - VTube Studio items and sliders that move model parameters.
 - Voicemeeter macro buttons, presets and recorder controls.
-- Plugins for OBS Studio, Streamlabs Desktop, Streamer.bot, Twitch, YouTube Live, VTube Studio, VNyan, Warudo, veadotube, Discord, Spotify, Voicemeeter, GoXLR, Elgato Key Light, Philips Hue and Home Assistant.
+- Spotify keys that queue a song or move playback to another device.
+- YouTube stream health and a key to change the title.
+- Streamer.bot keys that set global variables, and action arguments that can use Keyside variables.
+- Plugins for OBS Studio, Meld Studio, Streamlabs Desktop, Streamer.bot, StreamElements, Twitch, YouTube Live, VTube Studio, VNyan, Warudo, veadotube, Discord, Spotify, Voicemeeter, GoXLR, Elgato Key Light, Philips Hue and Home Assistant.
 - Discord keys also work with Equibop on Linux.
 - Sandboxed plugin runtime with a TypeScript SDK and test harness.
 - Stream Deck plugin support, including their settings pages.

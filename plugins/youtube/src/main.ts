@@ -20,7 +20,9 @@ let host: Host;
 let session: Session;
 let generation = 0;
 let signedIn = false;
-let broadcast: { id: string; chat: string; title: string } | null = null;
+let broadcast: { id: string; chat: string; title: string; stream: string } | null = null;
+/** What YouTube reports about the incoming video. */
+let health: { status: string; ingest: string; issue: string } | null = null;
 let page: string | undefined;
 let timers: Array<ReturnType<typeof setTimeout>> = [];
 let firstPage = true;
@@ -93,10 +95,11 @@ function restart() {
 
 async function findBroadcast(gen: number) {
   try {
-    const r = await api("GET", "/liveBroadcasts?part=snippet&broadcastStatus=active&broadcastType=all&maxResults=1");
+    const r = await api("GET", "/liveBroadcasts?part=snippet,contentDetails&broadcastStatus=active&broadcastType=all&maxResults=1");
     const b = r.items?.[0];
     const was = broadcast?.id;
-    broadcast = b?.snippet?.liveChatId ? { id: b.id, chat: b.snippet.liveChatId, title: b.snippet.title ?? "" } : null;
+    broadcast = b?.snippet?.liveChatId ? { id: b.id, chat: b.snippet.liveChatId, title: b.snippet.title ?? "", stream: String(b.contentDetails?.boundStreamId ?? "") } : null;
+    if (!broadcast) setHealth(null);
     host.setVar("live", !!broadcast);
     host.setVar("title", broadcast?.title ?? "");
     if (!broadcast) host.setVar("viewers", 0);
@@ -120,7 +123,54 @@ async function stats(gen: number) {
     host.setVar("viewers", Number(v.liveStreamingDetails?.concurrentViewers ?? 0));
     host.setVar("likes", Number(v.statistics?.likeCount ?? 0));
   }
+  await checkHealth();
   later(() => void stats(gen), STATS_EVERY, gen);
+}
+
+const HEALTH: Record<string, [label: string, tone: "success" | "warning" | "danger" | "muted"]> = {
+  good: ["Good", "success"],
+  ok: ["OK", "warning"],
+  bad: ["Poor", "danger"],
+  noData: ["No data", "muted"],
+};
+
+async function checkHealth() {
+  const id = broadcast?.stream;
+  if (!id) return setHealth(null);
+  const s = (await api("GET", `/liveStreams?part=status&id=${encodeURIComponent(id)}`).catch(() => null))?.items?.[0]?.status;
+  if (!s) return;
+  const issue = (s.healthStatus?.configurationIssues ?? []).find((i: any) => i?.severity === "error") ?? s.healthStatus?.configurationIssues?.[0];
+  setHealth({ status: String(s.healthStatus?.status ?? "noData"), ingest: String(s.streamStatus ?? ""), issue: String(issue?.reason ?? issue?.description ?? "").slice(0, 80) });
+}
+
+function setHealth(h: typeof health) {
+  health = h;
+  host.setVar("health", h ? (Object.hasOwn(HEALTH, h.status) ? HEALTH[h.status][0] : h.status) : "");
+  for (const k of host.keys("health")) {
+    if (!h) {
+      k.set({ sub: "Not live", tone: "muted" });
+      continue;
+    }
+    const [label, tone] = Object.hasOwn(HEALTH, h.status) ? HEALTH[h.status] : [h.status, "muted" as const];
+    k.set({ badge: label.toUpperCase(), badgeTone: tone, tone: tone === "danger" ? "danger" : undefined, sub: h.issue || (h.ingest === "active" ? "Receiving video" : h.ingest || undefined) });
+  }
+}
+
+/** The broadcast a title key changes: the live one, or else the next scheduled one. */
+async function titleTarget(): Promise<any> {
+  for (const status of ["active", "upcoming"]) {
+    const b = (await api("GET", `/liveBroadcasts?part=snippet&broadcastStatus=${status}&broadcastType=all&maxResults=1`)).items?.[0];
+    if (b?.id && b.snippet) return b;
+  }
+  throw new Error("No live or scheduled broadcast to rename");
+}
+
+export function cleanTitle(input: unknown): string {
+  const t = String(input ?? "").replace(/\s+/g, " ").trim();
+  if (!t) throw new Error("The title is empty");
+  if (t.length > 100) throw new Error("YouTube titles can be up to 100 characters");
+  if (/[<>]/.test(t)) throw new Error("YouTube titles can't contain < or >");
+  return t;
 }
 
 async function readChat(gen: number) {
@@ -188,6 +238,29 @@ export default definePlugin({
         if (!broadcast) throw new Error("No live broadcast right now");
         await api("POST", "/liveChat/messages?part=snippet", { snippet: { liveChatId: broadcast.chat, type: "textMessageEvent", textMessageDetails: { messageText: String(settings.message ?? "").slice(0, 200) } } });
       },
+    },
+    title: {
+      async press({ settings }) {
+        if (!signedIn) throw new Error("YouTube isn't signed in yet");
+        const title = cleanTitle(settings.title);
+        const b = await titleTarget();
+        // YouTube clears any field left out of an update, so send the others back unchanged.
+        const { description, scheduledStartTime, scheduledEndTime } = b.snippet;
+        await api("PUT", "/liveBroadcasts?part=snippet", { id: b.id, snippet: { title, description, scheduledStartTime, scheduledEndTime } });
+        if (broadcast && broadcast.id === b.id) {
+          broadcast.title = title;
+          host.setVar("title", title);
+        }
+        host.toast("YouTube title changed", "success");
+      },
+    },
+    health: {
+      async press() {
+        if (!signedIn) throw new Error("YouTube isn't signed in yet");
+        if (!broadcast) throw new Error("No live broadcast right now");
+        await checkHealth();
+      },
+      appear: () => setHealth(health),
     },
   },
 });

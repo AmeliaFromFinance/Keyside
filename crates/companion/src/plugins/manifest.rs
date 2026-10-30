@@ -1,7 +1,8 @@
 //! Plugin manifest parsing and checks. A manifest that fails here is never run.
 
-use indexmap::IndexMap;
+use std::collections::BTreeMap;
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -31,6 +32,12 @@ pub enum Field {
         /// Kept by the plugin (for example a sign-in session) and not shown in the editor.
         #[serde(default, rename = "x-hidden", skip_serializing_if = "std::ops::Not::not")]
         hidden: bool,
+        /// {variables} in the value are filled in when the key runs.
+        #[serde(default, rename = "x-template", skip_serializing_if = "std::ops::Not::not")]
+        template: bool,
+        /// Shown only while other fields have one of these values.
+        #[serde(default, rename = "x-showWhen", skip_serializing_if = "Option::is_none")]
+        show_when: Option<BTreeMap<String, Vec<String>>>,
     },
     Number {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -71,10 +78,22 @@ pub enum Field {
         description: Option<String>,
         #[serde(rename = "additionalProperties")]
         additional: Value,
+        /// {variables} in the values are filled in when the key runs.
+        #[serde(default, rename = "x-template", skip_serializing_if = "std::ops::Not::not")]
+        template: bool,
     },
 }
 
 impl Field {
+    /// For fields that take {variables}: the longest a filled-in value may be.
+    pub fn template_cap(&self) -> Option<usize> {
+        match self {
+            Field::String { template: true, choices: None, max_length, format, .. } if format.as_deref() != Some("secret") => Some(max_length.unwrap_or(1024).min(4096)),
+            Field::Object { template: true, .. } => Some(1024),
+            _ => None,
+        }
+    }
+
     pub fn is_secret(&self) -> bool {
         matches!(self, Field::String { format: Some(f), .. } if f == "secret")
     }
@@ -217,6 +236,11 @@ fn check_schema(where_: &str, s: &Schema) -> Result<(), String> {
             if format.as_deref().is_some_and(|f| !["secret", "textarea", "color", "url", "hotkey", "file"].contains(&f)) {
                 return err(format!("{where_}: unknown format for \"{name}\""));
             }
+        }
+        if let Field::String { show_when: Some(w), .. } = f
+            && (w.len() > 4 || w.iter().any(|(k, v)| k == name || !s.properties.contains_key(k) || v.is_empty() || v.len() > 50 || v.iter().any(|x| x.len() > 100)))
+        {
+            return err(format!("{where_}: invalid x-showWhen for \"{name}\""));
         }
         if let Field::Object { additional, .. } = f
             && additional.get("type").and_then(Value::as_str) != Some("string")

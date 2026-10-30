@@ -141,6 +141,7 @@ test("refuses settings it doesn't know and effects on a Mini", async () => {
   await eventually(() => h.status()?.detail === "GoXLR Mini");
   await eventually(() => h.view("e")?.disabled === true);
   await assert.rejects(h.press("e", "effect", { effect: "fx" }), /full-size/);
+  await assert.rejects(h.press("e", "effect", { effect: "constructor" }), /Unknown effect/);
   await h.slide("v", "volume", 0.5, { channel: "__proto__" });
   await assert.rejects(h.press("f", "fader-mute", { fader: "E" }), /Unknown setting/);
   await assert.rejects(h.press("l", "profile", { profile: "../../etc/passwd" }), /no profile/);

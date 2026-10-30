@@ -137,6 +137,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/sdk
 
+  plugins/meld:
+    dependencies:
+      '@keyside/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
   plugins/obs:
     dependencies:
       '@keyside/sdk':
@@ -144,6 +150,12 @@ importers:
         version: link:../../packages/sdk
 
   plugins/spotify:
+    dependencies:
+      '@keyside/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  plugins/streamelements:
     dependencies:
       '@keyside/sdk':
         specifier: workspace:*
