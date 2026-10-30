@@ -3,7 +3,7 @@
   import Icon from "./Icon.svelte";
   import PinPad from "./PinPad.svelte";
   import Sheet from "./Sheet.svelte";
-  import { deck, nav, press, slide, sendViewport, connection, dismissToast } from "../lib/deck.svelte.ts";
+  import { deck, nav, press, slide, sendViewport, connection, dismissToast, localToast } from "../lib/deck.svelte.ts";
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
   import { ago, clock, everySecond } from "../lib/format.ts";
   import { keepAwake, haptic } from "../lib/native.ts";
@@ -63,17 +63,31 @@
   }
 
   // Locking needs a long press so a pocket tap can't change it.
-  function lockDown() {
+  const LOCK_HOLD = 600;
+  let lockStart = 0;
+  function lockDown(e?: PointerEvent) {
+    if (e && e.button > 0) return;
+    // Keep getting this finger's events, even if it drifts a little.
+    if (e) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     lockArming = true;
+    lockStart = performance.now();
+    if (lockTimer) clearTimeout(lockTimer);
     lockTimer = setTimeout(() => {
+      lockTimer = null;
       localLock = !localLock;
       lockArming = false;
       haptic("medium");
-    }, 600);
+    }, LOCK_HOLD);
   }
-  function lockUp() {
+  function lockUp(e?: PointerEvent) {
+    // Phones may cancel a held touch for their own long-press. That isn't a release.
+    if (e?.type === "pointercancel" && e.pointerType !== "mouse") return;
+    const short = !!lockTimer && performance.now() - lockStart < LOCK_HOLD;
     lockArming = false;
     if (lockTimer) clearTimeout(lockTimer);
+    lockTimer = null;
+    // A quick tap does nothing, so say how it works.
+    if (short && e?.type === "pointerup") localToast(localLock ? t("Hold to unlock keys") : t("Hold to lock keys"));
   }
   /** Keyboard users hold Enter or Space, like a finger on the button. */
   function lockKey(e: KeyboardEvent, isDown: boolean) {
@@ -114,8 +128,8 @@
           title={localLock ? t("Hold to unlock keys") : t("Hold to lock keys")}
           onpointerdown={lockDown}
           onpointerup={lockUp}
-          onpointerleave={lockUp}
           onpointercancel={lockUp}
+          oncontextmenu={(e) => e.preventDefault()}
           onkeydown={(e) => lockKey(e, true)}
           onkeyup={(e) => lockKey(e, false)}><Icon name={localLock ? "lock" : "lock-open"} /></button
         >
@@ -271,6 +285,13 @@
     border-radius: 14px;
     background: var(--surface);
     border-color: var(--line-soft);
+  }
+  /* Long-pressing the lock is the point, so the phone must not treat it as its own long-press. */
+  .tool {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   .tool.on {
     color: var(--accent);

@@ -28,6 +28,7 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Editor: the toolbar Undo and Redo buttons now turn on as soon as there's something to undo.
 - Devices: click a paired device to rename it, change its access, set, change or remove its PIN, or revoke it. The PIN shows on hover, or on a tap on touch screens.
 - Deck: tap a toast to dismiss it. Toasts also go away on their own.
+- Deck: the lock button works on phones that cancel a long press for their own menus, and a quick tap explains that it needs a hold. Held keys with pictures no longer get cut short by the iPhone's "Save image" callout.
 - "Last seen" shows days and years instead of thousands of hours.
 - Sliders send their value once, when you let go, instead of many times while you drag. The companion also sends one value per slider at a time, newest first.
 - A second finger on a key that's already held doesn't press it again.

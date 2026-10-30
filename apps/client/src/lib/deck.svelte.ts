@@ -126,6 +126,11 @@ function showToast(toast: Toast) {
   toastTimer = setTimeout(dismissToast, toast.tone === "danger" || toast.tone === "warning" ? 8000 : 4000);
 }
 
+/** A toast from this device itself, such as a hint. */
+export function localToast(text: string, tone: Tone = "default") {
+  showToast({ text, tone, at: Date.now() });
+}
+
 export function dismissToast() {
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = null;

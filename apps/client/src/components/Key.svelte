@@ -263,6 +263,8 @@
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    /* iOS shows a "Save image" callout on a held picture, which cancels the press. */
+    -webkit-touch-callout: none;
     cursor: pointer;
     transition:
       transform 80ms ease,
