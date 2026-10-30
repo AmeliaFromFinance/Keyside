@@ -254,6 +254,62 @@ pub fn key(v: &KeyView, w: u32, h: u32) -> DynamicImage {
     DynamicImage::ImageRgba8(img)
 }
 
+/// What a dial shows on the touch strip: a badge, the slider position, or its text.
+fn dial_text(v: &KeyView) -> Option<String> {
+    v.badge
+        .clone()
+        .or_else(|| v.since.map(clock))
+        .or_else(|| if v.kind == KeyKind::Slider { v.value.map(|x| format!("{:.0}%", x.clamp(0.0, 1.0) * 100.0)) } else { None })
+        .or_else(|| v.sub.clone())
+        .or_else(|| v.meta.clone())
+        .filter(|t| !t.trim().is_empty())
+}
+
+/// Draws the touch strip of a Stream Deck + as one wide image: a segment per dial with the
+/// label and value of the key on that dial. Dials without a key stay dark.
+pub fn strip(dials: &[Option<KeyView>], w: u32, h: u32) -> DynamicImage {
+    let Some(mut pix) = Pixmap::new(w.max(1), h.max(1)) else { return DynamicImage::new_rgba8(w, h) };
+    let (wf, hf) = (w as f32, h as f32);
+    fill(&mut pix, 0.0, 0.0, wf, hf, hex(0x121118), 255);
+    let n = dials.len().max(1) as f32;
+    let seg = wf / n;
+    let pad = (hf * 0.06).max(2.0);
+    for (i, v) in dials.iter().enumerate() {
+        let Some(v) = v else { continue };
+        let x0 = seg * i as f32;
+        fill(&mut pix, x0 + pad, pad, seg - pad * 2.0, hf - pad * 2.0, background(v), 255);
+        let fg = if v.disabled { MUTED } else { TEXT };
+        let room = seg - pad * 4.0;
+        let small = hf * 0.2;
+        let mut left = x0 + pad * 2.0;
+        if let Some(name) = v.icon.as_deref() {
+            let size = hf * 0.26;
+            icon(&mut pix, name, left, pad * 2.0, size, fg);
+            left += size + pad;
+        }
+        if let Some(l) = wrap(v.label.trim(), small, x0 + seg - pad * 2.0 - left, 1).pop() {
+            text(&mut pix, &l, small, left, pad * 2.0 + small * 0.95, MUTED);
+        }
+        if let Some(t) = dial_text(v) {
+            let big = hf * 0.3;
+            let t = wrap(&t, big, room, 1).pop().unwrap_or_default();
+            let c = if v.badge.is_some() { tone_color(v.badge_tone.or(v.tone)) } else { fg };
+            text(&mut pix, &t, big, x0 + (seg - width(&t, big)) / 2.0, hf * 0.68, c);
+        }
+        if let Some(p) = v.progress.or(if v.kind == KeyKind::Slider { v.value } else { None }) {
+            let bar = (hf * 0.07).max(3.0);
+            let (bx, by, bw) = (x0 + pad * 2.0, hf - pad * 2.0 - bar, seg - pad * 4.0);
+            fill(&mut pix, bx, by, bw, bar, hex(0x34313f), 255);
+            fill(&mut pix, bx, by, bw * p.clamp(0.0, 1.0) as f32, bar, tone_color(Some(Tone::Accent)), 255);
+        }
+        if matches!(v.tone, Some(Tone::Accent | Tone::Danger | Tone::Success)) {
+            fill(&mut pix, x0 + pad, pad, seg - pad * 2.0, (hf * 0.04).max(2.0), tone_color(v.tone), 255);
+        }
+    }
+    let img = RgbaImage::from_raw(w, h, pix.take()).unwrap_or_else(|| RgbaImage::new(w, h));
+    DynamicImage::ImageRgba8(img)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -311,6 +367,33 @@ mod tests {
             v.icon = Some("mic-off".into());
             v.label = "Mic".into();
             key(&v, 96, 96).save(format!("{dir}/key-danger.png")).unwrap();
+        }
+    }
+
+    #[test]
+    fn draws_the_touch_strip() {
+        let mut slider = view();
+        slider.kind = KeyKind::Slider;
+        slider.label = "Music".into();
+        slider.badge = None;
+        slider.tone = None;
+        slider.value = Some(0.4);
+        assert_eq!(dial_text(&slider).as_deref(), Some("40%"));
+        // Stream Deck + and + XL strips, drawn wide before the device turns them.
+        for (w, h, n) in [(800, 100, 4), (1200, 100, 6)] {
+            let mut dials = vec![None; n];
+            dials[0] = Some(view());
+            dials[n - 1] = Some(slider.clone());
+            let img = strip(&dials, w, h).to_rgba8();
+            assert_eq!(img.dimensions(), (w, h));
+            let bright = |x0: u32, x1: u32| (x0..x1).flat_map(|x| (0..h).map(move |y| (x, y))).filter(|&(x, y)| img.get_pixel(x, y).0[..3].iter().any(|c| *c > 150)).count();
+            let seg = w / n as u32;
+            assert!(bright(0, seg) > 20, "first dial has text");
+            assert!(bright(seg * (n as u32 - 1), w) > 20, "last dial has text");
+            assert_eq!(bright(seg, seg * 2), 0, "an empty dial stays dark");
+            if let Ok(dir) = std::env::var("KEYSIDE_RENDER_PREVIEW") {
+                img.save(format!("{dir}/strip-{w}.png")).unwrap();
+            }
         }
     }
 

@@ -188,10 +188,9 @@ impl Engine {
     }
 
     /// Profile whose app list matches a process name (case-insensitive, with or without .exe).
+    /// Layouts of physical decks switch on their own and are skipped.
     pub fn profile_for_app(&self, process: &str) -> Option<String> {
-        let norm = |s: &str| s.trim().trim_end_matches(".exe").trim_end_matches(".app").to_ascii_lowercase();
-        let want = norm(process);
-        self.layout.profiles.iter().find(|p| p.apps.iter().any(|a| norm(a) == want)).map(|p| p.id.clone())
+        self.layout.profiles.iter().find(|p| p.deck.is_none() && p.apps.iter().any(|a| crate::focus::same_app(a, process))).map(|p| p.id.clone())
     }
 
     pub fn page(&self, profile: &str, page: &str) -> Option<&Page> {
