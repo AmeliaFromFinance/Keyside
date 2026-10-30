@@ -571,4 +571,13 @@ export default {
   "Hold to confirm is on.": "«Mantener para confirmar» está activado.",
   "Repeat while held is on.": "«Repetir mientras se mantiene» está activado.",
   "A step acts while the key is held.": "Un paso actúa mientras se mantiene la tecla.",
+  "{n} dials": "{n} diales",
+  "Dial {n}": "Dial {n}",
+  "The bottom row is for the dials. Turning a dial moves its slider. Pressing it or tapping the touch strip presses its key.": "La fila de abajo es para los diales. Girar un dial mueve su control deslizante. Pulsarlo o tocar la franja táctil pulsa su tecla.",
+  "Brightness": "Brillo",
+  "Turn dark when not used": "Apagar si no se usa",
+  "After {n} min": "Tras {n} min",
+  "Show it on the deck when these apps are in front": "Mostrarlo en el deck cuando estas apps estén al frente",
+  "Program names, separated by commas. The deck shows its layout without apps the rest of the time.": "Nombres de programas separados por comas. El resto del tiempo el deck muestra su diseño sin apps.",
+  "Add another layout for this deck": "Añadir otro diseño para este deck",
 } as Record<string, string>;

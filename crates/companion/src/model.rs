@@ -62,6 +62,39 @@ pub struct DeckLink {
     pub model: String,
     pub cols: u8,
     pub rows: u8,
+    /// Screen brightness in percent. Not set: `DeckLink::BRIGHTNESS`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brightness: Option<u8>,
+    /// Minutes without a press before the deck goes dark. Not set or 0: never.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sleep: Option<u16>,
+}
+
+impl DeckLink {
+    pub const BRIGHTNESS: u8 = 70;
+    pub const MAX_SLEEP: u16 = 600;
+
+    /// Dials on this model. Their keys sit in the row right below the key rows, one per dial.
+    pub fn dials(&self) -> u8 {
+        model_dials(&self.model)
+    }
+
+    pub fn brightness(&self) -> u8 {
+        self.brightness.unwrap_or(Self::BRIGHTNESS).min(100)
+    }
+
+    pub fn sleep_minutes(&self) -> u16 {
+        self.sleep.unwrap_or(0)
+    }
+}
+
+/// Number of dials by model name, as the companion names the decks.
+pub fn model_dials(model: &str) -> u8 {
+    match model {
+        "Stream Deck +" => 4,
+        "Stream Deck + XL" => 6,
+        _ => 0,
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -531,6 +564,19 @@ pub fn validate(l: &LayoutFile) -> Result<(), Invalid> {
             text("Stream Deck model", &d.model, 40)?;
             if !(1..=16).contains(&d.cols) || !(1..=16).contains(&d.rows) {
                 return bad("Stream Deck grid is invalid");
+            }
+            if d.brightness.is_some_and(|b| b > 100) || d.sleep.is_some_and(|m| m > DeckLink::MAX_SLEEP) {
+                return bad("Stream Deck brightness or sleep time is invalid");
+            }
+            let dials = d.dials();
+            // The row below the keys holds one single-cell key per dial, nothing else.
+            for pg in &p.pages {
+                for k in &pg.keys {
+                    let in_dial_row = k.y + k.h() > d.rows;
+                    if in_dial_row && dials > 0 && !(k.y == d.rows && k.w() == 1 && k.h() == 1 && k.x < dials) {
+                        return bad(format!("key \"{}\" doesn't fit the dials of the {}", k.label, d.model));
+                    }
+                }
             }
         }
         let page_ids: HashSet<&str> = p.pages.iter().map(|pg| pg.id.as_str()).collect();

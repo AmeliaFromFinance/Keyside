@@ -571,4 +571,13 @@ export default {
   "Hold to confirm is on.": "„Zum Bestätigen halten“ ist an.",
   "Repeat while held is on.": "„Wiederholen, solange gedrückt“ ist an.",
   "A step acts while the key is held.": "Ein Schritt wirkt, solange die Taste gehalten wird.",
+  "{n} dials": "{n} Drehregler",
+  "Dial {n}": "Drehregler {n}",
+  "The bottom row is for the dials. Turning a dial moves its slider. Pressing it or tapping the touch strip presses its key.": "Die untere Reihe gehört den Drehreglern. Drehen bewegt den Schieberegler. Drücken oder Tippen auf den Touch-Streifen drückt die Taste.",
+  "Brightness": "Helligkeit",
+  "Turn dark when not used": "Abdunkeln, wenn nicht benutzt",
+  "After {n} min": "Nach {n} Min.",
+  "Show it on the deck when these apps are in front": "Auf dem Deck zeigen, wenn diese Apps im Vordergrund sind",
+  "Program names, separated by commas. The deck shows its layout without apps the rest of the time.": "Programmnamen, durch Kommas getrennt. Sonst zeigt das Deck sein Layout ohne Apps.",
+  "Add another layout for this deck": "Weiteres Layout für dieses Deck",
 } as Record<string, string>;

@@ -30,8 +30,23 @@ export interface Profile {
   apps?: string[];
   homePage: string;
   pages: Page[];
-  /** The physical Stream Deck this layout is for. That deck shows it instead of the active layout. */
-  deck?: { serial: string; model: string; cols: number; rows: number };
+  /**
+   * The physical Stream Deck this layout is for. That deck shows it instead of the active layout.
+   * A deck with several layouts shows the one listing the focused app, otherwise the one without apps.
+   */
+  deck?: DeckLink;
+}
+
+export interface DeckLink {
+  serial: string;
+  model: string;
+  /** Keys across and down. Decks with dials have one more page row below, one key per dial. */
+  cols: number;
+  rows: number;
+  /** Percent. Not set: 70. */
+  brightness?: number;
+  /** Minutes without a press before the deck goes dark. Not set or 0: never. */
+  sleep?: number;
 }
 
 export interface Page {

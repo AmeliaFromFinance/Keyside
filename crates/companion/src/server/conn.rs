@@ -542,7 +542,7 @@ impl Conn {
 }
 
 /// Sends one slider value to every step on the key, and waits until each has handled it.
-async fn apply_slide(app: &Arc<App>, profile: &str, page: &str, id: &str, key: &crate::model::Key, value: f64) {
+pub(crate) async fn apply_slide(app: &Arc<App>, profile: &str, page: &str, id: &str, key: &crate::model::Key, value: f64) {
     for (n, a) in key.actions.iter().enumerate() {
         if a.review {
             continue;
