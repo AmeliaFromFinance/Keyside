@@ -28,6 +28,10 @@
   } = $props();
 
   let pressed = $state(false);
+  /** The finger (or mouse) holding the key. Other pointers on the same key are ignored. */
+  let pointer: number | null = null;
+  /** Arrow or Enter keys are moving the slider. The value goes out when they're let go. */
+  let keying = false;
   let holdStart = $state(0);
   let now = $state(Date.now());
   let image = $state<string | null>(null);
@@ -51,6 +55,25 @@
   const badgeTone = $derived(view.badgeTone ?? view.tone ?? "default");
   const filledBadge = $derived(badgeTone === "accent" || badgeTone === "danger");
   const value = $derived(slideValue ?? view.value ?? 0);
+
+  // After a slide, keep showing the chosen value until the app reports back (or briefly, if it doesn't).
+  let seen: number | undefined;
+  let settle: ReturnType<typeof setTimeout> | null = null;
+  $effect(() => {
+    const v = view.value;
+    if (v === seen) return;
+    seen = v;
+    if (!pressed && !keying) slideValue = null;
+  });
+  $effect(() => () => settle && clearTimeout(settle));
+
+  /** Sends the slider's value once, when the person lets go. */
+  function commit() {
+    if (slideValue === null) return;
+    onslide?.(view.id, slideValue);
+    if (settle) clearTimeout(settle);
+    settle = setTimeout(() => !pressed && !keying && (slideValue = null), 1500);
+  }
   const holdMs = $derived(view.hold ?? 0);
   const tall = $derived(view.h > 1 && view.h >= view.w);
 
@@ -60,7 +83,8 @@
       onselect?.(view.id);
       return;
     }
-    if (disabled || view.disabled) return;
+    if (disabled || view.disabled || pressed) return;
+    pointer = e.pointerId;
     el.setPointerCapture?.(e.pointerId);
     pressed = true;
     haptic("light");
@@ -73,11 +97,13 @@
   }
 
   function up(e: PointerEvent, cancel = false) {
-    if (!pressed) return;
+    if (!pressed || e.pointerId !== pointer) return;
     pressed = false;
+    pointer = null;
     el.releasePointerCapture?.(e.pointerId);
     if (view.kind === "slider") {
-      slideValue = null;
+      if (cancel) slideValue = null;
+      else commit();
       return;
     }
     const held = holdStart ? performance.now() - holdStart : 0;
@@ -86,15 +112,27 @@
     onup?.(view.id, cancel);
   }
 
+  /** Follows the finger on screen only. Nothing is sent until release. */
   function moveSlider(e: PointerEvent) {
     const r = el.getBoundingClientRect();
     const v = tall ? 1 - (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
     slideValue = Math.min(1, Math.max(0, v));
-    onslide?.(view.id, slideValue);
   }
 
   function move(e: PointerEvent) {
-    if (pressed && view.kind === "slider") moveSlider(e);
+    if (pressed && e.pointerId === pointer && view.kind === "slider") moveSlider(e);
+  }
+
+  /** Focus left mid-press (Alt+Tab, say): finish what the keyboard started. */
+  function blur() {
+    if (keying) {
+      keying = false;
+      commit();
+    } else if (pressed && pointer === null) {
+      pressed = false;
+      holdStart = 0;
+      onup?.(view.id, true);
+    }
   }
 
   function key(e: KeyboardEvent, isDown: boolean) {
@@ -107,15 +145,21 @@
     }
     if (disabled || view.disabled) return;
     if (view.kind === "slider") {
-      const down = e.key === "ArrowDown" || e.key === "ArrowLeft" || (!arrows && e.shiftKey);
-      if (isDown) onslide?.(view.id, Math.min(1, Math.max(0, (view.value ?? 0) + (down ? -0.1 : 0.1))));
+      if (isDown) {
+        const lower = e.key === "ArrowDown" || e.key === "ArrowLeft" || (!arrows && e.shiftKey);
+        keying = true;
+        slideValue = Math.min(1, Math.max(0, value + (lower ? -0.1 : 0.1)));
+      } else if (keying) {
+        keying = false;
+        commit();
+      }
       return;
     }
     if (isDown && !pressed) {
       pressed = true;
       holdStart = holdMs > 0 ? performance.now() : 0;
       ondown?.(view.id);
-    } else if (!isDown && pressed) {
+    } else if (!isDown && pressed && pointer === null) {
       pressed = false;
       holdStart = 0;
       onup?.(view.id, false);
@@ -147,6 +191,7 @@
   onpointermove={move}
   onkeydown={(e) => key(e, true)}
   onkeyup={(e) => key(e, false)}
+  onblur={blur}
   oncontextmenu={(e) => e.preventDefault()}
 >
   {#if view.kind === "slider"}

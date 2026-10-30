@@ -106,7 +106,7 @@ export default definePlugin({
 | --- | --- |
 | `press(step)` | The key is pressed |
 | `release(step)` | The key is let go (push to talk) |
-| `slide({ value })` | A slider moves, `value` is 0 to 1 |
+| `slide({ value })` | A slider is let go, `value` is 0 to 1. The next value waits until this one is handled |
 | `options(field, settings)` | The editor needs a dynamic dropdown |
 | `appear(key)` / `disappear(key)` | A key using this action is added or removed |
 

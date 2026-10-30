@@ -178,6 +178,42 @@ pub async fn run_key(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, off: bool, r
     }
 }
 
+/// Sends slider values for `path` one at a time. A value that arrives while one is on its
+/// way waits, and a newer one replaces it, so only the latest goes out next.
+pub fn slide_one_at_a_time<F, Fut>(app: &Arc<App>, path: String, value: f64, send: F)
+where
+    F: Fn(Arc<App>, f64) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + Send,
+{
+    {
+        let mut busy = app.slides.lock();
+        if let Some(next) = busy.get_mut(&path) {
+            *next = Some(value);
+            return;
+        }
+        busy.insert(path.clone(), None);
+    }
+    let app = app.clone();
+    tokio::spawn(async move {
+        let mut value = value;
+        loop {
+            send(app.clone(), value).await;
+            let next = {
+                let mut busy = app.slides.lock();
+                let next = busy.get_mut(&path).and_then(Option::take);
+                if next.is_none() {
+                    busy.remove(&path);
+                }
+                next
+            };
+            match next {
+                Some(v) => value = v,
+                None => break,
+            }
+        }
+    });
+}
+
 /// Marks a key as running until dropped, so a second press waits for the first to finish.
 /// Dropping (even by a panic in a step) frees the key again.
 pub struct Running {
@@ -218,6 +254,10 @@ impl<K: std::hash::Hash + Eq + Clone> Default for Presses<K> {
 }
 
 impl<K: std::hash::Hash + Eq + Clone> Presses<K> {
+    pub fn is_down(&self, k: &K) -> bool {
+        self.map.contains_key(k)
+    }
+
     /// A key went down. `path` is marked held when the key repeats.
     pub fn down(&mut self, app: &App, k: K, path: String, repeats: bool) {
         let held = repeats.then(|| {
@@ -324,6 +364,29 @@ mod tests {
         assert_eq!(get("user.inner"), "other");
         // Only the steps that ran are remembered for the release.
         assert_eq!(app.ran.lock().get("p/g/k").cloned(), Some(vec![1, 5, 10]));
+    }
+
+    #[tokio::test]
+    async fn a_burst_of_slider_values_sends_the_first_and_the_last() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = App::new(crate::app::Options { data_dir: Some(dir.path().into()), bundled_plugins: None }).unwrap();
+        let sent = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let send = {
+            let sent = sent.clone();
+            move |_: Arc<App>, v: f64| {
+                let sent = sent.clone();
+                async move {
+                    sent.lock().push(v);
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
+            }
+        };
+        for i in 1..=20 {
+            slide_one_at_a_time(&app, "p/g/k".into(), i as f64 / 20.0, send.clone());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        assert_eq!(*sent.lock(), vec![0.05, 1.0]);
+        assert!(app.slides.lock().is_empty(), "nothing left waiting");
     }
 
     #[test]

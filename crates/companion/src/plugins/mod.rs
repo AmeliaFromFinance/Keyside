@@ -30,6 +30,7 @@ use rpc::{Incoming, Peer};
 
 const RUN_TIMEOUT: Duration = Duration::from_secs(15);
 const OPTIONS_TIMEOUT: Duration = Duration::from_secs(8);
+const SLIDE_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_IMAGE_URL: usize = 350 * 1024;
 const CRASH_WINDOW: Duration = Duration::from_secs(300);
 const CRASH_LIMIT: usize = 5;
@@ -636,12 +637,11 @@ impl Host {
         Ok(steps)
     }
 
-    pub async fn slide(&self, plugin: &str, step: Step, value: f64) {
-        let Some(peer) = self.peer(plugin) else { return };
-        if let Ok(mut v) = self.clean_steps(plugin, vec![step]) {
-            let s = v.remove(0);
-            peer.notify("slide", json!({ "instance": s.instance, "action": s.action, "settings": s.settings, "value": value.clamp(0.0, 1.0) })).await;
-        }
+    /// Waits for the plugin to finish with the value, so the next one can't overtake it.
+    pub async fn slide(&self, plugin: &str, step: Step, value: f64) -> Result<(), String> {
+        let Some(peer) = self.peer(plugin) else { return Ok(()) };
+        let s = self.clean_steps(plugin, vec![step])?.remove(0);
+        peer.request("slide", json!({ "instance": s.instance, "action": s.action, "settings": s.settings, "value": value.clamp(0.0, 1.0) }), SLIDE_TIMEOUT).await.map(|_| ())
     }
 
     pub async fn options(&self, plugin: &str, action: &str, field: &str, settings: &Map<String, Value>) -> Result<Value, String> {

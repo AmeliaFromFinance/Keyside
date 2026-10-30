@@ -18,6 +18,9 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Phones send their screen size again after reconnecting, so tablets keep their layout.
 - A damaged settings, devices or tokens file is set aside instead of keeping Keyside from starting.
 - User variables are saved shortly after they change instead of on every slider move.
+- Sliders send their value once, when you let go, instead of many times while you drag. The companion also sends one value per slider at a time, newest first.
+- A second finger on a key that's already held doesn't press it again.
+- Discord can't start two sign-ins at once after reconnecting.
 - Keyboard: Enter, Space and arrow keys work on sliders and the lock button, and disabled keys can't be pressed from the keyboard.
 - Android: pairing keys are left out of device backups.
 - Plugin SDK: `key.set` always replaces the view, and the published package ships compiled JavaScript so `npm test` works in a new plugin.

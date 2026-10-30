@@ -370,6 +370,7 @@ mod imp {
                     }
                 }
                 KeyKind::Slider | KeyKind::Widget => {}
+                _ if self.presses.is_down(&i) => {}
                 _ => {
                     self.presses.down(&self.app, i, key_path(&self.profile, &self.page, &key.id), key.repeat.is_some());
                     match key.hold.filter(|h| *h > 0) {

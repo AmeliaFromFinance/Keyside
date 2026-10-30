@@ -54,6 +54,9 @@ pub struct App {
     pub running: Mutex<HashSet<String>>,
     /// Keys held down right now, for keys that repeat while held.
     pub held: Mutex<HashSet<String>>,
+    /// Sliders with a value on its way to the app. The entry holds the next value, if one
+    /// came in meanwhile, so only the newest is sent after the current one finishes.
+    pub slides: Mutex<HashMap<String, Option<f64>>>,
     /// Steps that ran on the last press of a key with if/otherwise steps, so its release
     /// only reaches those.
     pub ran: Mutex<HashMap<String, Vec<usize>>>,
@@ -111,6 +114,7 @@ impl App {
             nav,
             running: Mutex::new(HashSet::new()),
             held: Mutex::new(HashSet::new()),
+            slides: Mutex::new(HashMap::new()),
             ran: Mutex::new(HashMap::new()),
             addresses: RwLock::new(Vec::new()),
             tls_fingerprint: RwLock::new(String::new()),

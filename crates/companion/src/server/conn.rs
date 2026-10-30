@@ -98,7 +98,6 @@ struct Conn {
     itx: mpsc::Sender<Internal>,
     tokens: f64,
     last_tokens: Instant,
-    last_slide: HashMap<String, Instant>,
 }
 
 fn ok(id: u64, data: Value) -> Value {
@@ -136,7 +135,6 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
         itx,
         tokens: 60.0,
         last_tokens: Instant::now(),
-        last_slide: HashMap::new(),
     };
     c.reset_profile();
     let max_in = if c.who.admin {
@@ -519,6 +517,8 @@ impl Conn {
             }
             KeyKind::Slider | KeyKind::Widget if key.actions.is_empty() => {}
             KeyKind::Slider => {}
+            // Already held on this device: a second finger, or a client repeating itself.
+            _ if self.presses.is_down(&id.to_string()) => {}
             _ => {
                 self.presses.down(&self.app, id.to_string(), key_path(&self.profile, &self.page, id), key.repeat.is_some());
                 match key.hold.filter(|h| *h > 0) {
@@ -576,43 +576,50 @@ impl Conn {
         });
     }
 
+    /// One value per slider at a time: values that arrive while one is on its way replace
+    /// each other, and only the newest goes out next.
     async fn slide(&mut self, id: &str, value: f64) {
         let Some(key) = self.key(id) else { return };
         if key.kind != KeyKind::Slider {
             return;
         }
-        let now = Instant::now();
-        if self.last_slide.get(id).is_some_and(|t| now.duration_since(*t) < Duration::from_millis(33)) {
-            return;
+        let path = key_path(&self.profile, &self.page, id);
+        let (profile, page, id) = (self.profile.clone(), self.page.clone(), id.to_string());
+        actions::slide_one_at_a_time(&self.app, path, value, move |app, v| {
+            let (profile, page, id, key) = (profile.clone(), page.clone(), id.clone(), key.clone());
+            async move { apply_slide(&app, &profile, &page, &id, &key, v).await }
+        });
+    }
+}
+
+/// Sends one slider value to every step on the key, and waits until each has handled it.
+async fn apply_slide(app: &Arc<App>, profile: &str, page: &str, id: &str, key: &crate::model::Key, value: f64) {
+    for (n, a) in key.actions.iter().enumerate() {
+        if a.review {
+            continue;
         }
-        self.last_slide.retain(|_, t| now.duration_since(*t) < Duration::from_secs(60));
-        self.last_slide.insert(id.to_string(), now);
-        for (n, a) in key.actions.iter().enumerate() {
-            if a.review {
-                continue;
+        match a.plugin() {
+            Some((plugin, action)) => {
+                let step = Step { instance: instance_id(profile, page, id, false, n), action: action.to_string(), settings: a.settings.clone() };
+                if let Err(e) = app.plugins.slide(plugin, step, value).await {
+                    app.engine.lock().toast(e, Tone::Danger);
+                }
             }
-            match a.plugin() {
-                Some((plugin, action)) => {
-                    let step = Step { instance: instance_id(&self.profile, &self.page, id, false, n), action: action.to_string(), settings: a.settings.clone() };
-                    self.app.plugins.slide(plugin, step, value).await;
+            #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
+            None if a.kind == crate::actions::appaudio::VOLUME => {
+                if let Err(e) = crate::actions::appaudio::set_volume(&a.settings, value).await {
+                    tracing::debug!("app volume: {e}");
                 }
-                #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
-                None if a.kind == crate::actions::appaudio::VOLUME => {
-                    let settings = a.settings.clone();
-                    tokio::spawn(async move {
-                        let _ = crate::actions::appaudio::set_volume(&settings, value).await;
-                    });
-                }
-                None if a.kind == "core.var" => {
-                    let Some(name) = a.settings.get("name").and_then(Value::as_str).filter(|n| n.starts_with("user.")) else { continue };
-                    let range = key.slider.as_ref().map(|s| (s.min, s.max)).unwrap_or((0.0, 1.0));
-                    let scaled = range.0 + (range.1 - range.0) * value;
-                    if let Some(num) = serde_json::Number::from_f64(scaled) {
-                        self.app.engine.lock().set_var(name, Value::Number(num));
-                    }
-                }
-                None => {}
             }
+            None if a.kind == "core.var" => {
+                let Some(name) = a.settings.get("name").and_then(Value::as_str).filter(|n| n.starts_with("user.")) else { continue };
+                let range = key.slider.as_ref().map(|s| (s.min, s.max)).unwrap_or((0.0, 1.0));
+                let scaled = range.0 + (range.1 - range.0) * value;
+                if let Some(num) = serde_json::Number::from_f64(scaled) {
+                    app.engine.lock().set_var(name, Value::Number(num));
+                }
+            }
+            None => {}
         }
     }
 }

@@ -166,9 +166,18 @@ async function connect(gen: number) {
     if (gen !== generation) return;
     const msg = errorText(e);
     host.status(/not running|no Discord/i.test(msg) ? "offline" : "error", /not running|no Discord/i.test(msg) ? "Discord isn't running" : msg);
-    if (/not running|no Discord|didn't answer/i.test(msg)) retryTimer = setTimeout(() => gen === generation && void connect(gen), RETRY);
+    if (/not running|no Discord|didn't answer/i.test(msg)) retryLater(gen);
   }
   render();
+}
+
+/** One pending reconnect at most, so two failures can't start two sign-ins. */
+function retryLater(gen: number) {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    if (gen === generation) void connect(gen);
+  }, RETRY);
 }
 
 const discordOnly = new Set(["join", "leave", "input-volume", "output-volume", "processing"]);
@@ -212,6 +221,7 @@ function restart() {
   generation++;
   launcher = null;
   if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
   waiting.failAll(new Error("restarting"));
   const { id, secret } = cfg();
   session = new Session(host, { refresh: (t) => http(endpoints.token, { form: { client_id: id, client_secret: secret, grant_type: "refresh_token", refresh_token: t.refresh ?? "" } }) });
@@ -256,8 +266,7 @@ export default definePlugin({
       waiting.failAll(new Error("Discord closed"));
       host.status("offline", "Discord isn't running");
       render();
-      const gen = generation;
-      retryTimer = setTimeout(() => gen === generation && void connect(gen), RETRY);
+      retryLater(generation);
     });
     restart();
   },

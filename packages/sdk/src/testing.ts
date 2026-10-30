@@ -96,7 +96,7 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
     sync: (instances) => notify("instances.sync", { instances: instances.map((i) => ({ settings: {}, ...i })) }),
     press: (i, a, s) => run(i, a, "press", s),
     release: (i, a, s) => run(i, a, "release", s),
-    slide: (i, a, value, s = {}) => notify("slide", { instance: i, action: a, settings: s, value }),
+    slide: (i, a, value, s = {}) => call("slide", { instance: i, action: a, settings: s, value }),
     emit: (method, params) => notify(method, params),
     run: (steps, phase = "press") => call("run", { steps: steps.map((s) => ({ settings: {}, ...s })), phase, device: "test" }),
     status() {
