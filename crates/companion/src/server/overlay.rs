@@ -145,7 +145,13 @@ struct Slot;
 
 impl Slot {
     fn take() -> Option<Self> {
-        OPEN.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < MAX_OPEN).then_some(n + 1)).ok().map(|_| Self)
+        // Take a slot, then give it back if that went over the limit.
+        if OPEN.fetch_add(1, Ordering::SeqCst) < MAX_OPEN {
+            Some(Self)
+        } else {
+            OPEN.fetch_sub(1, Ordering::SeqCst);
+            None
+        }
     }
 }
 
