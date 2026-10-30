@@ -1,21 +1,13 @@
 <script lang="ts">
   import QRCode from "qrcode";
   import Icon from "../components/Icon.svelte";
+  import Sheet from "../components/Sheet.svelte";
+  import DeviceDetails, { type Device } from "./DeviceDetails.svelte";
   import { req, listen } from "../lib/deck.svelte.ts";
   import { ed } from "./state.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
 
-  interface Device {
-    id: string;
-    name: string;
-    kind: string;
-    scope: "deck" | "moderator" | "editor";
-    pages: string[];
-    hasPin: boolean;
-    lastSeen: number;
-    online: boolean;
-  }
   interface Pending {
     pid: string;
     name: string;
@@ -38,6 +30,16 @@
   let devices = $state<Device[]>([]);
   let pending = $state<Pending[]>([]);
   let error = $state("");
+  let open = $state<string | null>(null);
+  const opened = $derived(devices.find((d) => d.id === open));
+  /** PINs looked up on hover, by device. */
+  let pins = $state<Record<string, string | null>>({});
+
+  function peek(d: Device) {
+    if (!d.hasPin || d.id in pins) return;
+    pins[d.id] = null;
+    void req<{ pin: string | null }>("devices.pin", { id: d.id }).then((r) => (pins[d.id] = r.pin), () => {});
+  }
 
   function randomPin() {
     return String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, "0");
@@ -83,6 +85,7 @@
 
   async function revoke(id: string) {
     await req("devices.revoke", { id });
+    open = null;
     void refresh();
   }
 
@@ -150,19 +153,26 @@
 
   <h3>{t("Paired devices")} · {devices.length}</h3>
   {#each devices as d (d.id)}
-    <div class="dev">
+    <button class="dev" onclick={() => (open = d.id)} onpointerenter={() => peek(d)} onfocus={() => peek(d)} title={t("Show details")}>
       <span class="dot" class:ok={d.online}></span>
       <span class="name">{d.name}</span>
       <span class="meta">
-        {d.online ? t("online") : t("seen {t} ago", { t: ago(d.lastSeen * 1000, now) })}{d.hasPin ? " · PIN" : ""}{d.scope !== "deck" ? ` · ${d.scope === "editor" ? t("editor") : t("moderator")}` : ""}
+        {d.online ? t("online") : t("seen {t} ago", { t: ago(d.lastSeen * 1000, now) })}{d.scope !== "deck" ? ` · ${d.scope === "editor" ? t("editor") : t("moderator")}` : ""}
+        {#if d.hasPin}
+          · PIN <span class="pin mono"><span class="masked">••••</span><span class="plain">{pins[d.id] ?? "••••"}</span></span>
+        {/if}
       </span>
-      <button class="btn danger small" onclick={() => revoke(d.id)}>{t("Revoke")}</button>
-    </div>
+      <Icon name="chevron-right" size={18} />
+    </button>
   {:else}
     <p class="muted">{t("No devices yet.")}</p>
   {/each}
   {#if onmanage && devices.length}<button class="btn ghost small" onclick={onmanage}>{t("Manage devices")}</button>{/if}
 </section>
+
+<Sheet open={!!opened} title={opened?.name ?? ""} onclose={() => (open = null)}>
+  {#if opened}<DeviceDetails device={opened} {now} onchanged={refresh} onrevoke={revoke} />{/if}
+</Sheet>
 
 <style>
   .pair {
@@ -255,8 +265,17 @@
     align-items: center;
     gap: 4px 12px;
     padding: 12px 14px;
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .dev:hover,
+  .dev:focus-visible {
+    border-color: var(--line);
   }
   .dev .meta {
     grid-column: 2;
@@ -264,9 +283,20 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
-  .dev .btn {
+  .dev > :global(svg) {
     grid-row: 1 / span 2;
     grid-column: 3;
+    color: var(--muted);
+  }
+  /* The PIN shows while the pointer is on the row. */
+  .pin .plain,
+  .dev:hover .pin .masked,
+  .dev:focus-visible .pin .masked {
+    display: none;
+  }
+  .dev:hover .pin .plain,
+  .dev:focus-visible .pin .plain {
+    display: inline;
   }
   .small {
     min-height: 34px;

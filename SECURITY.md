@@ -10,7 +10,7 @@ Only the latest release gets security fixes.
 
 ## How Keyside protects you
 
-**Pairing.** A new device scans a single-use QR code that expires after two minutes. Both screens then show a 6-digit code derived from the key exchange, and you approve the device on the PC. A device can't pair without that approval. An optional PIN locks the deck on the phone, with growing delays after wrong tries.
+**Pairing.** A new device scans a single-use QR code that expires after two minutes. Both screens then show a 6-digit code derived from the key exchange, and you approve the device on the PC. A device can't pair without that approval. An optional PIN locks the deck on the phone, with growing delays after wrong tries. The PC keeps a copy of each PIN in the system keychain so you can look it up in the editor there. Other devices, editors included, can't read it.
 
 **Encryption.** Every message between a device and the PC is end-to-end encrypted (P-256 key exchange, AES-256-GCM, a fresh key per connection). Replayed or reordered messages are rejected. This holds even over plain HTTP. See [docs/protocol.md](docs/protocol.md).
 

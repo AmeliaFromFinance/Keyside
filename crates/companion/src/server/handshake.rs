@@ -183,6 +183,11 @@ async fn pair(app: Arc<App>, mut ws: WebSocket, ip: IpAddr, hello: Hello, cid: &
     }
     let created = app.devices.lock().create(&info, &pairing);
     let Ok(device) = created else { return };
+    if let Some(pin) = &pairing.pin_plain
+        && let Err(e) = app.plugins.secrets.set(crate::devices::PIN_SECRET, &device.id, Some(pin))
+    {
+        tracing::warn!("could not keep the PIN for {}: {e:#}", device.name);
+    }
     let companion = json!({ "id": app.identity.read().cid, "name": app.settings.read().name });
     let msg = json!({ "t": "paired", "deviceId": device.id, "secret": device.secret, "companion": companion });
     let Ok(frame) = session.seal(msg.to_string().as_bytes()) else { return };

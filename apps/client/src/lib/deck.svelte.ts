@@ -112,9 +112,24 @@ function handle(m: any) {
       deck.pills = m.pills;
       break;
     case "toast":
-      deck.toast = { text: m.text, tone: m.tone, at: m.at ?? Date.now() };
+      showToast({ text: m.text, tone: m.tone, at: m.at ?? Date.now() });
       break;
   }
+}
+
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Shows a toast that goes away on its own. Errors stay up a little longer. */
+function showToast(toast: Toast) {
+  deck.toast = toast;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(dismissToast, toast.tone === "danger" || toast.tone === "warning" ? 8000 : 4000);
+}
+
+export function dismissToast() {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = null;
+  deck.toast = null;
 }
 
 export function formFactor(): FormFactor {

@@ -8,7 +8,9 @@ export function ago(at: number, now: number): string {
   const s = Math.max(0, Math.round((now - at) / 1000));
   if (s < 60) return `${s} s`;
   if (s < 3600) return `${Math.floor(s / 60)} min`;
-  return `${Math.floor(s / 3600)} h`;
+  if (s < 48 * 3600) return `${Math.floor(s / 3600)} h`;
+  if (s < 365 * 86400) return `${Math.floor(s / 86400)} d`;
+  return `${Math.floor(s / (365 * 86400))} y`;
 }
 
 /** Ticks once a second while something on screen needs a live clock. */

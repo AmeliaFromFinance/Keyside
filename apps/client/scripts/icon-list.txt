@@ -21,3 +21,4 @@ split
 arrow-right-left
 hand-coins
 list-music
+unlink clipboard-paste copy-plus

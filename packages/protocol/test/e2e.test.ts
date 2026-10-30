@@ -142,6 +142,9 @@ test("pair, approve, use and resume", async () => {
   const denied = await until(d.next, (m) => m.t === "result" && m.id === 7);
   assert.equal(denied.ok, false);
   assert.equal(denied.error.code, "forbidden");
+  // Nor look up any device's PIN.
+  await d.send!({ t: "req", id: 8, op: "devices.pin", args: { id: paired.deviceId } });
+  assert.equal((await until(d.next, (m) => m.t === "result" && m.id === 8)).error.code, "forbidden");
 
   await d.send!({ t: "nav", to: "next" });
   const p2 = await until(d.next, (m) => m.t === "page");
@@ -164,10 +167,17 @@ test("pair, approve, use and resume", async () => {
   const d3 = await device(again.hello, (ch) => again.hs.finish(ch));
   assert.equal(d3.error?.reason, "pairing-expired");
 
-  // Revoking cuts the device off.
+  // The PC can set a device's PIN and look it up again.
+  assert.equal((await a.req("devices.pin", { id: paired.deviceId })).data.pin, null);
+  assert.equal((await a.req("devices.update", { id: paired.deviceId, pin: "2468" })).ok, true);
+  assert.equal((await a.req("devices.pin", { id: paired.deviceId })).data.pin, "2468");
+  assert.equal((await a.req("devices.list")).data[0].hasPin, true);
+
+  // Revoking cuts the device off and forgets its PIN.
   const devs = (await a.req("devices.list")).data;
   assert.equal(devs.length, 1);
   await a.req("devices.revoke", { id: paired.deviceId });
+  assert.equal((await a.req("devices.pin", { id: paired.deviceId })).data.pin, null);
   const r2 = await ClientHandshake.start({ mode: "resume", cid, id: paired.deviceId, psk: await importPsk(secret) });
   const d4 = await device(r2.hello, (ch) => r2.hs.finish(ch));
   assert.equal(d4.error?.reason, "unknown-device");

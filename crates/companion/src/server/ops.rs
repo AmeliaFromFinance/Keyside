@@ -9,7 +9,7 @@ use super::catalog;
 use super::conn::Who;
 use crate::actions::{self, Ctx};
 use crate::app::App;
-use crate::devices::{Scope, valid_pin};
+use crate::devices::{PIN_SECRET, Scope, valid_pin};
 use crate::model::{self, Action, LayoutFile, Tone};
 use crate::plugins::{Source, manifest};
 use crate::state::{Change, all_keys};
@@ -300,14 +300,24 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             if !found {
                 return Err(OpError::not_found("device not found"));
             }
+            if let Some(pin) = pin {
+                app.plugins.secrets.set(PIN_SECRET, id, pin).map_err(OpError::failed)?;
+            }
             // Reconnect so the new scope and PIN apply right away.
             app.notify(Change::Revoked(id.to_string()));
             Ok(Value::Null)
+        }
+        "devices.pin" => {
+            // Only the editor on the PC itself, never a remote editor.
+            need_admin(who)?;
+            let id = s(&a, "id")?;
+            Ok(json!({ "pin": app.plugins.secrets.get(PIN_SECRET, id) }))
         }
         "devices.revoke" => {
             need_admin(who)?;
             let id = s(&a, "id")?;
             app.devices.lock().revoke(id).map_err(OpError::failed)?;
+            let _ = app.plugins.secrets.set(PIN_SECRET, id, None);
             app.notify(Change::Revoked(id.to_string()));
             app.notify(Change::Pending);
             Ok(Value::Null)

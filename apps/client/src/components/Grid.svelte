@@ -10,6 +10,7 @@
     locked = false,
     preview = false,
     selected = null,
+    dim = null,
     ondown,
     onup,
     onslide,
@@ -22,6 +23,8 @@
     locked?: boolean;
     preview?: boolean;
     selected?: string | null;
+    /** Editor only: the key being dragged, drawn faded. */
+    dim?: string | null;
     ondown?: (id: string) => void;
     onup?: (id: string, cancel: boolean) => void;
     onslide?: (id: string, v: number) => void;
@@ -44,7 +47,7 @@
   <div class="grid" style:--cols={cols} style:--rows={rows}>
     {#each keys as k (k.id)}
       <div class="cell" style:grid-column="{k.x + 1} / span {k.w}" style:grid-row="{k.y + 1} / span {k.h}">
-        <Key view={k} disabled={locked} {preview} selected={selected === k.id} {ondown} {onup} {onslide} {onselect} />
+        <Key view={k} disabled={locked || dim === k.id} {preview} selected={selected === k.id} {ondown} {onup} {onslide} {onselect} />
       </div>
     {/each}
     {#each free as [x, y] (`${x},${y}`)}

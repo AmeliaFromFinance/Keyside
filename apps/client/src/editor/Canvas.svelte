@@ -2,9 +2,11 @@
   import Grid from "../components/Grid.svelte";
   import Icon from "../components/Icon.svelte";
   import type { FormFactor, KeyKind, KeyView } from "@keyside/protocol";
-  import { ed, page, profile, change, addKey, addPage, moveKey, placements, previewView, actionDef } from "./state.svelte.ts";
+  import ContextMenu, { type MenuItem } from "../components/ContextMenu.svelte";
+  import { ed, page, profile, change, addKey, addPage, moveKey, deleteKey, duplicateKey, copyKey, pasteKey, clipboard, swapKeys, notify, notice, placements, previewView, actionDef } from "./state.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
-  import { deck } from "../lib/deck.svelte.ts";
+  import { deck, req } from "../lib/deck.svelte.ts";
+  import { haptic } from "../lib/native.ts";
 
   const factors: Array<[FormFactor, string]> = [
     ["phone-portrait", mark("Phone")],
@@ -65,22 +67,173 @@
     ed.armed = null;
   }
 
-  function moveInVariant(id: string, x: number, y: number) {
-    change(() => {
-      const v = pg?.variants?.[ed.ff];
-      const cur = v?.at[id];
-      if (v && cur) v.at[id] = [x, y, cur[2], cur[3]];
-    });
+  function moveInVariant(id: string, x: number, y: number): boolean {
+    const v = pg?.variants?.[ed.ff];
+    const cur = v?.at[id];
+    if (!v || !cur || !variantFits(id, x, y, cur[2], cur[3])) return false;
+    change(() => (v.at[id] = [x, y, cur[2], cur[3]]));
+    return true;
   }
 
+  /** Same as fits() in the state, for this screen's own arrangement. */
+  function variantFits(id: string, x: number, y: number, w: number, h: number): boolean {
+    const v = pg?.variants?.[ed.ff];
+    if (!v || x < 0 || y < 0 || x + w > v.cols || y + h > v.rows) return false;
+    return Object.entries(v.at).every(([other, [ox, oy, ow, oh]]) => other === id || x + w <= ox || ox + ow <= x || y + h <= oy || oy + oh <= y);
+  }
+
+  function swapInVariant(a: string, b: string): boolean {
+    const v = pg?.variants?.[ed.ff];
+    const [pa, pb] = [v?.at[a], v?.at[b]];
+    if (!v || !pa || !pb || pa[2] !== pb[2] || pa[3] !== pb[3]) return false;
+    change(() => ([v.at[a], v.at[b]] = [[pb[0], pb[1], pa[2], pa[3]], [pa[0], pa[1], pb[2], pb[3]]]));
+    return true;
+  }
+
+  // Dragging and long-press. Pointer events work the same for mouse, touch and pen.
+  type Target = { key: string } | { cell: [number, number] } | null;
+  const LONG_PRESS = 500;
+  const DRAG_START = 8;
+  let gesture: { target: Target; sx: number; sy: number; pointer: number; timer: ReturnType<typeof setTimeout> | null; dragging: boolean; menu: boolean } | null = null;
+  let drag = $state<{ id: string; label: string; x: number; y: number; over: Target } | null>(null);
+  let menu = $state<{ x: number; y: number; title?: string; items: MenuItem[] } | null>(null);
+  /** Swallows the click that ends a drag or a long-press, so it doesn't also select or place. */
+  let swallowClick = false;
+
+  function hit(x: number, y: number): Target {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const key = el?.closest<HTMLElement>("[data-key]")?.dataset.key;
+    if (key) return { key };
+    const cell = el?.closest<HTMLElement>("[data-cell]")?.dataset.cell;
+    return cell ? { cell: cell.split(",").map(Number) as [number, number] } : null;
+  }
+
+  function pdown(e: PointerEvent) {
+    if (e.button !== 0 || ed.armed || ed.moving) return;
+    const target = hit(e.clientX, e.clientY);
+    if (!target) return;
+    const g = { target, sx: e.clientX, sy: e.clientY, pointer: e.pointerId, timer: null as ReturnType<typeof setTimeout> | null, dragging: false, menu: false };
+    // Touch has no right-click, so holding still opens the menu.
+    if (e.pointerType !== "mouse")
+      g.timer = setTimeout(() => {
+        if (gesture !== g || g.dragging) return;
+        g.menu = true;
+        haptic("medium");
+        openMenu(target, g.sx, g.sy);
+      }, LONG_PRESS);
+    gesture = g;
+  }
+
+  function pmove(e: PointerEvent) {
+    const g = gesture;
+    if (!g || e.pointerId !== g.pointer || g.menu) return;
+    if (!g.dragging) {
+      if (!g.target || !("key" in g.target) || Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < DRAG_START) return;
+      const k = pg?.keys.find((q) => q.id === (g.target as { key: string }).key);
+      if (!k) return;
+      if (g.timer) clearTimeout(g.timer);
+      g.dragging = true;
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      drag = { id: k.id, label: k.label, x: e.clientX, y: e.clientY, over: null };
+    }
+    if (!drag) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    const over = hit(e.clientX, e.clientY);
+    drag.over = over && "key" in over && over.key === drag.id ? null : over;
+  }
+
+  function pup(e: PointerEvent, cancel = false) {
+    const g = gesture;
+    if (!g || e.pointerId !== g.pointer) return;
+    if (g.timer) clearTimeout(g.timer);
+    gesture = null;
+    if (g.menu || g.dragging) {
+      // The click, if the browser sends one, comes right after this. Don't eat a later one.
+      swallowClick = true;
+      setTimeout(() => (swallowClick = false), 50);
+    }
+    if (!g.dragging || !drag) return;
+    const { id, over } = drag;
+    drag = null;
+    if (cancel || !over) return;
+    let ok: boolean;
+    if ("cell" in over) ok = variant ? moveInVariant(id, ...over.cell) : moveKey(id, ...over.cell);
+    else ok = variant ? swapInVariant(id, over.key) : swapKeys(id, over.key);
+    if (ok) haptic("light");
+    else notify("cell" in over ? t("It doesn't fit there") : t("These keys don't fit in each other's place"));
+  }
+
+  function swallow(e: MouseEvent) {
+    if (!swallowClick) return;
+    swallowClick = false;
+    e.stopPropagation();
+    e.preventDefault();
+  }
+
+  function contextmenu(e: MouseEvent) {
+    const target = hit(e.clientX, e.clientY);
+    if (!target) return;
+    e.preventDefault();
+    // Android also sends this on a long press. The timer may have opened the menu already.
+    if (gesture) {
+      if (gesture.timer) clearTimeout(gesture.timer);
+      if (gesture.menu) return;
+      gesture.menu = true;
+    }
+    openMenu(target, e.clientX, e.clientY);
+  }
+
+  const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
+
+  function openMenu(target: Target, x: number, y: number) {
+    if (!target || !pg) return;
+    if ("key" in target) {
+      const k = pg.keys.find((q) => q.id === target.key);
+      if (!k) return;
+      ed.key = k.id;
+      const steps = [...k.actions, ...(k.offActions ?? [])];
+      menu = {
+        x,
+        y,
+        title: k.label,
+        items: [
+          { label: t("Edit"), icon: "pencil", run: () => (ed.key = k.id) },
+          { label: t("Test run"), icon: "play", disabled: !k.actions.length || steps.some((a) => a.review), run: () => runNow(k.label, $state.snapshot(k.actions)) },
+          { label: t("Duplicate"), icon: "copy-plus", hint: `${mod}D`, disabled: variant, run: () => duplicateKey(k.id) },
+          { label: t("Copy"), icon: "copy", hint: `${mod}C`, run: () => copyKey(k.id) },
+          { label: t("Cut"), icon: "scissors", hint: `${mod}X`, run: () => copyKey(k.id, true) },
+          { label: t("Move"), icon: "move", run: () => (ed.moving = k.id) },
+          { label: t("Delete"), icon: "trash-2", hint: t("Del"), danger: true, run: () => deleteKey(k.id) },
+        ],
+      };
+    } else {
+      const [cx, cy] = target.cell;
+      menu = {
+        x,
+        y,
+        items: [
+          { label: t("Paste"), icon: "clipboard-paste", hint: `${mod}V`, disabled: !clipboard.key || variant, run: () => pasteKey(cx, cy) },
+          { label: t("New key"), icon: "plus", disabled: variant, run: () => addKey(cx, cy, null) },
+          { label: t("New folder"), icon: "folder", disabled: variant, run: () => place_(cx, cy, "kind:folder") },
+        ],
+      };
+    }
+  }
+
+  async function runNow(label: string, actions: unknown[]) {
+    try {
+      await req("steps.test", { actions });
+      notify(t("Ran {name}", { name: label }));
+    } catch (e: any) {
+      notify(e.message);
+    }
+  }
+
+  /** Actions dragged in from the palette. */
   function drop(e: DragEvent, x: number, y: number) {
     e.preventDefault();
-    const action = e.dataTransfer?.getData("application/x-keyside-action");
-    const key = e.dataTransfer?.getData("application/x-keyside-key");
-    if (key) {
-      ed.moving = key;
-      place_(x, y, null);
-    } else place_(x, y, action || ed.armed);
+    place_(x, y, e.dataTransfer?.getData("application/x-keyside-action") || ed.armed);
   }
 
   function customize() {
@@ -111,11 +264,6 @@
         pg.keys = pg.keys.filter((k) => k.x + (k.w ?? 1) <= cols && k.y + (k.h ?? 1) <= rows);
       }
     });
-  }
-
-  function keydrag(e: DragEvent) {
-    const id = (e.target as HTMLElement)?.closest?.("[data-key]")?.getAttribute("data-key");
-    if (id) e.dataTransfer?.setData("application/x-keyside-key", id);
   }
 </script>
 
@@ -152,7 +300,17 @@
 
   {#if pg && place}
     <div class="stage">
-      <div class="device ff-{ed.ff}" ondragstart={keydrag} role="presentation">
+      <div
+        class="device ff-{ed.ff}"
+        class:dragging={!!drag}
+        role="presentation"
+        onpointerdown={pdown}
+        onpointermove={pmove}
+        onpointerup={(e) => pup(e)}
+        onpointercancel={(e) => pup(e, true)}
+        onclickcapture={swallow}
+        oncontextmenu={contextmenu}
+      >
         <div class="device-head">
           <b>{pg.name}</b>
           <span class="live"><span class="dot" class:ok={deck.conn.s === "open"}></span>{t("live preview")}</span>
@@ -163,6 +321,7 @@
           keys={views}
           preview
           selected={ed.key}
+          dim={drag?.id}
           onselect={(id) => {
             if (ed.moving === id) ed.moving = null;
             ed.key = id;
@@ -172,7 +331,9 @@
           {#snippet empty(x, y)}
             <button
               class="drop"
-              class:ready={!!ed.armed || !!ed.moving}
+              data-cell="{x},{y}"
+              class:ready={!!ed.armed || !!ed.moving || !!drag}
+              class:target={!!drag?.over && "cell" in drag.over && drag.over.cell[0] === x && drag.over.cell[1] === y}
               ondragover={(e) => e.preventDefault()}
               ondrop={(e) => drop(e, x, y)}
               onclick={() => (ed.armed || ed.moving ? place_(x, y, ed.armed) : ((ed.key = null), undefined))}
@@ -188,7 +349,10 @@
         </Grid>
       </div>
       <p class="caption">
-        {#if variant}
+        {#if notice.text}
+          <span class="notice" role="status">{notice.text}</span>
+          {#if notice.action}<button class="link" onclick={() => (notice.action?.run(), (notice.text = ""))}>{notice.action.label}</button>{/if}
+        {:else if variant}
           {t("This screen has its own arrangement.")} <button class="link" onclick={resetVariant}>{t("Use the main one")}</button>
         {:else if ed.ff !== "phone-portrait"}
           {t("Arranged automatically from the phone layout.")} <button class="link" onclick={customize}>{t("Arrange this screen yourself")}</button>
@@ -196,9 +360,27 @@
           {t("States are live from your apps. Changes reach devices when you push them.")}
         {/if}
       </p>
+      <p class="tip">{t("Drag a key to move it, or onto another key to swap them. Right-click or press and hold for more.")}</p>
     </div>
   {/if}
 </section>
+
+{#if drag}
+  <div class="ghost" style:left="{drag.x}px" style:top="{drag.y}px" aria-hidden="true">
+    <Icon name="move" size={16} />
+    {#if drag.over && "key" in drag.over}
+      {t("Swap with {name}", { name: pg?.keys.find((k) => k.id === (drag?.over as { key: string }).key)?.label ?? "" })}
+    {:else if drag.over}
+      {t("Move {name} here", { name: drag.label })}
+    {:else}
+      {drag.label}
+    {/if}
+  </div>
+{/if}
+
+{#if menu}
+  <ContextMenu x={menu.x} y={menu.y} title={menu.title} items={menu.items} onclose={() => (menu = null)} />
+{/if}
 
 <style>
   .canvas {
@@ -285,6 +467,13 @@
     height: min(100%, 760px);
     aspect-ratio: 9 / 16;
     max-width: 100%;
+    /* Holding a finger still should open our menu, not the browser's. */
+    touch-action: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+  .device.dragging {
+    cursor: grabbing;
   }
   .device.ff-phone-landscape {
     aspect-ratio: 16 / 9;
@@ -340,10 +529,37 @@
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 5%, transparent);
   }
-  .caption {
+  .drop.target {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .caption,
+  .tip {
     margin: 0;
     color: var(--muted);
     text-align: center;
+  }
+  .tip {
+    font-size: 0.8rem;
+  }
+  .notice {
+    color: var(--text);
+  }
+  .ghost {
+    position: fixed;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    /* Off the finger, so it stays visible on touch screens. */
+    transform: translate(12px, -140%);
+    pointer-events: none;
   }
   .link {
     border: none;

@@ -2,6 +2,7 @@
 
 import type { Action, FormFactor, Key, KeyKind, KeyView, LayoutFile, Page, PageView, Profile } from "@keyside/protocol";
 import { req, listen, deck } from "../lib/deck.svelte.ts";
+import { t } from "../lib/i18n.svelte.ts";
 
 export interface FieldSchema {
   type: "string" | "number" | "integer" | "boolean" | "object";
@@ -77,6 +78,12 @@ export const ed = $state({
 
 let past: string[] = [];
 let future: string[] = [];
+/** How many steps undo and redo have, so the toolbar buttons follow along. */
+const history = $state({ undo: 0, redo: 0 });
+function counted() {
+  history.undo = past.length;
+  history.redo = future.length;
+}
 /** The layout as the companion has it, to tell plugin overrides from unsaved edits. */
 let saved: LayoutFile | null = null;
 
@@ -103,6 +110,7 @@ export async function load(keepDraft = true) {
   ed.conflict = false;
   past = [];
   future = [];
+  counted();
   if (!ed.layout.profiles.some((p) => p.id === ed.profile)) ed.profile = ed.layout.defaultProfile;
   const prof = profile();
   if (!prof?.pages.some((p) => p.id === ed.page)) ed.page = prof?.homePage ?? "";
@@ -137,6 +145,7 @@ export function change(fn: (l: LayoutFile) => void) {
 }
 
 function persist() {
+  counted();
   try {
     localStorage.setItem(draftKey(), JSON.stringify({ base: ed.baseRev, layout: ed.layout }));
     ed.savedAt = Date.now();
@@ -163,8 +172,8 @@ export function redo() {
   persist();
 }
 
-export const canUndo = () => past.length > 0;
-export const canRedo = () => future.length > 0;
+export const canUndo = () => history.undo > 0;
+export const canRedo = () => history.redo > 0;
 
 export async function push() {
   if (!ed.layout) return;
@@ -221,16 +230,17 @@ export function newAction(type: string): Action {
   return { type, settings: defaults(actionDef(type)) };
 }
 
-function occupied(p: Page, skip?: string): Set<string> {
+function occupied(p: Page, skip?: string | string[]): Set<string> {
+  const skipped = new Set(Array.isArray(skip) ? skip : skip ? [skip] : []);
   const s = new Set<string>();
   for (const k of p.keys) {
-    if (k.id === skip) continue;
+    if (skipped.has(k.id)) continue;
     for (let dy = 0; dy < (k.h ?? 1); dy++) for (let dx = 0; dx < (k.w ?? 1); dx++) s.add(`${k.x + dx},${k.y + dy}`);
   }
   return s;
 }
 
-export function fits(p: Page, x: number, y: number, w: number, h: number, skip?: string): boolean {
+export function fits(p: Page, x: number, y: number, w: number, h: number, skip?: string | string[]): boolean {
   if (x < 0 || y < 0 || x + w > p.cols || y + h > p.rows) return false;
   const occ = occupied(p, skip);
   for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (occ.has(`${x + dx},${y + dy}`)) return false;
@@ -259,24 +269,119 @@ export function addKey(x: number, y: number, type: string | null, kind: KeyKind 
   ed.key = id;
 }
 
-export function moveKey(id: string, x: number, y: number) {
+export function moveKey(id: string, x: number, y: number): boolean {
   const p = page();
   const k = p?.keys.find((q) => q.id === id);
-  if (!p || !k || !fits(p, x, y, k.w ?? 1, k.h ?? 1, id)) return;
+  if (!p || !k || !fits(p, x, y, k.w ?? 1, k.h ?? 1, id)) return false;
   change(() => {
     k.x = x;
     k.y = y;
   });
+  return true;
 }
 
 export function deleteKey(id: string) {
   const p = page();
   if (!p) return;
+  const label = p.keys.find((k) => k.id === id)?.label;
   change(() => {
     p.keys = p.keys.filter((k) => k.id !== id);
     for (const v of Object.values(p.variants ?? {})) if (v) delete v.at[id];
   });
   if (ed.key === id) ed.key = null;
+  notify(t("Deleted {name}", { name: label ?? t("key") }), { label: t("Undo"), run: undo });
+}
+
+/** Short message under the canvas, with an optional button such as Undo. */
+export const notice = $state({ text: "", action: null as { label: string; run: () => void } | null, at: 0 });
+let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function notify(text: string, action: { label: string; run: () => void } | null = null) {
+  notice.text = text;
+  notice.action = action;
+  notice.at = Date.now();
+  if (noticeTimer) clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => (notice.text = ""), action ? 6000 : 3000);
+}
+
+/** Swaps two keys of the same size. Keys of different sizes swap when both still fit. */
+export function swapKeys(a: string, b: string): boolean {
+  const p = page();
+  const ka = p?.keys.find((k) => k.id === a);
+  const kb = p?.keys.find((k) => k.id === b);
+  if (!p || !ka || !kb || a === b) return false;
+  const [ax, ay, bx, by] = [ka.x, ka.y, kb.x, kb.y];
+  // Check each in the other's spot, with both lifted off the grid.
+  const aFits = fits(p, bx, by, ka.w ?? 1, ka.h ?? 1, [a, b]);
+  const bFits = fits(p, ax, ay, kb.w ?? 1, kb.h ?? 1, [a, b]);
+  const overlap = bx < ax + (kb.w ?? 1) && ax < bx + (ka.w ?? 1) && by < ay + (kb.h ?? 1) && ay < by + (ka.h ?? 1);
+  if (!aFits || !bFits || (overlap && ((ka.w ?? 1) !== (kb.w ?? 1) || (ka.h ?? 1) !== (kb.h ?? 1)))) return false;
+  change(() => {
+    [ka.x, ka.y, kb.x, kb.y] = [bx, by, ax, ay];
+  });
+  return true;
+}
+
+/** First free spot on the page for a key of this size, reading left to right. */
+function freeSpot(p: Page, w: number, h: number, from = 0): [number, number] | null {
+  for (let i = from; i < p.cols * p.rows; i++) {
+    const [x, y] = [i % p.cols, Math.floor(i / p.cols)];
+    if (fits(p, x, y, w, h)) return [x, y];
+  }
+  return from ? freeSpot(p, w, h, 0) : null;
+}
+
+/** A copy with fresh ids, so it can live next to the original. */
+function cloneKey(k: Key, p: Page, x: number, y: number): Key {
+  const copy = JSON.parse(JSON.stringify($state.snapshot(k))) as Key;
+  copy.id = newId("k", p.keys.map((q) => q.id));
+  copy.x = x;
+  copy.y = y;
+  // A folder copy shares the original's sub-page rather than a duplicate of it.
+  return copy;
+}
+
+export function duplicateKey(id: string) {
+  const p = page();
+  const k = p?.keys.find((q) => q.id === id);
+  if (!p || !k) return;
+  const at = freeSpot(p, k.w ?? 1, k.h ?? 1, k.y * p.cols + k.x + 1);
+  if (!at) return notify(t("No free space on this page"));
+  const copy = cloneKey(k, p, ...at);
+  change(() => p.keys.push(copy));
+  ed.key = copy.id;
+}
+
+/** Copied or cut key, to paste on any page. Kept for this session only. */
+export const clipboard = $state({ key: null as Key | null });
+
+export function copyKey(id: string, cut = false) {
+  const k = page()?.keys.find((q) => q.id === id);
+  if (!k) return;
+  clipboard.key = JSON.parse(JSON.stringify($state.snapshot(k)));
+  if (cut) {
+    deleteKey(id);
+    notify(t("Cut {name}", { name: k.label }), { label: t("Undo"), run: undo });
+  } else notify(t("Copied {name}", { name: k.label }));
+}
+
+/** Pastes at a cell, or in the first free spot that fits. */
+export function pasteKey(x?: number, y?: number) {
+  const p = page();
+  const k = clipboard.key;
+  if (!p || !k) return;
+  const at: [number, number] | null = x !== undefined && y !== undefined && fits(p, x, y, k.w ?? 1, k.h ?? 1) ? [x, y] : freeSpot(p, k.w ?? 1, k.h ?? 1);
+  if (!at) return notify(t("No free space on this page"));
+  const copy = cloneKey(k, p, ...at);
+  change(() => p.keys.push(copy));
+  ed.key = copy.id;
+}
+
+/** Moves a key one cell with the arrow keys. */
+export function nudgeKey(id: string, dx: number, dy: number) {
+  const p = page();
+  const k = p?.keys.find((q) => q.id === id);
+  if (k) moveKey(id, k.x + dx, k.y + dy);
 }
 
 export function addPage(folder = false): string | undefined {

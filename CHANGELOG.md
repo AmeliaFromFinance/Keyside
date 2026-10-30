@@ -18,6 +18,13 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Phones send their screen size again after reconnecting, so tablets keep their layout.
 - A damaged settings, devices or tokens file is set aside instead of keeping Keyside from starting.
 - User variables are saved shortly after they change instead of on every slider move.
+- Editor: drag a key to move it, or onto another key to swap them. Works with mouse, touch and pen.
+- Editor: right-click a key, or press and hold on a touch screen, for test run, duplicate, copy, cut, move and delete. Empty cells offer paste, new key and new folder.
+- Editor: Ctrl+C, Ctrl+X, Ctrl+V and Ctrl+D for keys, arrow keys move the selected key, and deleting shows an Undo button.
+- Editor: the toolbar Undo and Redo buttons now turn on as soon as there's something to undo.
+- Devices: click a paired device to rename it, change its access, set, change or remove its PIN, or revoke it. The PIN shows on hover, or on a tap on touch screens.
+- Deck: tap a toast to dismiss it. Toasts also go away on their own.
+- "Last seen" shows days and years instead of thousands of hours.
 - Sliders send their value once, when you let go, instead of many times while you drag. The companion also sends one value per slider at a time, newest first.
 - A second finger on a key that's already held doesn't press it again.
 - Discord can't start two sign-ins at once after reconnecting.

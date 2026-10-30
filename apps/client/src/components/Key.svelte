@@ -170,6 +170,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   bind:this={el}
+  data-key={view.id}
   class="key kind-{view.kind} tone-{view.tone ?? 'default'} color-{view.color ?? 'default'}"
   class:pressed
   class:selected

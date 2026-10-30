@@ -3,7 +3,7 @@
   import Icon from "./Icon.svelte";
   import PinPad from "./PinPad.svelte";
   import Sheet from "./Sheet.svelte";
-  import { deck, nav, press, slide, sendViewport, connection } from "../lib/deck.svelte.ts";
+  import { deck, nav, press, slide, sendViewport, connection, dismissToast } from "../lib/deck.svelte.ts";
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
   import { ago, clock, everySecond } from "../lib/format.ts";
   import { keepAwake, haptic } from "../lib/native.ts";
@@ -183,14 +183,16 @@
       </nav>
     {/if}
 
-    <footer class="toast" class:show={!!deck.toast} aria-live="polite">
-      {#if deck.toast}
-        <span class="ticon tone-{deck.toast.tone}">
-          <Icon name={deck.toast.tone === "danger" ? "circle-alert" : deck.toast.tone === "warning" ? "triangle-alert" : "check"} />
-        </span>
-        <span class="text">{deck.toast.text}</span>
-        <span class="mono when">{t("{t} ago", { t: ago(deck.toast.at, now) })}</span>
-      {/if}
+    <footer aria-live="polite">
+      <button class="toast" class:show={!!deck.toast} disabled={!deck.toast} title={t("Dismiss")} onclick={dismissToast}>
+        {#if deck.toast}
+          <span class="ticon tone-{deck.toast.tone}">
+            <Icon name={deck.toast.tone === "danger" ? "circle-alert" : deck.toast.tone === "warning" ? "triangle-alert" : "check"} />
+          </span>
+          <span class="text">{deck.toast.text}</span>
+          <span class="mono when">{t("{t} ago", { t: ago(deck.toast.at, now) })}</span>
+        {/if}
+      </button>
     </footer>
   {/if}
 </main>
@@ -372,11 +374,16 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    width: 100%;
     min-height: 52px;
     padding: 0 16px;
     border-radius: 14px;
     background: var(--surface);
     border: 1px solid var(--line-soft);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     visibility: hidden;
   }
   .toast.show {

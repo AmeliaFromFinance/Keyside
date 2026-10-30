@@ -69,8 +69,13 @@ pub struct Pairing {
     pub scope: Scope,
     pub pages: Vec<String>,
     pub pin: Option<String>,
+    /// The PIN itself, kept in memory until the device exists and it can go to the keychain.
+    pub pin_plain: Option<String>,
     pub expires: Instant,
 }
+
+/// Keychain entry for a device's PIN, so the PC owner can look it up later.
+pub const PIN_SECRET: &str = "keyside.device-pin";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -142,8 +147,9 @@ impl Devices {
 
     /// Starts a pairing window, replacing any earlier one. Returns (pairing id, code).
     pub fn start_pairing(&mut self, scope: Scope, pages: Vec<String>, pin: Option<&str>) -> Result<(String, String)> {
+        let pin_plain = pin.map(str::to_string);
         let pin = pin.map(hash_pin).transpose()?;
-        let p = Pairing { pid: ids::random_bytes(8), code: ids::random_bytes(16), scope, pages, pin, expires: Instant::now() + PAIRING_TTL };
+        let p = Pairing { pid: ids::random_bytes(8), code: ids::random_bytes(16), scope, pages, pin, pin_plain, expires: Instant::now() + PAIRING_TTL };
         let out = (b64(&p.pid), b64(&p.code));
         self.pairing = Some(p);
         Ok(out)
