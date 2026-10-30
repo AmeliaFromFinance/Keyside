@@ -3,7 +3,33 @@
   import Icon from "../components/Icon.svelte";
   import type { FormFactor, KeyKind, KeyView } from "@keyside/protocol";
   import ContextMenu, { type MenuItem } from "../components/ContextMenu.svelte";
-  import { ed, page, profile, change, addKey, addPage, moveKey, deleteKey, duplicateKey, copyKey, pasteKey, clipboard, swapKeys, notify, notice, placements, previewView, actionDef } from "./state.svelte.ts";
+  import Key from "../components/Key.svelte";
+  import {
+    ed,
+    page,
+    profile,
+    change,
+    addKey,
+    addPage,
+    moveKey,
+    deleteKeys,
+    duplicateKeys,
+    copyKeys,
+    pasteKey,
+    clipboard,
+    swapKeys,
+    shiftKeys,
+    moveToPage,
+    selection,
+    pick,
+    clearSelection,
+    onScreen,
+    notify,
+    notice,
+    placements,
+    previewView,
+    actionDef,
+  } from "./state.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { haptic } from "../lib/native.ts";
@@ -29,8 +55,7 @@
   function place_(x: number, y: number, id: string | null) {
     if (!pg) return;
     if (ed.moving) {
-      if (variant) moveInVariant(ed.moving, x, y);
-      else moveKey(ed.moving, x, y);
+      if (!moveKey(ed.moving, x, y)) notify(t("It doesn't fit there"));
       ed.moving = null;
       return;
     }
@@ -67,51 +92,66 @@
     ed.armed = null;
   }
 
-  function moveInVariant(id: string, x: number, y: number): boolean {
-    const v = pg?.variants?.[ed.ff];
-    const cur = v?.at[id];
-    if (!v || !cur || !variantFits(id, x, y, cur[2], cur[3])) return false;
-    change(() => (v.at[id] = [x, y, cur[2], cur[3]]));
-    return true;
-  }
-
-  /** Same as fits() in the state, for this screen's own arrangement. */
-  function variantFits(id: string, x: number, y: number, w: number, h: number): boolean {
-    const v = pg?.variants?.[ed.ff];
-    if (!v || x < 0 || y < 0 || x + w > v.cols || y + h > v.rows) return false;
-    return Object.entries(v.at).every(([other, [ox, oy, ow, oh]]) => other === id || x + w <= ox || ox + ow <= x || y + h <= oy || oy + oh <= y);
-  }
-
-  function swapInVariant(a: string, b: string): boolean {
-    const v = pg?.variants?.[ed.ff];
-    const [pa, pb] = [v?.at[a], v?.at[b]];
-    if (!v || !pa || !pb || pa[2] !== pb[2] || pa[3] !== pb[3]) return false;
-    change(() => ([v.at[a], v.at[b]] = [[pb[0], pb[1], pa[2], pa[3]], [pa[0], pa[1], pb[2], pb[3]]]));
-    return true;
-  }
-
-  // Dragging and long-press. Pointer events work the same for mouse, touch and pen.
-  type Target = { key: string } | { cell: [number, number] } | null;
+  // Dragging, long-press and right-click. Pointer events work the same for mouse, touch and pen.
+  type Target = { tab: string } | { cell: [number, number]; key: string | null } | null;
   const LONG_PRESS = 500;
   const DRAG_START = 8;
+  let deviceEl = $state<HTMLElement>();
   let gesture: { target: Target; sx: number; sy: number; pointer: number; timer: ReturnType<typeof setTimeout> | null; dragging: boolean; menu: boolean } | null = null;
-  let drag = $state<{ id: string; label: string; x: number; y: number; over: Target } | null>(null);
+  let drag = $state<{
+    ids: string[];
+    primary: string;
+    /** Cell of the primary key the pointer grabbed, so it stays under the finger. */
+    grab: [number, number];
+    x: number;
+    y: number;
+    over: Target;
+    ok: boolean;
+    size: [number, number];
+  } | null>(null);
   let menu = $state<{ x: number; y: number; title?: string; items: MenuItem[] } | null>(null);
   /** Swallows the click that ends a drag or a long-press, so it doesn't also select or place. */
   let swallowClick = false;
+  const chosen = $derived(selection());
 
-  function hit(x: number, y: number): Target {
-    const el = document.elementFromPoint(x, y) as HTMLElement | null;
-    const key = el?.closest<HTMLElement>("[data-key]")?.dataset.key;
-    if (key) return { key };
-    const cell = el?.closest<HTMLElement>("[data-cell]")?.dataset.cell;
-    return cell ? { cell: cell.split(",").map(Number) as [number, number] } : null;
+  /** The grid cell under a point, worked out from the grid's own column and row sizes. */
+  function cellAt(px: number, py: number): [number, number] | null {
+    const g = deviceEl?.querySelector<HTMLElement>(".grid");
+    if (!g) return null;
+    const r = g.getBoundingClientRect();
+    const cs = getComputedStyle(g);
+    const find = (track: string, gap: number, off: number) => {
+      let pos = 0;
+      const sizes = track.split(" ").map(parseFloat);
+      for (let i = 0; i < sizes.length; i++) {
+        if (off >= pos - gap / 2 && off < pos + sizes[i] + gap / 2) return i;
+        pos += sizes[i] + gap;
+      }
+      return -1;
+    };
+    const x = find(cs.gridTemplateColumns, parseFloat(cs.columnGap) || 0, px - r.left);
+    const y = find(cs.gridTemplateRows, parseFloat(cs.rowGap) || 0, py - r.top);
+    return x < 0 || y < 0 ? null : [x, y];
+  }
+
+  function keyAt([cx, cy]: [number, number]): string | null {
+    for (const [id, [x, y, w, h]] of place?.at ?? []) if (cx >= x && cx < x + w && cy >= y && cy < y + h) return id;
+    return null;
+  }
+
+  function hit(px: number, py: number): Target {
+    const el = document.elementFromPoint(px, py) as HTMLElement | null;
+    const tab = el?.closest<HTMLElement>("[data-tab]")?.dataset.tab;
+    if (tab) return { tab };
+    if (!el || !deviceEl?.contains(el)) return null;
+    const cell = cellAt(px, py);
+    return cell ? { cell, key: keyAt(cell) } : null;
   }
 
   function pdown(e: PointerEvent) {
     if (e.button !== 0 || ed.armed || ed.moving) return;
     const target = hit(e.clientX, e.clientY);
-    if (!target) return;
+    if (!target || "tab" in target) return;
     const g = { target, sx: e.clientX, sy: e.clientY, pointer: e.pointerId, timer: null as ReturnType<typeof setTimeout> | null, dragging: false, menu: false };
     // Touch has no right-click, so holding still opens the menu.
     if (e.pointerType !== "mouse")
@@ -128,19 +168,48 @@
     const g = gesture;
     if (!g || e.pointerId !== g.pointer || g.menu) return;
     if (!g.dragging) {
-      if (!g.target || !("key" in g.target) || Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < DRAG_START) return;
-      const k = pg?.keys.find((q) => q.id === (g.target as { key: string }).key);
-      if (!k) return;
+      const t0 = g.target;
+      if (!t0 || "tab" in t0 || !t0.key || Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < DRAG_START) return;
+      const at = onScreen(t0.key);
+      if (!at) return;
       if (g.timer) clearTimeout(g.timer);
       g.dragging = true;
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-      drag = { id: k.id, label: k.label, x: e.clientX, y: e.clientY, over: null };
+      // Dragging a selected key takes the whole selection along. Any other key goes alone.
+      const ids = chosen.length > 1 && chosen.includes(t0.key) ? chosen : [t0.key];
+      if (ids.length === 1) pick(t0.key);
+      const el = deviceEl?.querySelector<HTMLElement>(`[data-key="${CSS.escape(t0.key)}"]`)?.getBoundingClientRect();
+      const scale = Math.min(0.7, 120 / Math.max(el?.width ?? 1, el?.height ?? 1));
+      drag = {
+        ids,
+        primary: t0.key,
+        grab: [t0.cell[0] - at[0], t0.cell[1] - at[1]],
+        x: e.clientX,
+        y: e.clientY,
+        over: null,
+        ok: false,
+        size: [Math.round((el?.width ?? 96) * scale), Math.round((el?.height ?? 96) * scale)],
+      };
     }
     if (!drag) return;
     drag.x = e.clientX;
     drag.y = e.clientY;
-    const over = hit(e.clientX, e.clientY);
-    drag.over = over && "key" in over && over.key === drag.id ? null : over;
+    drag.over = hit(e.clientX, e.clientY);
+    drag.ok = plan(drag, true);
+  }
+
+  /** Carries out the drop for the current target, or with `dry`, only checks it would work. */
+  function plan(d: NonNullable<typeof drag>, dry: boolean): boolean {
+    const over = d.over;
+    if (!over) return false;
+    if ("tab" in over) return over.tab !== ed.page && moveToPage(d.ids, over.tab, dry);
+    // A single key dropped on another one trades places with it.
+    if (d.ids.length === 1 && over.key && over.key !== d.primary) return swapKeys(d.primary, over.key, dry);
+    const at = onScreen(d.primary);
+    if (!at) return false;
+    const [dx, dy] = [over.cell[0] - d.grab[0] - at[0], over.cell[1] - d.grab[1] - at[1]];
+    if (!dx && !dy) return false;
+    return shiftKeys(d.ids, dx, dy, dry);
   }
 
   function pup(e: PointerEvent, cancel = false) {
@@ -153,15 +222,18 @@
       swallowClick = true;
       setTimeout(() => (swallowClick = false), 50);
     }
-    if (!g.dragging || !drag) return;
-    const { id, over } = drag;
+    const p = pending;
+    pending = null;
+    if (p && !g.dragging && !g.menu && !cancel) pick(p.id, p.add);
+    const d = drag;
     drag = null;
-    if (cancel || !over) return;
-    let ok: boolean;
-    if ("cell" in over) ok = variant ? moveInVariant(id, ...over.cell) : moveKey(id, ...over.cell);
-    else ok = variant ? swapInVariant(id, over.key) : swapKeys(id, over.key);
-    if (ok) haptic("light");
-    else notify("cell" in over ? t("It doesn't fit there") : t("These keys don't fit in each other's place"));
+    if (!g.dragging || !d || cancel || !d.over) return;
+    if (plan(d, false)) haptic("light");
+    else if (!("tab" in d.over)) {
+      const at = onScreen(d.primary);
+      const still = "cell" in d.over && at && d.over.cell[0] - d.grab[0] === at[0] && d.over.cell[1] - d.grab[1] === at[1];
+      if (!still) notify(d.ids.length === 1 && d.over.key && d.over.key !== d.primary ? t("These keys don't fit in each other's place") : t("It doesn't fit there"));
+    }
   }
 
   function swallow(e: MouseEvent) {
@@ -173,7 +245,7 @@
 
   function contextmenu(e: MouseEvent) {
     const target = hit(e.clientX, e.clientY);
-    if (!target) return;
+    if (!target || "tab" in target) return;
     e.preventDefault();
     // Android also sends this on a long press. The timer may have opened the menu already.
     if (gesture) {
@@ -186,26 +258,46 @@
 
   const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
 
+  /** Other pages of this layout, as menu entries that move keys there. */
+  function pageItems(ids: string[]): MenuItem[] {
+    return (profile()?.pages ?? [])
+      .filter((p) => p.id !== ed.page)
+      .map((p) => ({ label: p.name, icon: p.folder ? "folder" : "file", run: () => moveToPage(ids, p.id) }));
+  }
+
   function openMenu(target: Target, x: number, y: number) {
-    if (!target || !pg) return;
-    if ("key" in target) {
+    if (!target || "tab" in target || !pg) return;
+    if (target.key) {
       const k = pg.keys.find((q) => q.id === target.key);
       if (!k) return;
-      ed.key = k.id;
+      if (!chosen.includes(k.id)) pick(k.id);
+      const ids = selection();
+      const many = ids.length > 1;
       const steps = [...k.actions, ...(k.offActions ?? [])];
+      const moveTo: MenuItem = { label: t("Move to page"), icon: "folder-input", disabled: !pageItems(ids).length, run: () => (menu = { x, y, title: t("Move to page"), items: pageItems(ids) }) };
       menu = {
         x,
         y,
-        title: k.label,
-        items: [
-          { label: t("Edit"), icon: "pencil", run: () => (ed.key = k.id) },
-          { label: t("Test run"), icon: "play", disabled: !k.actions.length || steps.some((a) => a.review), run: () => runNow(k.label, $state.snapshot(k.actions)) },
-          { label: t("Duplicate"), icon: "copy-plus", hint: `${mod}D`, disabled: variant, run: () => duplicateKey(k.id) },
-          { label: t("Copy"), icon: "copy", hint: `${mod}C`, run: () => copyKey(k.id) },
-          { label: t("Cut"), icon: "scissors", hint: `${mod}X`, run: () => copyKey(k.id, true) },
-          { label: t("Move"), icon: "move", run: () => (ed.moving = k.id) },
-          { label: t("Delete"), icon: "trash-2", hint: t("Del"), danger: true, run: () => deleteKey(k.id) },
-        ],
+        title: many ? t("{n} keys", { n: ids.length }) : k.label,
+        items: many
+          ? [
+              { label: t("Duplicate"), icon: "copy-plus", hint: `${mod}D`, disabled: variant, run: () => duplicateKeys(ids) },
+              { label: t("Copy"), icon: "copy", hint: `${mod}C`, run: () => copyKeys(ids) },
+              { label: t("Cut"), icon: "scissors", hint: `${mod}X`, run: () => copyKeys(ids, true) },
+              moveTo,
+              { label: t("Clear selection"), icon: "x", hint: "Esc", run: clearSelection },
+              { label: t("Delete {n} keys", { n: ids.length }), icon: "trash-2", hint: t("Del"), danger: true, run: () => deleteKeys(ids) },
+            ]
+          : [
+              { label: t("Edit"), icon: "pencil", run: () => pick(k.id) },
+              { label: t("Test run"), icon: "play", disabled: !k.actions.length || steps.some((a) => a.review), run: () => runNow(k.label, $state.snapshot(k.actions)) },
+              { label: t("Select more"), icon: "square-check", run: () => ((ed.picking = true), pick(k.id)) },
+              { label: t("Duplicate"), icon: "copy-plus", hint: `${mod}D`, disabled: variant, run: () => duplicateKeys([k.id]) },
+              { label: t("Copy"), icon: "copy", hint: `${mod}C`, run: () => copyKeys([k.id]) },
+              { label: t("Cut"), icon: "scissors", hint: `${mod}X`, run: () => copyKeys([k.id], true) },
+              moveTo,
+              { label: t("Delete"), icon: "trash-2", hint: t("Del"), danger: true, run: () => deleteKeys([k.id]) },
+            ],
       };
     } else {
       const [cx, cy] = target.cell;
@@ -213,7 +305,7 @@
         x,
         y,
         items: [
-          { label: t("Paste"), icon: "clipboard-paste", hint: `${mod}V`, disabled: !clipboard.key || variant, run: () => pasteKey(cx, cy) },
+          { label: t("Paste"), icon: "clipboard-paste", hint: `${mod}V`, disabled: !clipboard.keys.length || variant, run: () => pasteKey(cx, cy) },
           { label: t("New key"), icon: "plus", disabled: variant, run: () => addKey(cx, cy, null) },
           { label: t("New folder"), icon: "folder", disabled: variant, run: () => place_(cx, cy, "kind:folder") },
         ],
@@ -228,6 +320,54 @@
     } catch (e: any) {
       notify(e.message);
     }
+  }
+
+  /** What the drag would do, shown next to the finger. */
+  const dragText = $derived.by(() => {
+    if (!drag) return "";
+    const n = drag.ids.length;
+    const name = n > 1 ? t("{n} keys", { n }) : (pg?.keys.find((k) => k.id === drag!.primary)?.label ?? "");
+    const over = drag.over;
+    if (!over) return name;
+    if ("tab" in over) {
+      const dest = profile()?.pages.find((p) => p.id === over.tab);
+      if (over.tab === ed.page) return name;
+      return drag.ok ? t("Move {name} to {page}", { name, page: dest?.name ?? "" }) : t("{page} has no room for {name}", { page: dest?.name ?? "", name });
+    }
+    if (!drag.ok) return t("It doesn't fit there");
+    if (n === 1 && over.key && over.key !== drag.primary) return t("Swap with {name}", { name: pg?.keys.find((k) => k.id === over.key)?.label ?? "" });
+    return t("Move {name} here", { name });
+  });
+  const dragView = $derived(drag ? views.find((v) => v.id === drag!.primary) : undefined);
+  /** Cells the drop would cover, to light them up. */
+  const landing = $derived.by(() => {
+    const out = new Set<string>();
+    if (!drag?.ok || !drag.over || "tab" in drag.over) return out;
+    const at = onScreen(drag.primary);
+    if (!at) return out;
+    const swapWith = drag.ids.length === 1 && drag.over.key && drag.over.key !== drag.primary ? drag.over.key : null;
+    const [dx, dy] = swapWith ? [0, 0] : [drag.over.cell[0] - drag.grab[0] - at[0], drag.over.cell[1] - drag.grab[1] - at[1]];
+    for (const id of swapWith ? [swapWith] : drag.ids) {
+      const [x, y, w, h] = swapWith ? at : onScreen(id)!;
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) out.add(`${x + dx + i},${y + dy + j}`);
+    }
+    return out;
+  });
+
+  /**
+   * A press may turn into a drag or a long-press, which shouldn't change the selection.
+   * So pointer presses select on release.
+   */
+  let pending: { id: string; add: boolean } | null = null;
+
+  function select(id: string, e?: PointerEvent | KeyboardEvent) {
+    pending = null;
+    const placing = !!ed.armed || !!ed.moving;
+    if (ed.moving === id) ed.moving = null;
+    ed.armed = null;
+    const add = ed.picking || !!(e && (e.shiftKey || e.ctrlKey || e.metaKey));
+    if (e instanceof PointerEvent && !placing) pending = { id, add };
+    else pick(id, add);
   }
 
   /** Actions dragged in from the palette. */
@@ -271,7 +411,15 @@
   <div class="bar">
     <div class="tabs" role="tablist">
       {#each tabs as p (p.id)}
-        <button role="tab" class="tab" class:on={p.id === ed.page} aria-selected={p.id === ed.page} onclick={() => ((ed.page = p.id), (ed.key = null))}>
+        <button
+          role="tab"
+          class="tab"
+          class:on={p.id === ed.page}
+          class:droptarget={!!drag?.over && "tab" in drag.over && drag.over.tab === p.id && p.id !== ed.page}
+          data-tab={p.id}
+          aria-selected={p.id === ed.page}
+          onclick={() => ((ed.page = p.id), clearSelection())}
+        >
           {#if p.folder}<Icon name="folder" size={16} />{/if}{p.name}
         </button>
       {/each}
@@ -301,6 +449,7 @@
   {#if pg && place}
     <div class="stage">
       <div
+        bind:this={deviceEl}
         class="device ff-{ed.ff}"
         class:dragging={!!drag}
         role="presentation"
@@ -320,23 +469,19 @@
           rows={place.rows}
           keys={views}
           preview
-          selected={ed.key}
-          dim={drag?.id}
-          onselect={(id) => {
-            if (ed.moving === id) ed.moving = null;
-            ed.key = id;
-            ed.armed = null;
-          }}
+          selected={chosen}
+          dim={drag?.ids}
+          onselect={select}
         >
           {#snippet empty(x, y)}
             <button
               class="drop"
               data-cell="{x},{y}"
               class:ready={!!ed.armed || !!ed.moving || !!drag}
-              class:target={!!drag?.over && "cell" in drag.over && drag.over.cell[0] === x && drag.over.cell[1] === y}
+              class:target={landing.has(`${x},${y}`)}
               ondragover={(e) => e.preventDefault()}
               ondrop={(e) => drop(e, x, y)}
-              onclick={() => (ed.armed || ed.moving ? place_(x, y, ed.armed) : ((ed.key = null), undefined))}
+              onclick={() => (ed.armed || ed.moving ? place_(x, y, ed.armed) : clearSelection())}
               aria-label={ed.moving ? t("Move here") : ed.armed ? t("Drop {name} here", { name: armedName }) : t("Empty cell")}
             >
               {#if ed.moving}
@@ -349,7 +494,10 @@
         </Grid>
       </div>
       <p class="caption">
-        {#if notice.text}
+        {#if ed.picking}
+          <span class="notice" role="status">{t("Tap keys to add or remove them. {n} selected.", { n: chosen.length })}</span>
+          <button class="link" onclick={() => (ed.picking = false)}>{t("Done")}</button>
+        {:else if notice.text}
           <span class="notice" role="status">{notice.text}</span>
           {#if notice.action}<button class="link" onclick={() => (notice.action?.run(), (notice.text = ""))}>{notice.action.label}</button>{/if}
         {:else if variant}
@@ -360,21 +508,24 @@
           {t("States are live from your apps. Changes reach devices when you push them.")}
         {/if}
       </p>
-      <p class="tip">{t("Drag a key to move it, or onto another key to swap them. Right-click or press and hold for more.")}</p>
+      <p class="tip">
+        {chosen.length > 1
+          ? t("Drag one of the selected keys to move them all, or onto a page tab to move them there.")
+          : t("Drag a key to move it, onto another key to swap them, or onto a page tab. Shift-click to select several. Right-click or press and hold for more.")}
+      </p>
     </div>
   {/if}
 </section>
 
 {#if drag}
-  <div class="ghost" style:left="{drag.x}px" style:top="{drag.y}px" aria-hidden="true">
-    <Icon name="move" size={16} />
-    {#if drag.over && "key" in drag.over}
-      {t("Swap with {name}", { name: pg?.keys.find((k) => k.id === (drag?.over as { key: string }).key)?.label ?? "" })}
-    {:else if drag.over}
-      {t("Move {name} here", { name: drag.label })}
-    {:else}
-      {drag.label}
+  <div class="ghost" class:bad={!!drag.over && !drag.ok && !("tab" in drag.over && drag.over.tab === ed.page)} style:left="{drag.x}px" style:top="{drag.y}px" aria-hidden="true">
+    {#if dragView}
+      <div class="mini" style:width="{drag.size[0]}px" style:height="{drag.size[1]}px">
+        <Key view={dragView} preview />
+        {#if drag.ids.length > 1}<span class="count">{drag.ids.length}</span>{/if}
+      </div>
     {/if}
+    <span class="what">{dragText}</span>
   </div>
 {/if}
 
@@ -423,6 +574,11 @@
     color: var(--text);
     background: var(--accent-bg);
     border-color: var(--accent);
+  }
+  .tab.droptarget {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--text);
   }
   .tab.add {
     border: 1px dashed var(--line);
@@ -548,18 +704,49 @@
     position: fixed;
     z-index: 40;
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    /* Above and right of the finger, so the hand doesn't cover it. */
+    transform: translate(14px, calc(-100% - 14px));
+    pointer-events: none;
+  }
+  .mini {
+    position: relative;
+    container-type: size;
+    display: grid;
+    /* Keys are see-through by design. Underneath the preview is whatever is on the page. */
+    border-radius: var(--radius);
+    background: #16151c;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.5);
+  }
+  .count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 24px;
+    text-align: center;
+  }
+  .what {
+    padding: 4px 10px;
     border-radius: 999px;
     background: var(--accent);
     color: var(--bg);
     font-size: 0.85rem;
     font-weight: 600;
     white-space: nowrap;
-    /* Off the finger, so it stays visible on touch screens. */
-    transform: translate(12px, -140%);
-    pointer-events: none;
+  }
+  .ghost.bad .what {
+    background: var(--danger, #e5484d);
+    color: #fff;
   }
   .link {
     border: none;

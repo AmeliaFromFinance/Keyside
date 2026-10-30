@@ -10,6 +10,7 @@
     view,
     disabled = false,
     selected = false,
+    lifted = false,
     preview = false,
     ondown,
     onup,
@@ -19,12 +20,15 @@
     view: KeyView;
     disabled?: boolean;
     selected?: boolean;
+    /** Editor: being dragged somewhere else. */
+    lifted?: boolean;
     /** Editor preview: taps select instead of pressing. */
     preview?: boolean;
     ondown?: (id: string) => void;
     onup?: (id: string, cancel: boolean) => void;
     onslide?: (id: string, value: number) => void;
-    onselect?: (id: string) => void;
+    /** The event says whether Shift, Ctrl or Cmd was held. */
+    onselect?: (id: string, e?: PointerEvent | KeyboardEvent) => void;
   } = $props();
 
   let pressed = $state(false);
@@ -80,7 +84,7 @@
   function down(e: PointerEvent) {
     if (e.button > 0) return;
     if (preview) {
-      onselect?.(view.id);
+      onselect?.(view.id, e);
       return;
     }
     if (disabled || view.disabled || pressed) return;
@@ -140,7 +144,7 @@
     if (e.key !== "Enter" && e.key !== " " && !arrows) return;
     e.preventDefault();
     if (preview) {
-      if (isDown) onselect?.(view.id);
+      if (isDown) onselect?.(view.id, e);
       return;
     }
     if (disabled || view.disabled) return;
@@ -174,6 +178,7 @@
   class="key kind-{view.kind} tone-{view.tone ?? 'default'} color-{view.color ?? 'default'}"
   class:pressed
   class:selected
+  class:lifted
   class:dim={disabled || view.disabled}
   class:holding={holdStart > 0}
   class:tall
@@ -329,6 +334,10 @@
   .selected {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  .lifted {
+    opacity: 0.3;
+    outline-style: dashed;
   }
 
   .top {

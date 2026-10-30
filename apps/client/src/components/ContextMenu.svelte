@@ -26,16 +26,21 @@
 
   $effect(() => {
     const away = (e: Event) => !el.contains(e.target as Node) && onclose();
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onclose();
+    // Escape closes the menu only, not whatever else listens for it (clearing the selection).
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onclose();
+    };
     // The press that opened the menu must not close it.
     const t = setTimeout(() => addEventListener("pointerdown", away, true));
-    addEventListener("keydown", key);
+    addEventListener("keydown", key, true);
     addEventListener("resize", onclose);
     addEventListener("blur", onclose);
     return () => {
       clearTimeout(t);
       removeEventListener("pointerdown", away, true);
-      removeEventListener("keydown", key);
+      removeEventListener("keydown", key, true);
       removeEventListener("resize", onclose);
       removeEventListener("blur", onclose);
     };

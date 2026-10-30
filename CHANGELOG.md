@@ -21,6 +21,10 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Editor: drag a key to move it, or onto another key to swap them. Works with mouse, touch and pen.
 - Editor: right-click a key, or press and hold on a touch screen, for test run, duplicate, copy, cut, move and delete. Empty cells offer paste, new key and new folder.
 - Editor: Ctrl+C, Ctrl+X, Ctrl+V and Ctrl+D for keys, arrow keys move the selected key, and deleting shows an Undo button.
+- Editor: select several keys with Shift-click, Ctrl+A, or "Select more" on touch screens. Drag, delete, copy, cut, duplicate or nudge them together. Pasted keys keep their arrangement.
+- Editor: drop keys on a page tab, or pick "Move to page", to move them to another page.
+- Editor: while dragging, a small copy of the key follows your finger, the cells it would land on light up, and it says so before you let go if it won't fit.
+- Editor: moving keys in the sideways phone preview now puts them in the right place.
 - Editor: the toolbar Undo and Redo buttons now turn on as soon as there's something to undo.
 - Devices: click a paired device to rename it, change its access, set, change or remove its PIN, or revoke it. The PIN shows on hover, or on a tap on touch screens.
 - Deck: tap a toast to dismiss it. Toasts also go away on their own.

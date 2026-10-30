@@ -5,7 +5,7 @@
   import IconPicker from "./IconPicker.svelte";
   import SettingsForm from "./SettingsForm.svelte";
   import SdPanel from "./SdPanel.svelte";
-  import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits } from "./state.svelte.ts";
+  import { ed, page, profile, selectedKey, change, actionDef, allActions, newAction, deleteKey, deletePage, fits, selection, duplicateKeys, copyKeys, deleteKeys, clearSelection, moveToPage } from "./state.svelte.ts";
   import { actionMatches, searchWords } from "./search.ts";
   import { req } from "../lib/deck.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
@@ -19,6 +19,8 @@
   let addQuery = $state("");
 
   const key = $derived(selectedKey());
+  const group = $derived(selection());
+  const others = $derived((profile()?.pages ?? []).filter((p) => p.id !== ed.page));
   const pg = $derived(page());
 
   const colors: Array<[KeyColor, string]> = [
@@ -180,7 +182,31 @@
 </script>
 
 <aside class="inspector">
-  {#if key}
+  {#if group.length > 1}
+    <header>
+      <div>
+        <h2>{t("{n} keys", { n: group.length })}</h2>
+        <span class="ref">{pg?.keys.filter((k) => group.includes(k.id)).map((k) => k.label || t("Untitled key")).join(", ")}</span>
+      </div>
+    </header>
+    <p class="hint">{t("Drag one of the selected keys to move them all, or onto a page tab to move them there.")}</p>
+    <div class="foot group">
+      <button class="btn" onclick={() => duplicateKeys(group)}><Icon name="copy-plus" size={18} />{t("Duplicate")}</button>
+      <button class="btn" onclick={() => copyKeys(group)}><Icon name="copy" size={18} />{t("Copy")}</button>
+      <button class="btn" onclick={() => copyKeys(group, true)}><Icon name="scissors" size={18} />{t("Cut")}</button>
+      <button class="btn" onclick={clearSelection}><Icon name="x" size={18} />{t("Clear selection")}</button>
+      <button class="btn danger" onclick={() => deleteKeys(group)}><Icon name="trash-2" size={18} />{t("Delete {n} keys", { n: group.length })}</button>
+    </div>
+    {#if others.length}
+      <label class="field">
+        <span>{t("Move to page")}</span>
+        <select value="" onchange={(e) => e.currentTarget.value && moveToPage(group, e.currentTarget.value)}>
+          <option value="">{t("Choose a page")}</option>
+          {#each others as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
+        </select>
+      </label>
+    {/if}
+  {:else if key}
     <header>
       <div>
         <h2>{key.label || t("Untitled key")}</h2>

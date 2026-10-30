@@ -71,6 +71,10 @@ export const ed = $state({
   live: null as PageView | null,
   armed: null as string | null,
   moving: null as string | null,
+  /** Keys selected together. Holds ed.key too while more than one is selected. */
+  picked: [] as string[],
+  /** Touch screens: taps add to the selection until Done. */
+  picking: false,
   error: "",
   pushing: false,
   conflict: false,
@@ -269,28 +273,60 @@ export function addKey(x: number, y: number, type: string | null, kind: KeyKind 
   ed.key = id;
 }
 
-export function moveKey(id: string, x: number, y: number): boolean {
+/** Selected keys on the current page. `ed.key` is the one shown in the inspector. */
+export function selection(): string[] {
   const p = page();
-  const k = p?.keys.find((q) => q.id === id);
-  if (!p || !k || !fits(p, x, y, k.w ?? 1, k.h ?? 1, id)) return false;
-  change(() => {
-    k.x = x;
-    k.y = y;
-  });
-  return true;
+  if (!p || !ed.key) return [];
+  const here = new Set(p.keys.map((k) => k.id));
+  if (ed.picked.length > 1 && ed.picked.includes(ed.key)) return ed.picked.filter((id) => here.has(id));
+  return here.has(ed.key) ? [ed.key] : [];
 }
 
-export function deleteKey(id: string) {
-  const p = page();
-  if (!p) return;
-  const label = p.keys.find((k) => k.id === id)?.label;
-  change(() => {
-    p.keys = p.keys.filter((k) => k.id !== id);
-    for (const v of Object.values(p.variants ?? {})) if (v) delete v.at[id];
-  });
-  if (ed.key === id) ed.key = null;
-  notify(t("Deleted {name}", { name: label ?? t("key") }), { label: t("Undo"), run: undo });
+/** Selects a key. With `add`, it joins or leaves the selection instead. */
+export function pick(id: string, add = false) {
+  if (!add) {
+    ed.key = id;
+    ed.picked = [];
+    return;
+  }
+  const cur = selection();
+  if (cur.includes(id)) {
+    ed.picked = cur.filter((x) => x !== id);
+    ed.key = ed.picked.at(-1) ?? null;
+  } else {
+    ed.picked = [...cur, id];
+    ed.key = id;
+  }
 }
+
+export function selectAll() {
+  const p = page();
+  if (!p?.keys.length) return;
+  ed.picked = p.keys.map((k) => k.id);
+  ed.key = ed.picked.at(-1)!;
+}
+
+export function clearSelection() {
+  ed.key = null;
+  ed.picked = [];
+  ed.picking = false;
+}
+
+const keyName = (n: number, label?: string) => (n === 1 && label ? label : t("{n} keys", { n }));
+
+export function deleteKeys(ids: string[]) {
+  const p = page();
+  if (!p || !ids.length) return;
+  const label = p.keys.find((k) => k.id === ids[0])?.label;
+  change(() => {
+    p.keys = p.keys.filter((k) => !ids.includes(k.id));
+    for (const v of Object.values(p.variants ?? {})) if (v) for (const id of ids) delete v.at[id];
+  });
+  clearSelection();
+  notify(t("Deleted {name}", { name: keyName(ids.length, label) }), { label: t("Undo"), run: undo });
+}
+
+export const deleteKey = (id: string) => deleteKeys([id]);
 
 /** Short message under the canvas, with an optional button such as Undo. */
 export const notice = $state({ text: "", action: null as { label: string; run: () => void } | null, at: 0 });
@@ -304,25 +340,97 @@ export function notify(text: string, action: { label: string; run: () => void } 
   noticeTimer = setTimeout(() => (notice.text = ""), action ? 6000 : 3000);
 }
 
-/** Swaps two keys of the same size. Keys of different sizes swap when both still fit. */
-export function swapKeys(a: string, b: string): boolean {
+/**
+ * The arrangement shown for the current screen, and where to write changes. A screen with
+ * its own arrangement keeps positions in its variant. Sideways phones without one show the
+ * main layout turned, so their positions are swapped back before saving.
+ */
+function arrangement() {
   const p = page();
-  const ka = p?.keys.find((k) => k.id === a);
-  const kb = p?.keys.find((k) => k.id === b);
-  if (!p || !ka || !kb || a === b) return false;
-  const [ax, ay, bx, by] = [ka.x, ka.y, kb.x, kb.y];
-  // Check each in the other's spot, with both lifted off the grid.
-  const aFits = fits(p, bx, by, ka.w ?? 1, ka.h ?? 1, [a, b]);
-  const bFits = fits(p, ax, ay, kb.w ?? 1, kb.h ?? 1, [a, b]);
-  const overlap = bx < ax + (kb.w ?? 1) && ax < bx + (ka.w ?? 1) && by < ay + (kb.h ?? 1) && ay < by + (ka.h ?? 1);
-  if (!aFits || !bFits || (overlap && ((ka.w ?? 1) !== (kb.w ?? 1) || (ka.h ?? 1) !== (kb.h ?? 1)))) return false;
+  if (!p) return null;
+  const v = p.variants?.[ed.ff];
+  const turned = !v && ed.ff === "phone-landscape" && p.rows > p.cols;
+  const cols = v ? v.cols : p.cols;
+  const rows = v ? v.rows : p.rows;
+  const boxes = new Map<string, [number, number, number, number]>(
+    v ? Object.entries(v.at) : p.keys.map((k) => [k.id, [k.x, k.y, k.w ?? 1, k.h ?? 1]] as [string, [number, number, number, number]]),
+  );
+  return { p, v, turned, cols, rows, boxes };
+}
+
+/** Where a key is on screen right now: [x, y, w, h]. */
+export function onScreen(id: string): [number, number, number, number] | undefined {
+  const p = page();
+  return p ? placements(p, ed.ff).at.get(id) : undefined;
+}
+
+/**
+ * Moves keys to on-screen positions, all or none. Returns false when any of them would
+ * leave the grid or overlap another key. With `dry`, only checks.
+ */
+export function relocate(moves: Array<[string, number, number]>, dry = false): boolean {
+  const a = arrangement();
+  if (!a || !moves.length) return false;
+  const moving = new Set(moves.map(([id]) => id));
+  const taken = new Set<string>();
+  const mark = (x: number, y: number, w: number, h: number) => {
+    for (let dy = 0; dy < h; dy++)
+      for (let dx = 0; dx < w; dx++) {
+        const c = `${x + dx},${y + dy}`;
+        if (taken.has(c)) return false;
+        taken.add(c);
+      }
+    return true;
+  };
+  for (const [id, [x, y, w, h]] of a.boxes) if (!moving.has(id)) mark(x, y, w, h);
+  const targets: Array<[string, number, number]> = [];
+  for (const [id, sx, sy] of moves) {
+    const box = a.boxes.get(id);
+    if (!box) return false;
+    const [x, y] = a.turned ? [sy, sx] : [sx, sy];
+    if (x < 0 || y < 0 || x + box[2] > a.cols || y + box[3] > a.rows || !mark(x, y, box[2], box[3])) return false;
+    targets.push([id, x, y]);
+  }
+  if (dry) return true;
   change(() => {
-    [ka.x, ka.y, kb.x, kb.y] = [bx, by, ax, ay];
+    for (const [id, x, y] of targets) {
+      if (a.v) {
+        const [, , w, h] = a.v.at[id];
+        a.v.at[id] = [x, y, w, h];
+      } else {
+        const k = a.p.keys.find((q) => q.id === id)!;
+        k.x = x;
+        k.y = y;
+      }
+    }
   });
   return true;
 }
 
-/** First free spot on the page for a key of this size, reading left to right. */
+/** Shifts keys by whole cells on screen. */
+export function shiftKeys(ids: string[], dx: number, dy: number, dry = false): boolean {
+  const moves: Array<[string, number, number]> = [];
+  for (const id of ids) {
+    const at = onScreen(id);
+    if (!at) return false;
+    moves.push([id, at[0] + dx, at[1] + dy]);
+  }
+  return relocate(moves, dry);
+}
+
+/** Two keys trade places. Keys of different sizes trade when both still fit. */
+export function swapKeys(a: string, b: string, dry = false): boolean {
+  const [pa, pb] = [onScreen(a), onScreen(b)];
+  return !!pa && !!pb && a !== b && relocate([[a, pb[0], pb[1]], [b, pa[0], pa[1]]], dry);
+}
+
+export function moveKey(id: string, x: number, y: number): boolean {
+  return relocate([[id, x, y]]);
+}
+
+export const nudgeKey = (id: string, dx: number, dy: number) => shiftKeys(selection().includes(id) ? selection() : [id], dx, dy);
+
+/** First free spot for a key of this size, reading left to right from `from`. */
 function freeSpot(p: Page, w: number, h: number, from = 0): [number, number] | null {
   for (let i = from; i < p.cols * p.rows; i++) {
     const [x, y] = [i % p.cols, Math.floor(i / p.cols)];
@@ -331,57 +439,115 @@ function freeSpot(p: Page, w: number, h: number, from = 0): [number, number] | n
   return from ? freeSpot(p, w, h, 0) : null;
 }
 
-/** A copy with fresh ids, so it can live next to the original. */
-function cloneKey(k: Key, p: Page, x: number, y: number): Key {
-  const copy = JSON.parse(JSON.stringify($state.snapshot(k))) as Key;
-  copy.id = newId("k", p.keys.map((q) => q.id));
-  copy.x = x;
-  copy.y = y;
-  // A folder copy shares the original's sub-page rather than a duplicate of it.
-  return copy;
+/** Plain copies of keys, top-left first. */
+function snapshot(p: Page, ids: string[]): Key[] {
+  return p.keys
+    .filter((k) => ids.includes(k.id))
+    .map((k) => JSON.parse(JSON.stringify($state.snapshot(k))) as Key)
+    .sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
-export function duplicateKey(id: string) {
+/**
+ * Places copies of keys on a page. With an anchor, the group keeps its shape there when it
+ * fits. Otherwise each key goes in the first free spot. Returns the new keys, or null when
+ * there isn't room for all of them. Doesn't change anything itself.
+ */
+function placeCopies(p: Page, keys: Key[], anchor?: [number, number], keepIds = false): Key[] | null {
+  const scratch = { ...p, keys: [...p.keys] } as Page;
+  const out: Key[] = [];
+  const add = (k: Key, x: number, y: number) => {
+    const id = keepIds && !scratch.keys.some((q) => q.id === k.id) ? k.id : newId("k", scratch.keys.map((q) => q.id));
+    const copy = { ...k, id, x, y };
+    scratch.keys.push(copy);
+    out.push(copy);
+  };
+  if (anchor && keys.length) {
+    const [ox, oy] = [Math.min(...keys.map((k) => k.x)), Math.min(...keys.map((k) => k.y))];
+    const fit = keys.every((k, i) => {
+      const [x, y] = [anchor[0] + k.x - ox, anchor[1] + k.y - oy];
+      // Check against the keys placed so far, too.
+      if (!fits(scratch, x, y, k.w ?? 1, k.h ?? 1)) return false;
+      scratch.keys.push({ ...k, id: ` ${i}`, x, y });
+      return true;
+    });
+    scratch.keys = [...p.keys];
+    if (fit) {
+      for (const k of keys) add(k, anchor[0] + k.x - ox, anchor[1] + k.y - oy);
+      return out;
+    }
+  }
+  for (const k of keys) {
+    const at = freeSpot(scratch, k.w ?? 1, k.h ?? 1);
+    if (!at) return null;
+    add(k, ...at);
+  }
+  return out;
+}
+
+export function duplicateKeys(ids: string[]) {
   const p = page();
-  const k = p?.keys.find((q) => q.id === id);
-  if (!p || !k) return;
-  const at = freeSpot(p, k.w ?? 1, k.h ?? 1, k.y * p.cols + k.x + 1);
-  if (!at) return notify(t("No free space on this page"));
-  const copy = cloneKey(k, p, ...at);
-  change(() => p.keys.push(copy));
-  ed.key = copy.id;
+  if (!p || !ids.length) return;
+  const made = placeCopies(p, snapshot(p, ids));
+  if (!made) return notify(t("No free space on this page"));
+  change(() => p.keys.push(...made));
+  ed.picked = made.map((k) => k.id);
+  ed.key = made.at(-1)!.id;
 }
 
-/** Copied or cut key, to paste on any page. Kept for this session only. */
-export const clipboard = $state({ key: null as Key | null });
+export const duplicateKey = (id: string) => duplicateKeys([id]);
 
-export function copyKey(id: string, cut = false) {
-  const k = page()?.keys.find((q) => q.id === id);
-  if (!k) return;
-  clipboard.key = JSON.parse(JSON.stringify($state.snapshot(k)));
+/** Copied or cut keys, to paste on any page. Kept for this session only. */
+export const clipboard = $state({ keys: [] as Key[] });
+
+export function copyKeys(ids: string[], cut = false) {
+  const p = page();
+  if (!p || !ids.length) return;
+  const keys = snapshot(p, ids);
+  clipboard.keys = keys;
+  const name = keyName(keys.length, keys[0]?.label);
   if (cut) {
-    deleteKey(id);
-    notify(t("Cut {name}", { name: k.label }), { label: t("Undo"), run: undo });
-  } else notify(t("Copied {name}", { name: k.label }));
+    deleteKeys(ids);
+    notify(t("Cut {name}", { name }), { label: t("Undo"), run: undo });
+  } else notify(t("Copied {name}", { name }));
 }
 
-/** Pastes at a cell, or in the first free spot that fits. */
+export const copyKey = (id: string, cut = false) => copyKeys([id], cut);
+
+/** Pastes at a cell, keeping the copied keys' arrangement when it fits there. */
 export function pasteKey(x?: number, y?: number) {
   const p = page();
-  const k = clipboard.key;
-  if (!p || !k) return;
-  const at: [number, number] | null = x !== undefined && y !== undefined && fits(p, x, y, k.w ?? 1, k.h ?? 1) ? [x, y] : freeSpot(p, k.w ?? 1, k.h ?? 1);
-  if (!at) return notify(t("No free space on this page"));
-  const copy = cloneKey(k, p, ...at);
-  change(() => p.keys.push(copy));
-  ed.key = copy.id;
+  if (!p || !clipboard.keys.length) return;
+  const made = placeCopies(p, clipboard.keys, x !== undefined && y !== undefined ? [x, y] : undefined);
+  if (!made) return notify(t("No free space on this page"));
+  change(() => p.keys.push(...made));
+  ed.picked = made.map((k) => k.id);
+  ed.key = made.at(-1)!.id;
 }
 
-/** Moves a key one cell with the arrow keys. */
-export function nudgeKey(id: string, dx: number, dy: number) {
+/** Moves keys to another page of the same layout, into its free spots. */
+export function moveToPage(ids: string[], target: string, dry = false): boolean {
   const p = page();
-  const k = p?.keys.find((q) => q.id === id);
-  if (k) moveKey(id, k.x + dx, k.y + dy);
+  const dest = profile()?.pages.find((pg) => pg.id === target);
+  if (!p || !dest || dest === p || !ids.length) return false;
+  const keys = snapshot(p, ids);
+  if (keys.some((k) => k.kind === "folder" && k.target === dest.id)) {
+    if (!dry) notify(t("A folder can't go inside itself"));
+    return false;
+  }
+  const made = placeCopies(dest, keys, undefined, true);
+  if (!made) {
+    if (!dry) notify(t("{page} has no room for {name}", { page: dest.name, name: keyName(keys.length, keys[0]?.label) }));
+    return false;
+  }
+  if (dry) return true;
+  change(() => {
+    p.keys = p.keys.filter((k) => !ids.includes(k.id));
+    for (const v of Object.values(p.variants ?? {})) if (v) for (const id of ids) delete v.at[id];
+    dest.keys.push(...made);
+  });
+  clearSelection();
+  notify(t("Moved {name} to {page}", { name: keyName(keys.length, keys[0]?.label), page: dest.name }), { label: t("Undo"), run: undo });
+  return true;
 }
 
 export function addPage(folder = false): string | undefined {

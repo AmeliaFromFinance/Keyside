@@ -11,7 +11,7 @@
   import Share from "./Share.svelte";
   import StreamDeck from "./StreamDeck.svelte";
   import Profiles from "./Profiles.svelte";
-  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKey, copyKey, pasteKey, duplicateKey, nudgeKey } from "./state.svelte.ts";
+  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection } from "./state.svelte.ts";
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
@@ -82,24 +82,25 @@
       e.preventDefault();
       void push();
     } else if ((e.key === "Delete" || e.key === "Backspace") && ed.key) {
-      deleteKey(ed.key);
-    } else if (mod && ["c", "x", "v", "d"].includes(e.key.toLowerCase()) && !getSelection()?.toString()) {
+      deleteKeys(selection());
+    } else if (mod && ["a", "c", "x", "v", "d"].includes(e.key.toLowerCase()) && !getSelection()?.toString()) {
       // Copy and paste keys, unless the person is copying text on the page.
       const k = e.key.toLowerCase();
-      if (k === "v") pasteKey();
+      if (k === "a") selectAll();
+      else if (k === "v") pasteKey();
       else if (!ed.key) return;
-      else if (k === "c") copyKey(ed.key);
-      else if (k === "x") copyKey(ed.key, true);
-      else duplicateKey(ed.key);
+      else if (k === "c") copyKeys(selection());
+      else if (k === "x") copyKeys(selection(), true);
+      else duplicateKeys(selection());
       e.preventDefault();
-    } else if (e.key.startsWith("Arrow") && ed.key && !mod && !page()?.variants?.[ed.ff] && (document.activeElement === document.body || document.activeElement?.closest(".canvas"))) {
+    } else if (e.key.startsWith("Arrow") && ed.key && !mod && (document.activeElement === document.body || document.activeElement?.closest(".canvas"))) {
       e.preventDefault();
       const [dx, dy] = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key] ?? [0, 0];
-      nudgeKey(ed.key, dx, dy);
+      shiftKeys(selection(), dx, dy);
     } else if (e.key === "Escape") {
       ed.armed = null;
       ed.moving = null;
-      ed.key = null;
+      clearSelection();
     }
   }
 

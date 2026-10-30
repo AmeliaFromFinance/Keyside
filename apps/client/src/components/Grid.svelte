@@ -22,13 +22,13 @@
     keys: KeyView[];
     locked?: boolean;
     preview?: boolean;
-    selected?: string | null;
-    /** Editor only: the key being dragged, drawn faded. */
-    dim?: string | null;
+    selected?: string | string[] | null;
+    /** Editor only: keys being dragged, drawn faded. */
+    dim?: string[] | null;
     ondown?: (id: string) => void;
     onup?: (id: string, cancel: boolean) => void;
     onslide?: (id: string, v: number) => void;
-    onselect?: (id: string) => void;
+    onselect?: (id: string, e?: PointerEvent | KeyboardEvent) => void;
     /** Editor only: what to draw in an empty cell. */
     empty?: Snippet<[number, number]>;
   } = $props();
@@ -47,7 +47,7 @@
   <div class="grid" style:--cols={cols} style:--rows={rows}>
     {#each keys as k (k.id)}
       <div class="cell" style:grid-column="{k.x + 1} / span {k.w}" style:grid-row="{k.y + 1} / span {k.h}">
-        <Key view={k} disabled={locked || dim === k.id} {preview} selected={selected === k.id} {ondown} {onup} {onslide} {onselect} />
+        <Key view={k} disabled={locked} lifted={!!dim?.includes(k.id)} {preview} selected={Array.isArray(selected) ? selected.includes(k.id) : selected === k.id} {ondown} {onup} {onslide} {onselect} />
       </div>
     {/each}
     {#each free as [x, y] (`${x},${y}`)}
