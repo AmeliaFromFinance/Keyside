@@ -63,9 +63,17 @@ fn host_ok(app: &App, h: &HeaderMap) -> bool {
 fn headers(app: &App, uuid: &str, mime: &str) -> HeaderMap {
     let admin = app.streamdeck.admin_port.get().copied().unwrap_or(7442);
     let sd = app.streamdeck.port.get().copied().unwrap_or(0);
-    let hosts: Vec<String> = app.streamdeck.get(uuid).map(|i| i.net.iter().map(|h| format!("https://{h}")).collect()).unwrap_or_default();
+    // The page may reach what its plugin may: the same hosts over any web protocol, since
+    // apps like Streamer.bot use plain ws:// on this PC.
+    let hosts: Vec<String> = match app.streamdeck.get(uuid) {
+        Some(i) if i.all_net => vec!["https: wss: http: ws:".into()],
+        Some(i) => i.net.iter().flat_map(|h| ["https", "wss", "http", "ws"].map(|s| format!("{s}://{h}"))).collect(),
+        None => Vec::new(),
+    };
+    // 'unsafe-eval': settings pages often use libraries that compile code at runtime (ajv,
+    // Vue templates). The page already runs its own scripts on its own origin.
     let csp = format!(
-        "default-src 'self'; script-src 'self' 'unsafe-inline' https://sdpi-components.dev; style-src 'self' 'unsafe-inline' https://sdpi-components.dev; \
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdpi-components.dev; style-src 'self' 'unsafe-inline' https://sdpi-components.dev; \
          img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://127.0.0.1:{sd} {}; object-src 'none'; base-uri 'self'; form-action 'none'; \
          frame-ancestors http://127.0.0.1:{admin} http://localhost:{admin}",
         hosts.join(" ")

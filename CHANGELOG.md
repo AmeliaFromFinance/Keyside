@@ -40,6 +40,7 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Timer: optional "Reset when stopped".
 - Spotify: Like uses Spotify's new library endpoint, so it works with apps made after February 2026. Refusals say what Spotify actually said instead of always blaming Premium.
 - Stream Deck plugins: JavaScript plugins with their own node_modules start (including the Streamer.bot plugin). Plugins that use sharp for images still show their keys. A plugin that keeps stopping says why.
+- Stream Deck plugins: settings pages built with Vue or schema checkers (like Streamer.bot's) now draw, and can reach the same addresses as their plugin, plain ws:// included. A new key's settings open as soon as it's pushed.
 - Physical Stream Decks go back to the Elgato logo when Keyside quits, including at logout.
 - Devices: changing a phone's name, PIN or access on the PC no longer makes the phone forget it's paired.
 - Deck: tablets and landscape phones with a PIN keep their layout after unlocking.

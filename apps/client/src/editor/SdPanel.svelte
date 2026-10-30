@@ -1,20 +1,32 @@
 <script lang="ts">
   import { req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
+  import { untrack } from "svelte";
 
-  let { instance, dirty = false }: { instance: string; dirty?: boolean } = $props();
+  let { instance, dirty = false, rev = 0 }: { instance: string; dirty?: boolean; rev?: number } = $props();
 
   let url = $state("");
   let error = $state("");
 
+  function load(i: string) {
+    req<{ url: string }>("streamdeck.inspector", { instance: i }).then(
+      (r) => i === instance && ((url = r.url), (error = "")),
+      (e) => i === instance && (error = e.message === "key not found" || e.message === "action not found" ? t("Push to phones (Ctrl+S) to open this plugin's settings.") : e.message),
+    );
+  }
+
   $effect(() => {
-    const i = instance;
     url = "";
     error = "";
-    req<{ url: string }>("streamdeck.inspector", { instance: i }).then(
-      (r) => (url = r.url),
-      (e) => (error = e.message === "key not found" || e.message === "action not found" ? t("Save the layout to open this plugin's settings.") : e.message),
-    );
+    load(instance);
+  });
+
+  // A new key only exists on the companion once pushed, so try again after each push.
+  let seenRev = untrack(() => rev);
+  $effect(() => {
+    if (rev === seenRev) return;
+    seenRev = rev;
+    if (!untrack(() => url)) load(untrack(() => instance));
   });
 </script>
 

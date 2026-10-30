@@ -377,7 +377,7 @@
                   {#if a.review}<p class="warn">{t("Imported step. It won't run until you approve it on the PC.")}</p>{/if}
                   {#if !def}<p class="warn">{t("This action needs a plugin that is not installed.")}</p>{/if}
                   {#if a.type.startsWith("sd.")}
-                    {#if admin && !off && def}<SdPanel instance="{ed.profile}/{ed.page}/{key.id}/{i}" dirty={ed.dirty} />{:else if def}<p class="muted">{t("Stream Deck plugin settings open in the editor on the PC.")}</p>{/if}
+                    {#if admin && !off && def}<SdPanel instance="{ed.profile}/{ed.page}/{key.id}/{i}" dirty={ed.dirty} rev={ed.baseRev} />{:else if def}<p class="muted">{t("Stream Deck plugin settings open in the editor on the PC.")}</p>{/if}
                   {:else}
                     <SettingsForm schema={def?.settings} values={a.settings} type={a.type} onchange={(v) => editStep(off, i, (s) => (s.settings = v))} />
                   {/if}

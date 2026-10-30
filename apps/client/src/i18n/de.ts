@@ -293,7 +293,7 @@ export default {
   "Runs in the sandbox: it can't read your files, start programs or reach the internet unless you allow it.": "Läuft in der Sandbox: Es kann weder deine Dateien lesen noch Programme starten oder ins Internet, außer du erlaubst es.",
   "Save settings": "Einstellungen speichern",
   "Save sites": "Seiten speichern",
-  "Save the layout to open this plugin's settings.": "Speichere das Layout, um die Einstellungen dieses Plugins zu öffnen.",
+  "Push to phones (Ctrl+S) to open this plugin's settings.": "Sende das Layout an die Handys (Strg+S), um die Einstellungen dieses Plugins zu öffnen.",
   "Saved, type to replace": "Gespeichert, zum Ersetzen tippen",
   "Saved. Restart Keyside for network changes to apply.": "Gespeichert. Starte Keyside neu, damit Netzwerkänderungen wirken.",
   "Scan code": "Code scannen",
