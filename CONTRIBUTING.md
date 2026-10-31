@@ -46,9 +46,26 @@ New plugins can live in their own repository and go into the [registry](registry
 
 To add a bundled plugin here, put it in `plugins/<name>` with `manifest.json`, `src/main.ts` and tests against a fake of the app it talks to. Look at `plugins/obs` for the pattern.
 
+## Scripts
+
+Shortcuts for everyday jobs, in `scripts/`. They need bash, so on Windows use Git Bash or WSL.
+
+| Script                | What it does                                                                |
+| --------------------- | --------------------------------------------------------------------------- |
+| `setup.sh`            | Installs packages and builds the plugins and web app                        |
+| `test.sh`             | Runs every check CI runs. `--quick` skips the slowest ones                  |
+| `commit.sh "Message"` | Commits all changes as the project author                                   |
+| `push.sh`             | Checks for conflicts with GitHub, pushes to `main` and waits for CI         |
+| `bump.sh 1.2.0`       | Sets the version in every app                                               |
+| `release.sh 1.2.0`    | Bumps, commits, pushes and tags, then waits for the draft release           |
+| `publish.sh`          | Publishes the draft release and clears old drafts                           |
+| `zip.sh`              | Zips the project without ignored files, including changes not committed yet |
+
+Scripts that push or publish ask first. Set `YES=1` to skip the questions.
+
 ## Releases
 
-Bump the version in `Cargo.toml`, `apps/desktop/src-tauri`, and the Android and iOS projects, and move the changelog notes under the new version. Then run the **Release** workflow with the tag, like `v1.0.0`. It builds everything into a draft release to check and publish.
+Write the release notes under `## Unreleased` in `CHANGELOG.md`, then run `scripts/release.sh 1.2.0`. Check the draft on GitHub and publish it with `scripts/publish.sh`.
 
 Signing needs these repository secrets. Without them, the step is skipped.
 
