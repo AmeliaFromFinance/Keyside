@@ -53,6 +53,8 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 | **Review before pushing.** See every change, then send it to your devices. | **Search everything.** Press Ctrl+K to find any key on any page. |
 | <img src="docs/images/wizard.png" alt="The setup wizard" /> | <img src="docs/images/health.png" alt="Plugin health with uptime, crashes and a connection test" /> |
 | **Guided setup.** Pick your apps and get a ready-made layout. | **Plugin health.** Uptime, crashes, last error and a connection test. |
+| <img src="docs/images/pages.png" alt="Every page of a layout with a small map of its keys" /> | <img src="docs/images/overlay.png" alt="Building a styled text overlay for OBS with a live preview" /> |
+| **All your pages.** Open, rename, reorder, copy or delete them. | **OBS overlays.** Timers and text with your font, colours, glow and outline. |
 
 ## Plugins included
 
