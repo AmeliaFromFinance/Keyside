@@ -45,6 +45,30 @@ Commands: `setTitle`, `setImage`, `setState`, `showAlert`, `showOk`, `setSetting
 
 Two-state actions flip state on release, as on a Stream Deck. Dials, touch strips and profile switching aren't supported yet.
 
+## Import Stream Deck profiles
+
+1. In Elgato's Stream Deck app, open **Preferences > Profiles** and export the profile. You get a `.streamDeckProfile` file.
+2. In the editor on the PC, open the menu and choose **Share and gallery**. Under **Import**, press **Choose file** and pick that file.
+3. Keyside adds it as a new layout, switches to it and lists what didn't come over.
+
+Profiles from Stream Deck 6 and later work, and so do older ones from versions 4 and 5.
+
+What comes over:
+
+- Pages in their order, folders and back keys. The grid matches the deck the profile was made for.
+- If Keyside has a layout for exactly one Stream Deck of that model, the new layout belongs to that deck too. To use it on phones instead, press **Unlink** under **Manage layouts**.
+- Titles and key images, up to 512 KB per image.
+- Hotkeys, text, websites, **Open** and **Open Application**, media keys, delays, and next, previous and go to page become Keyside steps.
+- A multi action becomes one key with several steps. A multi action switch becomes a key with two states.
+- Actions from Stream Deck plugins keep their settings. They work once you add the same plugin under **Stream Deck plugins**.
+
+What doesn't:
+
+- Built-in actions Keyside has nothing for, like brightness, sleep, timer, soundboard, switch profile or key logic. Their keys keep title and image, without steps.
+- Dial actions, unless the layout belongs to a Stream Deck + as above. Then plugin actions go on its dials. Built-in dial actions turn things, which Keyside dials can't do yet, so those come over without steps.
+
+Like every imported layout, steps that press keys, type text or start programs stay off until you approve them on the PC. **Open** keys that name a program without its full path, like `notepad`, need the full path before they run.
+
 ## Physical Stream Decks
 
 The first time you plug one in, Keyside makes a layout for it, named after the model and sized to its keys (a Stream Deck Mini gets 3 × 2). The deck always shows that layout, whatever your phones show. Edit it like any other layout: the editor draws it in the deck's shape.

@@ -8,6 +8,7 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - HTTPS: the PC now signs its certificate with its own certificate authority, limited to local network addresses. Browsers ask to accept the new certificate once.
 - The editor says when a new version is out. Turn it off in Settings.
 - Keys whose app isn't connected show a warning on the deck, and a press that fails flashes the key red.
+- Import profiles exported from Elgato's Stream Deck app (`.streamDeckProfile`): pages, folders, titles, images, built-in actions and Stream Deck plugin actions come over, and a report lists what didn't.
 
 ## [1.0.0] - 2026-10-31
 

@@ -187,6 +187,11 @@ impl Hub {
         st.installed.values().map(|i| (i.plugin_id(), st.running.get(&i.uuid).is_some_and(|r| r.tx.is_some()))).collect()
     }
 
+    /// UUID of the installed plugin that has this action.
+    pub fn plugin_with_action(&self, action: &str) -> Option<String> {
+        self.state.lock().installed.values().find(|i| i.manifest.actions.iter().any(|a| a.uuid.eq_ignore_ascii_case(action))).map(|i| i.uuid.clone())
+    }
+
     /// Plugin ids ("sd.<uuid>") that are on, for the "missing plugin" check on keys.
     pub fn enabled_ids(&self) -> Vec<String> {
         self.state.lock().installed.values().filter(|i| i.enabled).map(Installed::plugin_id).collect()

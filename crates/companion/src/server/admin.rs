@@ -176,6 +176,20 @@ async fn upload_iconpack(
     }
 }
 
+/// Turns an Elgato .streamDeckProfile file into a layout. The editor adds it; nothing is saved here
+/// except key images.
+async fn upload_sdprofile(State(app): State<Arc<App>>, headers: HeaderMap, body: Bytes) -> Response {
+    if !csrf_ok(&app, &headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let a = app.clone();
+    match tokio::task::spawn_blocking(move || crate::sdprofile::import_for(&a, &body)).await {
+        Ok(Ok(done)) => Json(json!({ "profile": done.profile, "report": done.report })).into_response(),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, format!("{e:#}")).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
 /// Makes a backup file for download. A passphrase adds passwords and keys, encrypted.
 async fn backup_create(State(app): State<Arc<App>>, headers: HeaderMap, Json(body): Json<Value>) -> Response {
     if !csrf_ok(&app, &headers) {
@@ -267,6 +281,7 @@ pub async fn start(app: Arc<App>, port: u16) -> anyhow::Result<()> {
         .route("/admin/upload/plugin", post(upload_plugin).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
         .route("/admin/upload/streamdeck", post(upload_streamdeck).layer(DefaultBodyLimit::max(crate::plugins::package::MAX_TOTAL as usize)))
         .route("/admin/upload/iconpack", post(upload_iconpack).layer(DefaultBodyLimit::max(crate::iconpack::MAX_ZIP as usize)))
+        .route("/admin/upload/sdprofile", post(upload_sdprofile).layer(DefaultBodyLimit::max(crate::sdprofile::MAX_FILE)))
         .route("/admin/upload/asset", post(upload_asset).layer(DefaultBodyLimit::max(crate::assets::MAX_SOUND)))
         .route("/admin/backup", post(backup_create))
         .route("/admin/backup/inspect", post(backup_inspect).layer(DefaultBodyLimit::max(crate::backup::MAX_SIZE)))

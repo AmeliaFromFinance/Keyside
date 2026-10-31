@@ -17,6 +17,7 @@ pub mod model;
 pub mod plugins;
 pub mod programs;
 pub mod recorder;
+pub mod sdprofile;
 pub mod server;
 pub mod share;
 pub mod state;

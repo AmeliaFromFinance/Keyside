@@ -2,7 +2,7 @@
   import type { Profile } from "@keyside/protocol";
   import Icon from "../components/Icon.svelte";
   import { req } from "../lib/deck.svelte.ts";
-  import { ed, change, profile } from "./state.svelte.ts";
+  import { ed, change, profile, newId, reloadCatalog } from "./state.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
 
   let { admin = false, onimported }: { admin?: boolean; onimported: () => void } = $props();
@@ -13,6 +13,24 @@
   let error = $state("");
   let busy = $state(false);
 
+  interface Missing {
+    name: string;
+    uuid: string;
+    keys: number;
+  }
+  /** What came over from an Elgato profile. Written by crates/companion/src/sdprofile.rs. */
+  interface SdReport {
+    keys: number;
+    plugins: Missing[];
+    unsupported: Missing[];
+    dials: number;
+    images: number;
+    trimmed: number;
+    deck: string | null;
+  }
+  let report = $state<{ name: string; r: SdReport } | null>(null);
+  const MAX_LAYOUTS = 20;
+
   async function exportCode() {
     error = "";
     try {
@@ -22,12 +40,44 @@
     }
   }
 
-  function add(p: Profile) {
+  function add(p: Profile, close = true) {
     change((l) => l.profiles.push(p));
     ed.profile = p.id;
     ed.page = p.homePage;
     ed.key = null;
-    onimported();
+    if (close) onimported();
+  }
+
+  /** "Gaming", or "Gaming 2" when that name is taken. */
+  function freeName(name: string): string {
+    const taken = new Set(ed.layout?.profiles.map((p) => p.name));
+    if (!taken.has(name)) return name;
+    const base = name.slice(0, 36);
+    let n = 2;
+    while (taken.has(`${base} ${n}`)) n++;
+    return `${base} ${n}`;
+  }
+
+  /** Elgato profiles are read on the PC: images go to the image library there. */
+  async function importStreamDeck(f: File) {
+    report = null;
+    if (!admin) return void (error = t("Stream Deck profiles can only be imported in the editor on the PC."));
+    if ((ed.layout?.profiles.length ?? 0) >= MAX_LAYOUTS) return void (error = t("There are 20 layouts already. Delete one under Manage layouts first."));
+    busy = true;
+    try {
+      const r = await fetch("/admin/upload/sdprofile", { method: "POST", headers: { "x-keyside": "1" }, body: f });
+      if (!r.ok) throw new Error(await r.text());
+      const { profile: p, report: r2 } = (await r.json()) as { profile: Profile; report: SdReport };
+      p.name = freeName(p.name);
+      while (ed.layout?.profiles.some((q) => q.id === p.id)) p.id = newId("l", ed.layout.profiles.map((q) => q.id));
+      add(p, false);
+      await reloadCatalog().catch(() => {});
+      report = { name: p.name, r: r2 };
+    } catch (e: any) {
+      error = e.message;
+    } finally {
+      busy = false;
+    }
   }
 
   async function importText(text: string) {
@@ -50,8 +100,16 @@
   }
 
   async function file(e: Event) {
-    const f = (e.currentTarget as HTMLInputElement).files?.[0];
-    if (f && f.size < 4 * 1024 * 1024) await importText(await f.text());
+    const input = e.currentTarget as HTMLInputElement;
+    const f = input.files?.[0];
+    input.value = "";
+    error = "";
+    if (f && /\.streamDeckProfile$/i.test(f.name)) await importStreamDeck(f);
+    else if (f && f.size < 4 * 1024 * 1024) await importText(await f.text());
+  }
+
+  function count(m: Missing): string {
+    return m.keys === 1 ? t("{name}: 1 key", { name: m.name }) : t("{name}: {n} keys", { name: m.name, n: m.keys });
   }
 
   async function browse() {
@@ -90,13 +148,33 @@
 
 <section class="card">
   <h3>{t("Import")}</h3>
-  <p class="muted">{t("Paste a share code, or choose a layout file exported from Keyside.")}</p>
+  <p class="muted">{t("Paste a share code, or choose a layout file exported from Keyside or a profile exported from the Elgato Stream Deck app (.streamDeckProfile).")}</p>
   <textarea class="mono" rows="3" bind:value={incoming} placeholder="PD1.…"></textarea>
   <div class="row">
     <button class="btn primary" disabled={!incoming.trim() || busy} onclick={() => importText(incoming)}>{t("Import code")}</button>
-    <label class="btn"><Icon name="file-up" size={18} />{t("Choose file")}<input type="file" accept=".json,.txt,application/json,text/plain" class="sr-only" onchange={file} /></label>
+    <label class="btn" class:disabled={busy}><Icon name="file-up" size={18} />{t("Choose file")}<input type="file" accept=".json,.txt,.streamDeckProfile,application/json,text/plain" class="sr-only" disabled={busy} onchange={file} /></label>
   </div>
   {#if !admin}<p class="muted">{t("Steps that start programs can only be imported on the PC.")}</p>{/if}
+  {#if report}
+    {@const r = report.r}
+    <div class="report" role="status">
+      <p><b>{t("Added the layout {name}.", { name: report.name })}</b> {t("Keys imported: {n}", { n: r.keys })}</p>
+      {#if r.deck}<p>{t("It belongs to your {model} now. Under Manage layouts you can pick the apps it shows for, or unlink it to use it on phones.", { model: r.deck })}</p>{/if}
+      {#if r.plugins.length}
+        <p>{t("These keys need a Stream Deck plugin. Add it under Stream Deck plugins and the keys work:")}</p>
+        <ul>{#each r.plugins as m (m.uuid)}<li>{count(m)}</li>{/each}</ul>
+      {/if}
+      {#if r.unsupported.length}
+        <p>{t("Keyside has nothing for these actions yet. Their keys kept title and image, without steps:")}</p>
+        <ul>{#each r.unsupported as m (m.uuid)}<li>{count(m)}</li>{/each}</ul>
+      {/if}
+      {#if r.dials}<p>{t("Dial actions left out: {n}. Dials need a Stream Deck + connected to this PC.", { n: r.dials })}</p>{/if}
+      {#if r.images}<p>{t("Images left out: {n}. They were missing, larger than 512 KB or not an image.", { n: r.images })}</p>{/if}
+      {#if r.trimmed}<p>{t("Multi actions cut to 32 steps: {n}", { n: r.trimmed })}</p>{/if}
+      <p class="muted">{t("Imported steps that control apps or the PC stay off until you approve them.")}</p>
+      <button class="btn primary" onclick={() => ((report = null), onimported())}>{t("Done")}</button>
+    </div>
+  {/if}
 </section>
 
 <section class="card">
@@ -152,6 +230,26 @@
   }
   .muted {
     color: var(--muted);
+  }
+  .report {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .report ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  .report .btn {
+    align-self: flex-start;
+  }
+  .disabled {
+    opacity: 0.6;
+    pointer-events: none;
   }
   .warn {
     color: var(--warning);

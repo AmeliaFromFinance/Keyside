@@ -69,14 +69,19 @@ pub fn import(code: &str) -> Result<Profile> {
 }
 
 /// Takes a profile from outside (code or file): fresh id, review flags, full validation.
-pub fn import_profile(mut p: Profile) -> Result<Profile> {
+pub fn import_profile(p: Profile) -> Result<Profile> {
+    adopt(p).map_err(|e| anyhow::anyhow!("share code has an invalid layout: {e}"))
+}
+
+/// Fresh id, no app list or styles, review flags on steps that can affect the PC, then validation.
+pub fn adopt(mut p: Profile) -> Result<Profile, model::Invalid> {
     p.id = crate::ids::short().replace(['-', '_'], "x");
     p.apps.clear();
     for pg in &mut p.pages {
         mark(pg);
     }
     let check = LayoutFile { version: 1, rev: 0, default_profile: p.id.clone(), profiles: vec![p.clone()], styles: Vec::new(), triggers: Vec::new() };
-    model::validate(&check).map_err(|e| anyhow::anyhow!("share code has an invalid layout: {e}"))?;
+    model::validate(&check)?;
     Ok(p)
 }
 
