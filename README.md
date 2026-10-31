@@ -29,7 +29,7 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 
 ## Highlights
 
-- **Works on what you have.** Android, iOS, tablets, or a browser. Plugged-in Elgato Stream Decks work too.
+- **Works on what you have.** The Android app, or a browser on iPhone, iPad and anything else. Plugged-in Elgato Stream Decks work too.
 - **Live keys.** Plugins update keys as things change in your apps.
 - **Fits any screen.** Layouts adapt to portrait, landscape, tablet and desktop. Arrange any screen by hand if you like.
 - **Stream Deck plugins.** Install `.streamDeckPlugin` files made for Elgato's app and use them on your phone.
@@ -92,7 +92,7 @@ Setup for each plugin is in [docs/plugins.md](docs/plugins.md).
 2. **Pair your phone.** In the editor, choose *Pair a phone* and scan the QR code. Check the 6-digit code matches on both screens, then approve.
 3. **Build your deck.** Drag actions onto keys and press *Push to phones*.
 
-The phone app (Android, iOS) and any modern browser work the same way. In a browser, accept the PC's certificate once when asked; the editor shows its fingerprint so you can check it.
+The Android app and any modern browser work the same way. On iPhone and iPad, scan the code with the Camera app and Keyside opens in Safari. In a browser, accept the PC's certificate once when asked; the editor shows its fingerprint so you can check it.
 
 Away from home? See [remote access](docs/remote-access.md).
 
@@ -149,7 +149,7 @@ On Linux, install `libudev-dev libasound2-dev libxdo-dev libdbus-1-dev` first.
 crates/companion   The PC side (Rust): server, pairing, actions, plugin host
 apps/client        Deck and editor (Svelte), served by the companion
 apps/desktop       Desktop app (Tauri): tray, editor window
-apps/mobile        Android and iOS app (Capacitor)
+apps/mobile        Android app, iOS app in progress (Capacitor)
 packages/protocol  Encrypted channel and shared types
 packages/sdk       Plugin SDK
 plugins            Bundled plugins

@@ -46,6 +46,23 @@ New plugins can live in their own repository and go into the [registry](registry
 
 To add a bundled plugin here, put it in `plugins/<name>` with `manifest.json`, `src/main.ts` and tests against a fake of the app it talks to. Look at `plugins/obs` for the pattern.
 
+## Releases
+
+Bump the version in `Cargo.toml`, `apps/desktop/src-tauri`, and the Android and iOS projects, and move the changelog notes under the new version. Then run the **Release** workflow with the tag, like `v1.0.0`. It builds everything into a draft release to check and publish.
+
+Signing needs these repository secrets. Without them, the step is skipped.
+
+| Secret                      | For                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| `ANDROID_KEYSTORE`          | The signing keystore, base64 encoded                                                     |
+| `ANDROID_KEYSTORE_PASSWORD` | Its password                                                                             |
+| `APPLE_TEAM_ID`             | Your Apple Developer team ID                                                             |
+| `APPLE_API_KEY`             | An App Store Connect API key (the contents of the `.p8` file), with the App Manager role |
+| `APPLE_API_KEY_ID`          | That key's ID                                                                            |
+| `APPLE_API_ISSUER_ID`       | The issuer ID shown above the keys list                                                  |
+
+iOS builds go to TestFlight, not the release page. Before the first one, create the app in App Store Connect with the bundle ID `dev.keyside.app`.
+
 ## Commits
 
 Write commit messages in the imperative ("Add Hue scenes", not "Added"). Keep the first line under 72 characters.

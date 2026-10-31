@@ -10,7 +10,7 @@ First release.
 
 ### Deck
 
-- Works on Android, iOS, tablets and any browser. Layouts fit portrait, landscape and big screens.
+- Works on the Android app, or any browser on iPhone, iPad and computers. Layouts fit portrait, landscape and big screens.
 - Live keys: the scene on air, who is muted, how long you've been recording.
 - Buttons, toggles, multi-state keys, folders, sliders, timers and chat keys.
 - Long press, double tap, hold to confirm and repeat while held.
@@ -63,4 +63,4 @@ First release.
 - Plugin SDK in TypeScript with a test harness and a starter template.
 - HTTP API with scoped tokens to press keys, set variables and change keys.
 
-Apps for Windows, macOS, Linux, Android and iOS.
+Apps for Windows, macOS, Linux and Android. iPhone and iPad use the deck in Safari.
