@@ -4,6 +4,8 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
+## [1.2.0] - 2026-10-31
+
 - Editor: change the colour, icon, styles and Hold to confirm of every selected key at once.
 - Pages can open by themselves when the OBS, Meld or Streamlabs scene changes, like a BRB page during the BRB scene. Set it in Page settings.
 - The release workflow stops if that version is already published.
