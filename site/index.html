@@ -3,186 +3,594 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Keyside: your phone is the stream deck</title>
-    <meta name="description" content="Switch scenes, mute mics and run Streamer.bot actions from any phone, tablet or browser. Free, open source, and everything stays on your own network." />
-    <meta name="theme-color" content="#121118" />
+    <title>Keyside · your phone is the stream deck</title>
+    <meta
+      name="description"
+      content="Switch scenes, mute mics and run Streamer.bot actions from any phone, tablet or browser. Free, open source, and everything stays on your own network."
+    />
     <meta property="og:title" content="Keyside" />
-    <meta property="og:description" content="Your phone is the stream deck. Free, open source and private." />
-    <meta property="og:image" content="https://keyside.sinist3r.lol/images/phone.png" />
+    <meta
+      property="og:description"
+      content="Your phone is the stream deck. Free, open source and private."
+    />
+    <meta
+      property="og:image"
+      content="https://keyside.sinist3r.lol/images/phone.png"
+    />
+    <meta property="og:url" content="https://keyside.sinist3r.lol/" />
+    <meta name="theme-color" content="#0b0b10" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap"
+    />
     <link rel="stylesheet" href="site.css" />
     <script src="deck.js" defer></script>
   </head>
   <body>
-    <header class="top">
-      <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28" />Keyside</a>
-      <nav>
-        <a href="docs/plugins/">Docs</a>
-        <a href="{{repo}}">GitHub</a>
-      </nav>
+    <header>
+      <div class="wrap">
+        <a class="brand" href="./"><img src="icon.svg" alt="" />Keyside</a>
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#setup">Setup</a>
+          <a href="#gallery">Gallery</a>
+          <a href="docs/plugins/">Docs</a>
+          <a href="{{repo}}">GitHub</a>
+        </nav>
+      </div>
     </header>
 
     <main>
-      <section class="hero">
-        <div class="pitch">
-          <h1>Your phone is the stream&nbsp;deck.</h1>
-          <p class="lede">Switch scenes, mute mics, start the recording and run Streamer.bot actions from any phone, tablet or browser. Free, open source, and it all stays on your own network.</p>
-          <div class="cta">
-            <a class="btn primary" href="{{repo}}/releases/latest">Download for your PC</a>
-            <a class="btn" href="{{repo}}">Source on GitHub</a>
+      <div class="hero">
+        <div class="wrap">
+          <span class="tag">Stream deck app for your phone</span>
+          <h1>Your phone is the <span>stream&nbsp;deck</span></h1>
+          <p class="lead">
+            Switch scenes, mute mics, start the recording and run Streamer.bot
+            actions from any phone, tablet or browser. It all stays on your own
+            network.
+          </p>
+          <div class="buttons">
+            <a class="btn btn-primary" href="{{repo}}/releases/latest">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg
+              >Download</a
+            >
+            <a class="btn btn-secondary" href="docs/plugins/">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 4.5h9.5L19 9v10.5H5zM14.5 4.5V9H19M8.5 13h7M8.5 16.5h5"
+                /></svg
+              >Read the docs</a
+            >
           </div>
-          <p class="fine">Windows, macOS and Linux on the PC. Android, iOS or any browser on the deck.</p>
+          <p class="note">
+            Free and open source (GPL-3.0). Windows, macOS and Linux on the PC.
+            Android, iOS or any browser on the deck.
+          </p>
+          <img
+            class="shot"
+            src="images/editor.png"
+            alt="The Keyside editor: the button palette, a live preview of the deck and the settings of the selected key"
+            width="1440"
+            height="900"
+          />
         </div>
+      </div>
 
-        <figure class="demo" aria-label="A working sample deck">
-          <div class="device">
-            <div class="status">
-              <span class="dot ok"></span>
-              <span class="host"><b>Studio PC</b></span>
-              <span class="pills">
-                <span class="pill" data-pill="rec" hidden>REC <span class="mono" data-clock="rec"></span></span>
-                <span class="pill" data-pill="live" hidden>LIVE <span class="mono" data-clock="live"></span></span>
-              </span>
+      <section id="features">
+        <div class="wrap">
+          <h2>Everything a stream deck needs</h2>
+          <p class="sub">
+            A small app on your PC runs the keys. Phones, tablets and Stream
+            Decks show them and stay in sync.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+                  <path d="M11 18.5h2" /></svg
+              ></span>
+              <h3>Works on what you have</h3>
+              <p>
+                Android, iOS, tablets or a browser. Layouts fit portrait,
+                landscape and big screens.
+              </p>
             </div>
-            <div class="grid" id="deck">
-              <button class="key" data-scene="Starting Soon"><i class="ic ic-monitor"></i><span class="label">Starting Soon</span><span class="sub">Scene</span></button>
-              <button class="key on" data-scene="Just Chatting"><i class="ic ic-monitor"></i><span class="badge">ON AIR</span><span class="label">Just Chatting</span><span class="sub">Scene</span></button>
-              <button class="key" data-scene="Gameplay"><i class="ic ic-monitor"></i><span class="label">Gameplay</span><span class="sub">Scene</span></button>
-              <button class="key" data-mute="mic"><i class="ic ic-mic"></i><span class="label">Mic</span><span class="sub">Mic/Aux</span></button>
-              <button class="key" data-mute="desk"><i class="ic ic-volume"></i><span class="label">Desktop audio</span><span class="sub">Input</span></button>
-              <button class="key" data-mute="music"><i class="ic ic-music"></i><span class="label">Lo-fi music</span><span class="sub">Input</span></button>
-              <button class="key" data-output="rec"><i class="ic ic-rec"></i><span class="label">Record</span><span class="sub">Off</span></button>
-              <button class="key" data-output="live"><i class="ic ic-live"></i><span class="label">Go live</span><span class="sub">Off</span></button>
-              <button class="key" data-replay><i class="ic ic-replay"></i><span class="label">Save replay</span><span class="sub">Buffer on</span></button>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <path d="M3 12h4l3-8 4 16 3-8h4" /></svg
+              ></span>
+              <h3>Live keys</h3>
+              <p>
+                See which scene is on air, who is muted and how long you've been
+                live, as it happens.
+              </p>
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" /></svg
+              ></span>
+              <h3>Stream Decks too</h3>
+              <p>
+                Plug one in and it gets a layout of its own, dials and touch
+                strip included. Elgato plugins install as well.
+              </p>
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <path d="M4 6h16M4 12h10M4 18h7" />
+                  <path d="m15 15 2 2 4-4" /></svg
+              ></span>
+              <h3>Smarter keys</h3>
+              <p>
+                Multi-actions with if and otherwise, multi-state keys, long
+                press, double tap, folders, sliders and timers.
+              </p>
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <path
+                    d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                  /></svg
+              ></span>
+              <h3>Chat triggers</h3>
+              <p>
+                A <code>!command</code>, words in chat or a channel point reward
+                can press a key, with a cooldown.
+              </p>
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <rect x="2" y="4" width="20" height="13" rx="2" />
+                  <path d="M8 21h8M12 17v4M10 8.5l4 2-4 2z" /></svg
+              ></span>
+              <h3>OBS overlays</h3>
+              <p>
+                Timers and text as browser sources, with your own font, colours,
+                glow and outline.
+              </p>
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <path
+                    d="M12 3 4.5 6v6c0 4.5 3.2 7.7 7.5 9 4.3-1.3 7.5-4.5 7.5-9V6z"
+                  />
+                  <path d="m9 12 2 2 4-4" /></svg
+              ></span>
+              <h3>Moderator access</h3>
+              <p>
+                Give a mod a phone that only sees the pages you pick. A PIN
+                keeps a lost phone out.
+              </p>
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg
+              ></span>
+              <h3>Share layouts</h3>
+              <p>
+                As a code or a file. Imported steps that control apps stay off
+                until you approve them.
+              </p>
             </div>
           </div>
-          <figcaption>Try it. These keys behave like the real ones do with OBS.</figcaption>
-        </figure>
+        </div>
       </section>
 
-      <section class="steps">
-        <h2>Set up in three steps</h2>
-        <ol>
-          <li>
-            <h3>Install it on your PC</h3>
-            <p>Keyside sits in the tray and opens the editor. Nothing to sign up for.</p>
-          </li>
-          <li>
-            <h3>Scan the code with your phone</h3>
-            <p>Check that both screens show the same six digits, then approve. That device is now paired, encrypted end to end.</p>
-          </li>
-          <li>
-            <h3>Drag actions onto keys</h3>
-            <p>Push to your phones and press away. Layouts adapt to portrait, landscape, tablets and desktop browsers.</p>
-          </li>
-        </ol>
-        <img class="shot" src="images/editor.png" alt="The Keyside editor: an action palette, a live preview of the deck and key settings" loading="lazy" width="1440" height="900" />
-      </section>
-
-      <section class="tour">
-        <h2>A closer look</h2>
-        <div class="gallery">
-          <figure class="wide">
-            <img class="shot" src="images/dashboard.png" alt="A tablet showing a stream dashboard: live and recording timers, bitrate, dropped frames, CPU and chat" loading="lazy" width="1770" height="1230" />
-            <figcaption><b>Stream dashboard.</b> Live time, bitrate, dropped frames and chat at a glance.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/keys.png" alt="A key with three states: face cam, wide shot and camera off" loading="lazy" width="1440" height="900" />
-            <figcaption><b>Smarter keys.</b> Multi-state keys, double tap, long press and shared styles.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/streamdeck.png" alt="A Stream Deck + layout with four dial sliders" loading="lazy" width="1440" height="900" />
-            <figcaption><b>Stream Deck +.</b> Dials move sliders, the touch strip presses keys.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/triggers.png" alt="Chat triggers for a !brb command and a channel point reward" loading="lazy" width="1440" height="900" />
-            <figcaption><b>Chat triggers.</b> Commands and channel point rewards press keys for you.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/review.png" alt="A list of changes to review before pushing" loading="lazy" width="1440" height="900" />
-            <figcaption><b>Review before pushing.</b> See every change, then send it to your devices.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/search.png" alt="Searching every key for the word scene" loading="lazy" width="1440" height="900" />
-            <figcaption><b>Search everything.</b> Press Ctrl+K to find any key on any page.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/wizard.png" alt="The setup wizard asking which apps you use" loading="lazy" width="1440" height="900" />
-            <figcaption><b>Guided setup.</b> Pick your apps and get a ready-made layout.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/pages.png" alt="Every page of a layout with a small map of its keys" loading="lazy" width="1440" height="900" />
-            <figcaption><b>All your pages.</b> Open, rename, reorder, copy or delete them.</figcaption>
-          </figure>
-          <figure>
-            <img class="shot" src="images/overlay.png" alt="Building a styled text overlay for OBS with a live preview" loading="lazy" width="1440" height="900" />
-            <figcaption><b>OBS overlays.</b> Timers and text with your font, colours, glow and outline.</figcaption>
+      <section id="try">
+        <div class="wrap split">
+          <div>
+            <h2>Try it</h2>
+            <p class="sub">
+              These keys behave like the real ones do with OBS. Switch the
+              scene, mute the music, start recording and go live.
+            </p>
+            <ol class="steps">
+              <li>
+                <span><b>Scenes</b> light up when they're on air.</span>
+              </li>
+              <li>
+                <span
+                  ><b>Mutes</b> turn red, so you can see it from across the
+                  room.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Record and Go live</b> show how long they've been
+                  running.</span
+                >
+              </li>
+            </ol>
+          </div>
+          <figure class="demo" aria-label="A working sample deck">
+            <div class="device">
+              <div class="status">
+                <span class="dot"></span>
+                <span class="host"><b>Studio PC</b></span>
+                <span class="pills">
+                  <span class="pill" data-pill="rec" hidden
+                    >REC <span class="mono" data-clock="rec"></span
+                  ></span>
+                  <span class="pill" data-pill="live" hidden
+                    >LIVE <span class="mono" data-clock="live"></span
+                  ></span>
+                </span>
+              </div>
+              <div class="keys" id="deck">
+                <button class="key" data-scene="Starting Soon">
+                  <i class="ic ic-monitor"></i
+                  ><span class="label">Starting Soon</span
+                  ><span class="sub">Scene</span>
+                </button>
+                <button class="key on" data-scene="Just Chatting">
+                  <i class="ic ic-monitor"></i><span class="badge">ON AIR</span
+                  ><span class="label">Just Chatting</span
+                  ><span class="sub">Scene</span>
+                </button>
+                <button class="key" data-scene="Gameplay">
+                  <i class="ic ic-monitor"></i
+                  ><span class="label">Gameplay</span
+                  ><span class="sub">Scene</span>
+                </button>
+                <button class="key" data-mute="mic">
+                  <i class="ic ic-mic"></i><span class="label">Mic</span
+                  ><span class="sub">Mic/Aux</span>
+                </button>
+                <button class="key" data-mute="desk">
+                  <i class="ic ic-volume"></i
+                  ><span class="label">Desktop audio</span
+                  ><span class="sub">Input</span>
+                </button>
+                <button class="key" data-mute="music">
+                  <i class="ic ic-music"></i
+                  ><span class="label">Lo-fi music</span
+                  ><span class="sub">Input</span>
+                </button>
+                <button class="key" data-output="rec">
+                  <i class="ic ic-rec"></i><span class="label">Record</span
+                  ><span class="sub">Off</span>
+                </button>
+                <button class="key" data-output="live">
+                  <i class="ic ic-live"></i><span class="label">Go live</span
+                  ><span class="sub">Off</span>
+                </button>
+                <button class="key" data-replay>
+                  <i class="ic ic-replay"></i
+                  ><span class="label">Save replay</span
+                  ><span class="sub">Buffer on</span>
+                </button>
+              </div>
+            </div>
+            <figcaption>
+              A sample deck. Nothing here talks to a real PC.
+            </figcaption>
           </figure>
         </div>
       </section>
 
-      <section class="apps">
-        <h2>Works with what you stream with</h2>
-        <p class="lede">Keys show live state from your apps: which scene is on air, who's muted, how long you've been recording.</p>
-        <ul class="names">
-          <li>OBS Studio</li>
-          <li>Meld Studio</li>
-          <li>Streamlabs Desktop</li>
-          <li>Streamer.bot</li>
-          <li>Twitch</li>
-          <li>YouTube Live</li>
-          <li>StreamElements</li>
-          <li>VTube Studio</li>
-          <li>VNyan</li>
-          <li>Warudo</li>
-          <li>veadotube</li>
-          <li>Discord</li>
-          <li>Spotify</li>
-          <li>Voicemeeter</li>
-          <li>GoXLR</li>
-          <li>Elgato Key Light</li>
-          <li>Philips Hue</li>
-          <li>Home Assistant</li>
-        </ul>
-        <p>Plus hotkeys, typing, media keys, apps, sounds, timers, webhooks, OSC, MIDI and more, built in.</p>
-        <div class="split">
+      <section id="setup">
+        <div class="wrap split">
           <div>
-            <h3>Already own a Stream Deck?</h3>
-            <p>Plug it in and it shows the same layout as your phone. Plugins made for Elgato's Stream Deck app install too, settings pages and all.</p>
-            <a href="docs/stream-deck-plugins/">How Stream Deck plugins work</a>
+            <h2>One minute to set up</h2>
+            <p class="sub">
+              No account and nothing to sign up for. A setup guide walks you
+              through it the first time.
+            </p>
+            <ol class="steps">
+              <li>
+                <span
+                  ><b>Install Keyside</b> on your PC. It sits in the tray and
+                  opens the editor.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Pick your apps.</b> You get a ready-made layout with a
+                  page for each.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Scan the QR code</b> with your phone and check both
+                  screens show the same six digits.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Push to phones</b> and press away. Change any key in the
+                  editor whenever you like.</span
+                >
+              </li>
+            </ol>
           </div>
-          <div>
-            <h3>Missing something?</h3>
-            <p>Write a plugin in TypeScript, or let your own tools press keys and change them over the HTTP API.</p>
-            <a href="docs/plugin-guide/">Writing plugins</a>
+          <img
+            class="phone"
+            src="images/phone.png"
+            alt="Keyside on a phone: OBS scenes, mute keys and a live recording timer"
+            width="780"
+            height="1560"
+            loading="lazy"
+          />
+        </div>
+      </section>
+
+      <section id="apps">
+        <div class="wrap">
+          <h2>Works with what you stream with</h2>
+          <p class="sub">
+            Keys show live state from your apps: which scene is on air, who is
+            muted, how long you've been recording.
+          </p>
+          <ul class="names">
+            <li>OBS Studio</li>
+            <li>Meld Studio</li>
+            <li>Streamlabs Desktop</li>
+            <li>Streamer.bot</li>
+            <li>Twitch</li>
+            <li>YouTube Live</li>
+            <li>StreamElements</li>
+            <li>VTube Studio</li>
+            <li>VNyan</li>
+            <li>Warudo</li>
+            <li>veadotube</li>
+            <li>Discord</li>
+            <li>Spotify</li>
+            <li>Voicemeeter</li>
+            <li>GoXLR</li>
+            <li>Elgato Key Light</li>
+            <li>Philips Hue</li>
+            <li>Home Assistant</li>
+          </ul>
+          <p class="extra">
+            Plus hotkeys, typing, media keys, apps, sounds, timers, webhooks,
+            OSC, MIDI and more, built in.
+          </p>
+          <div class="pair">
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <path
+                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"
+                  /></svg
+              ></span>
+              <h3>Already own a Stream Deck?</h3>
+              <p>
+                Plug it in and it shows a layout made for its size. Plugins made
+                for Elgato's Stream Deck app install too, settings pages and
+                all.
+              </p>
+              <a class="more" href="docs/stream-deck-plugins/"
+                >How Stream Deck plugins work</a
+              >
+            </div>
+            <div class="card">
+              <span class="ico"
+                ><svg viewBox="0 0 24 24">
+                  <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" /></svg
+              ></span>
+              <h3>Missing something?</h3>
+              <p>
+                Write a plugin in TypeScript, or let your own tools press keys
+                and change them over the HTTP API.
+              </p>
+              <a class="more" href="docs/plugin-guide/">Writing plugins</a>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="private">
-        <h2>Private by design</h2>
-        <div class="split three">
-          <div>
-            <h3>No account, no cloud</h3>
-            <p>Your phone talks straight to your PC. Nothing is sent to us, and there's no telemetry.</p>
-          </div>
-          <div>
-            <h3>Pairing you can check</h3>
-            <p>Single-use QR codes, a code to compare on both screens, approval on the PC and an optional PIN.</p>
-          </div>
-          <div>
-            <h3>Plugins in a sandbox</h3>
-            <p>Plugins can't read your files or start programs, and only reach the addresses you allow.</p>
+      <section id="gallery">
+        <div class="wrap">
+          <h2>Gallery</h2>
+          <p class="sub">
+            Dark by default, on every screen. Click a picture to see it full
+            size.
+          </p>
+          <div class="gallery">
+            <figure class="wide">
+              <button>
+                <img
+                  src="images/dashboard.png"
+                  alt="A tablet showing a stream dashboard: live and recording timers, bitrate, dropped frames, CPU and chat"
+                  width="1770"
+                  height="1230"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Stream dashboard.</b> Live time, bitrate, dropped frames and
+                chat at a glance.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/keys.png"
+                  alt="A key with three states: face cam, wide shot and camera off"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Smarter keys.</b> Multi-state, double tap, long press and
+                styles.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/streamdeck.png"
+                  alt="A Stream Deck + layout with four dial sliders"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Stream Deck +.</b> Dials move sliders, the strip presses
+                keys.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/triggers.png"
+                  alt="Chat triggers for a !brb command and a channel point reward"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Chat triggers.</b> Commands and rewards press keys.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/overlay.png"
+                  alt="Building a styled text overlay for OBS with a live preview"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>OBS overlays.</b> Your font, colours, glow and outline.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/pages.png"
+                  alt="Every page of a layout with a small map of its keys"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>All your pages.</b> Open, reorder, copy or delete.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/review.png"
+                  alt="A list of changes to review before pushing"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Review before pushing.</b> See every change first.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/search.png"
+                  alt="Searching every key for the word scene"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Search everything.</b> Ctrl+K finds any key.
+              </figcaption>
+            </figure>
+            <figure>
+              <button>
+                <img
+                  src="images/wizard.png"
+                  alt="The setup wizard asking which apps you use"
+                  width="1440"
+                  height="900"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>
+                <b>Guided setup.</b> Pick your apps, get a layout.
+              </figcaption>
+            </figure>
           </div>
         </div>
-        <p><a href="docs/privacy/">Privacy</a> and <a href="docs/security/">how Keyside stays secure</a>.</p>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="privacy">
+            <h2>Private by design</h2>
+            <p>
+              No account, no cloud and no telemetry. Your phone talks straight
+              to your PC, encrypted end to end after you pair it with a QR code
+              and a code you compare on both screens.
+            </p>
+            <p>
+              Plugins run in a sandbox: they can't read your files or start
+              programs, and only reach the addresses you allow. Keyside isn't
+              affiliated with Elgato, OBS or any app it works with.
+            </p>
+            <p>
+              <a href="docs/privacy/">Privacy</a> ·
+              <a href="docs/security/">How Keyside stays secure</a>
+            </p>
+          </div>
+        </div>
       </section>
     </main>
 
     <footer>
-      <p>Keyside is free software under the <a href="{{repo}}/blob/main/LICENSE">GPL-3.0</a>. The plugin SDK is MIT.</p>
-      <p>Not affiliated with Elgato, OBS or any app it works with.</p>
+      <div class="wrap">
+        <span
+          >Keyside by ame.owo · See also
+          <a href="https://rainbark.sinist3r.lol">Rainbark</a>,
+          <a href="https://pronouns.sinist3r.lol">Pronoun Tags</a> and
+          <a href="https://orchid.sinist3r.lol">OrchidUI</a></span
+        >
+        <span
+          ><a href="{{repo}}">Source</a> · <a href="docs/plugins/">Docs</a> ·
+          <a href="{{repo}}/issues">Report a problem</a></span
+        >
+      </div>
     </footer>
+
+    <dialog class="viewer" aria-label="Full size picture">
+      <img alt="" />
+    </dialog>
+    <script>
+      // Click a gallery picture to see it full size.
+      const viewer = document.querySelector("dialog.viewer");
+      for (const button of document.querySelectorAll(".gallery button"))
+        button.addEventListener("click", () => {
+          const img = button.querySelector("img");
+          viewer.querySelector("img").src = img.src;
+          viewer.querySelector("img").alt = img.alt;
+          viewer.showModal();
+        });
+      viewer.addEventListener("click", () => viewer.close());
+    </script>
   </body>
 </html>

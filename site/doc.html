@@ -3,28 +3,63 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{title}} · Keyside</title>
-    <meta name="theme-color" content="#121118" />
+    <title>{{title}} · Keyside docs</title>
+    <meta name="theme-color" content="#0b0b10" />
     <link rel="icon" href="{{base}}/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap"
+    />
     <link rel="stylesheet" href="{{base}}/site.css" />
+    <script src="{{base}}/docs.js" defer></script>
   </head>
   <body class="docs">
-    <header class="top">
-      <a class="brand" href="{{base}}/"><img src="{{base}}/icon.svg" alt="" width="28" height="28" />Keyside</a>
-      <nav>
-        <a href="{{base}}/docs/plugins/">Docs</a>
-        <a href="https://github.com/AmeliaFromFinance/keyside">GitHub</a>
-      </nav>
+    <header>
+      <div class="wrap">
+        <a class="brand" href="{{base}}/"
+          ><img src="{{base}}/icon.svg" alt="" />Keyside <small>Docs</small></a
+        >
+        <nav>
+          <a href="{{base}}/">Home</a>
+          <a href="{{base}}/docs/plugins/" aria-current="page">Docs</a>
+          <a href="{{repo}}">GitHub</a>
+        </nav>
+      </div>
     </header>
-    <div class="doc-wrap">
-      <nav class="side" aria-label="Documentation">
-{{nav}}
-      </nav>
-      <article class="prose">
+    <div class="layout">
+      <nav class="side" aria-label="Documentation">{{nav}}</nav>
+      <main class="doc">
+        <select class="picker" aria-label="Pages">
+          {{picker}}
+        </select>
         <h1>{{title}}</h1>
-{{content}}
-        <p class="edit"><a href="{{source}}">Edit this page on GitHub</a></p>
-      </article>
+        {{content}}
+        <nav class="pager" aria-label="Previous and next page">{{pager}}</nav>
+      </main>
+      <aside class="toc">
+        {{toc}}
+        <a class="edit" href="{{source}}"
+          ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg
+          >Edit this page</a
+        >
+      </aside>
     </div>
+    <footer>
+      <div class="wrap">
+        <span
+          >Keyside by ame.owo · See also
+          <a href="https://rainbark.sinist3r.lol">Rainbark</a>,
+          <a href="https://pronouns.sinist3r.lol">Pronoun Tags</a> and
+          <a href="https://orchid.sinist3r.lol">OrchidUI</a></span
+        >
+        <span
+          ><a href="{{repo}}">Source</a> ·
+          <a href="{{repo}}/issues">Report a problem</a></span
+        >
+      </div>
+    </footer>
   </body>
 </html>
