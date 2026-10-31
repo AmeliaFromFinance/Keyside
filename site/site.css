@@ -1,18 +1,18 @@
-/* Shared with Rainbark, Pronoun Tags and OrchidUI, with Keyside's own accent. */
+/* Shared with Rainbark, Pronoun Tags and OrchidUI. */
 :root {
   color-scheme: dark;
-  --page: #0b0b10;
-  --card: #14141b;
-  --card-2: #1a1a23;
+  --page: #0d0a0f;
+  --card: #16121a;
+  --card-2: #1c1720;
   --line: rgba(255, 255, 255, 0.08);
-  --text: #f1f0f6;
-  --muted: #aeacbd;
-  --faint: #7f7c90;
-  --accent: #9ee6ff;
-  --accent-hover: #c0efff;
-  --on-accent: #0b2430;
-  --accent-soft: rgba(158, 230, 255, 0.11);
-  --purple: #b39cf5;
+  --text: #f7f0f5;
+  --muted: #b4a9b3;
+  --faint: #85798a;
+  --accent: #f28ac9;
+  --accent-hover: #f6a8d7;
+  --on-accent: #2b1130;
+  --accent-soft: rgba(242, 138, 201, 0.12);
+  --purple: #a57cdb;
   --danger: #ff8a8a;
   --danger-soft: rgba(255, 138, 138, 0.13);
   --success: #7ee2a8;
@@ -75,7 +75,7 @@ header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(11, 11, 16, 0.75);
+  background: rgba(13, 10, 15, 0.75);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   border-bottom: 1px solid var(--line);
@@ -151,8 +151,8 @@ footer a {
   height: 520px;
   background: radial-gradient(
     closest-side,
-    rgba(158, 230, 255, 0.13),
-    rgba(179, 156, 245, 0.06) 60%,
+    rgba(242, 138, 201, 0.15),
+    rgba(165, 124, 219, 0.06) 60%,
     transparent
   );
   pointer-events: none;
@@ -185,7 +185,7 @@ h1 {
   font-weight: 700;
 }
 h1 span {
-  background: linear-gradient(90deg, #9ee6ff, #c3c8fb, #b39cf5);
+  background: linear-gradient(90deg, #f28ac9, #e7a9e8, #a57cdb);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -246,7 +246,7 @@ h1 span {
   border: 1px solid var(--line);
   box-shadow:
     0 40px 100px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(158, 230, 255, 0.06);
+    0 0 0 1px rgba(242, 138, 201, 0.06);
   background: var(--card);
 }
 
@@ -453,8 +453,8 @@ dialog.viewer img {
   background:
     linear-gradient(
       135deg,
-      rgba(158, 230, 255, 0.08),
-      rgba(179, 156, 245, 0.04) 40%,
+      rgba(242, 138, 201, 0.08),
+      rgba(165, 124, 219, 0.04) 40%,
       transparent 65%
     ),
     var(--card);
@@ -770,7 +770,7 @@ dialog.viewer img {
 }
 .doc p,
 .doc li {
-  color: #d9d7e3;
+  color: #ddd2db;
 }
 .doc p {
   margin: 0 0 16px;
@@ -837,7 +837,7 @@ dialog.viewer img {
 .doc td {
   padding: 11px 16px;
   border-top: 1px solid var(--line);
-  color: #d9d7e3;
+  color: #ddd2db;
   vertical-align: top;
 }
 .doc tr:first-child td {
@@ -854,7 +854,7 @@ dialog.viewer img {
   margin: 0;
   padding: 16px 18px;
   overflow-x: auto;
-  color: #e6e4ee;
+  color: #e9dfe7;
   font: 500 13.5px/1.65 var(--mono);
   tab-size: 4;
 }
@@ -905,7 +905,7 @@ dialog.viewer img {
   color: var(--text);
 }
 .pager a:hover {
-  border-color: rgba(158, 230, 255, 0.4);
+  border-color: rgba(242, 138, 201, 0.4);
   text-decoration: none;
 }
 .pager small {
