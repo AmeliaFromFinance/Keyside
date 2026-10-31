@@ -182,6 +182,7 @@
   class:dim={disabled || view.disabled}
   class:holding={holdStart > 0}
   class:tall
+  class:feed={!!view.lines}
   role={view.kind === "slider" ? "slider" : "button"}
   tabindex="0"
   aria-label={[view.label, view.sub, view.badge].filter(Boolean).join(", ")}
@@ -232,11 +233,14 @@
     </ol>
   {/if}
 
-  <div class="bottom">
-    <div class="label">{view.label}</div>
-    {#if view.sub}<div class="sub">{view.sub}</div>{/if}
-    {#if view.kind === "slider"}<div class="sub mono">{Math.round(value * 100)}%</div>{/if}
-  </div>
+  <!-- Feed widgets give their room to the lines. The label is still in aria-label. -->
+  {#if !view.lines || view.sub}
+    <div class="bottom">
+      {#if !view.lines}<div class="label">{view.label}</div>{/if}
+      {#if view.sub}<div class="sub">{view.sub}</div>{/if}
+      {#if view.kind === "slider"}<div class="sub mono">{Math.round(value * 100)}%</div>{/if}
+    </div>
+  {/if}
 
   {#if view.progress !== undefined}
     <div class="progress" aria-hidden="true"><span style:width="{Math.round(view.progress * 100)}%"></span></div>
@@ -497,9 +501,10 @@
     border-right: 2px solid var(--accent);
   }
 
+  /* Newest line at the bottom. Older ones go off the top when the key is full. */
   .lines {
     list-style: none;
-    margin: 6px 0;
+    margin: 4px 0 0;
     padding: 0;
     flex: 1;
     display: flex;
@@ -509,8 +514,11 @@
     overflow: hidden;
     font-size: clamp(11px, 6cqmin, 15px);
     min-height: 0;
+    /* The oldest line fades out at the top instead of being cut in half. */
+    mask-image: linear-gradient(to bottom, transparent, #000 1.6em);
   }
   .lines li {
+    flex: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -523,7 +531,11 @@
   .lines .empty {
     color: var(--dim);
   }
-  .kind-widget .lines + .bottom .label {
+  .feed .icon :global(svg) {
+    width: clamp(14px, 12cqmin, 20px);
+    height: clamp(14px, 12cqmin, 20px);
+  }
+  .feed .top:not(:has(.icon > *, .badge, .meta)) {
     display: none;
   }
 </style>

@@ -34,6 +34,11 @@ test("finds the live broadcast, reads new chat and sends messages", async () => 
   onMessage({ snippet: { type: "newSponsorEvent" }, authorDetails: { displayName: "Bo" } });
   assert.deepEqual(h.feed("chat"), [{ author: "Ana", text: "!brb", kind: "chat", source: "youtube", roles: ["mod"] }]);
   assert.deepEqual(h.feed("events"), [{ author: "Bo", text: "became a member", kind: "sub", source: "youtube" }]);
+  onMessage({ id: "m9", snippet: { type: "textMessageEvent", displayMessage: "spam" }, authorDetails: { displayName: "Cy" } });
+  assert.equal(h.feed("chat")[1].id, "m9");
+  onMessage({ snippet: { type: "messageDeletedEvent", messageDeletedDetails: { deletedMessageId: "m9" } }, authorDetails: { displayName: "Ana" } });
+  onMessage({ snippet: { type: "userBannedEvent", userBannedDetails: { banType: "temporary", bannedUserDetails: { channelId: "UC1", displayName: "Cy" } } }, authorDetails: { displayName: "Ana" } });
+  assert.deepEqual(h.unfeeds("chat"), [{ ids: ["m9"] }, { author: "Cy" }]);
   await h.stop();
   await api.close();
 });

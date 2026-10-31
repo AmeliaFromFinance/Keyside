@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-pub const HOST_API: &str = "1.0.0";
+pub const HOST_API: &str = "1.1.0";
 const RESERVED_PREFIXES: &[&str] = &["core", "user", "timer", "sys", "sd", "keyside", "media"];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

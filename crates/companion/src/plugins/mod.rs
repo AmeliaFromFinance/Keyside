@@ -22,7 +22,7 @@ use tokio::io::AsyncBufReadExt;
 
 use crate::app::App;
 use crate::model::{Tone, valid_icon, valid_var_name};
-use crate::state::view::{FeedItem, ViewPatch};
+use crate::state::view::{FeedItem, FeedMatch, ViewPatch};
 use crate::state::{ConnectionView, Pill};
 use crate::store;
 use manifest::{Manifest, Permissions};
@@ -1157,9 +1157,25 @@ async fn handle_call(app: &Arc<App>, m: &Manifest, method: &str, params: Value) 
             item.text = item.text.chars().filter(|c| !c.is_control()).take(500).collect();
             item.author = item.author.map(|a| a.chars().filter(|c| !c.is_control()).take(40).collect());
             item.color = item.color.filter(|c| c.len() == 7 && c.starts_with('#') && c[1..].bytes().all(|b| b.is_ascii_hexdigit()));
+            item.id = item.id.filter(|id| !id.is_empty() && id.len() <= 100);
             let event = crate::triggers::Event::from_item(&m.prefix, feed, &item, &details);
             app.engine.lock().push_feed(&format!("{}.{feed}", m.prefix), item);
             crate::triggers::handle(app, event);
+            Ok(Value::Null)
+        }
+        "feed.remove" => {
+            let feed = params.get("feed").and_then(Value::as_str).ok_or("missing feed")?;
+            if !m.feeds.iter().any(|f| f.name == feed) {
+                return Err("feed is not declared in the manifest".into());
+            }
+            let ids = match params.get("ids") {
+                None | Some(Value::Null) => Vec::new(),
+                Some(Value::Array(list)) if list.len() <= 100 => list.iter().map(|v| v.as_str().map(str::to_string)).collect::<Option<Vec<_>>>().ok_or("invalid ids")?,
+                _ => return Err("invalid ids".into()),
+            };
+            let author = params.get("author").and_then(Value::as_str).map(|a| a.chars().filter(|c| !c.is_control()).take(40).collect::<String>()).filter(|a| !a.is_empty());
+            let all = params.get("all").and_then(Value::as_bool).unwrap_or(false);
+            app.engine.lock().remove_feed(&format!("{}.{feed}", m.prefix), &FeedMatch { ids, author, all });
             Ok(Value::Null)
         }
         "status.set" => {

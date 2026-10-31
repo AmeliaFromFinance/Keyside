@@ -3,7 +3,7 @@
   import Icon from "./Icon.svelte";
   import PinPad from "./PinPad.svelte";
   import Sheet from "./Sheet.svelte";
-  import { deck, nav, press, slide, sendViewport, connection, dismissToast, localToast } from "../lib/deck.svelte.ts";
+  import { deck, nav, press, slide, sendViewport, connection, dismissToast, localToast, switchProfile } from "../lib/deck.svelte.ts";
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
   import { ago, clock, everySecond } from "../lib/format.ts";
   import { keepAwake, haptic } from "../lib/native.ts";
@@ -23,6 +23,7 @@
 
   let localLock = $state(false);
   let settings = $state(false);
+  let layouts = $state(false);
   let now = $state(Date.now());
   let lockTimer: ReturnType<typeof setTimeout> | null = null;
   let lockArming = $state(false);
@@ -137,6 +138,9 @@
         </div>
       </div>
       <div class="tools">
+        {#if deck.profiles.length > 1}
+          <button class="btn icon tool" aria-label={t("Switch layout")} title={t("Switch layout")} onclick={() => (layouts = true)}><Icon name="layers" /></button>
+        {/if}
         <button
           class="btn icon tool"
           class:on={localLock}
@@ -237,6 +241,17 @@
     </footer>
   {/if}
 </main>
+
+<Sheet bind:open={layouts} title={t("Switch layout")}>
+  <p class="hint">{t("Every phone connected to this PC switches too.")}</p>
+  <div class="layouts">
+    {#each deck.profiles as p (p.id)}
+      <button class="btn layout" class:on={p.id === deck.profile?.id} aria-current={p.id === deck.profile?.id} onclick={() => ((layouts = false), p.id !== deck.profile?.id && switchProfile(p.id))}>
+        <Icon name="layers" size={20} /><span>{p.name}</span>{#if p.id === deck.profile?.id}<Icon name="check" size={18} />{/if}
+      </button>
+    {/each}
+  </div>
+</Sheet>
 
 <Sheet bind:open={settings} title={t("Settings")}>
   <div class="about">
@@ -519,5 +534,27 @@
     .toast {
       min-height: 40px;
     }
+  }
+  .hint {
+    margin: 0 0 12px;
+    color: var(--muted);
+  }
+  .layouts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .layout {
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 52px;
+  }
+  .layout span {
+    flex: 1;
+    text-align: left;
+  }
+  .layout.on {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 </style>

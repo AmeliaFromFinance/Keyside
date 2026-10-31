@@ -15,6 +15,24 @@ pub struct FeedItem {
     pub color: Option<String>,
     #[serde(default)]
     pub at: u64,
+    /// The message id from the chat service, so a deleted message can be taken off again.
+    /// Clients don't need it.
+    #[serde(default, skip_serializing)]
+    pub id: Option<String>,
+}
+
+/// Which feed lines to take off. A line goes if it matches any part.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FeedMatch {
+    pub ids: Vec<String>,
+    pub author: Option<String>,
+    pub all: bool,
+}
+
+impl FeedMatch {
+    pub fn matches(&self, item: &FeedItem) -> bool {
+        self.all || item.id.as_ref().is_some_and(|id| self.ids.contains(id)) || self.author.as_ref().is_some_and(|a| item.author.as_ref() == Some(a))
+    }
 }
 
 /// Fields a plugin may set on its own keys.

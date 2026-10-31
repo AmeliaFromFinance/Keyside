@@ -15,7 +15,7 @@ export type ServerMsg =
   | { t: "paired"; deviceId: string; secret: string; companion: { id: string; name: string } }
   | { t: "locked"; retryAfter?: number; reason?: "pin" | "wrong-pin" | "too-many-tries" }
   | { t: "unlocked" }
-  | { t: "page"; rev: number; profile: { id: string; name: string }; page: PageView; locked: boolean }
+  | { t: "page"; rev: number; profile: { id: string; name: string }; profiles?: Array<{ id: string; name: string }>; page: PageView; locked: boolean }
   | { t: "keys"; rev: number; page: string; keys: KeyView[] }
   | { t: "status"; connections: ConnectionView[]; pills: StatusPill[] }
   | { t: "toast"; text: string; tone: Tone; at: number }
@@ -38,6 +38,7 @@ export type ClientMsg =
   | { t: "input"; key: string; phase: "down" | "up" | "cancel" }
   | { t: "slide"; key: string; value: number }
   | { t: "nav"; to: "next" | "prev" | "back" | "home" | "page"; page?: string }
+  | { t: "nav"; to: "profile"; profile: string }
   | { t: "ping"; ts: number }
   | { t: "unlock"; pin: string }
   | { t: "req"; id: number; op: string; args?: unknown };

@@ -726,6 +726,33 @@ export function deletePage(id: string) {
     if (pr.homePage === id) pr.homePage = pr.pages.find((p) => !p.folder)!.id;
   });
   if (ed.page === id) ed.page = pr.homePage;
+  clearSelection();
+  notify(t("Deleted {name}", { name: target.name }), { label: t("Undo"), run: undo });
+}
+
+/** Moves a normal page up or down among the other normal pages. Folders keep their place. */
+export function movePage(id: string, by: -1 | 1) {
+  const pr = profile();
+  if (!pr) return;
+  const order = pr.pages.filter((p) => !p.folder);
+  const i = order.findIndex((p) => p.id === id);
+  const j = i + by;
+  if (i < 0 || j < 0 || j >= order.length) return;
+  change(() => {
+    const a = pr.pages.indexOf(order[i]);
+    const b = pr.pages.indexOf(order[j]);
+    [pr.pages[a], pr.pages[b]] = [pr.pages[b], pr.pages[a]];
+  });
+}
+
+/** Copies a page with all its keys, right after the original. */
+export function duplicatePage(id: string): string | undefined {
+  const pr = profile();
+  const src = pr?.pages.find((p) => p.id === id);
+  if (!pr || !src) return;
+  const copy: Page = { ...JSON.parse(JSON.stringify($state.snapshot(src))), id: newId("p", pr.pages.map((p) => p.id)), name: t("{name} copy", { name: src.name }).slice(0, 40) };
+  change(() => pr.pages.splice(pr.pages.indexOf(src) + 1, 0, copy));
+  return copy.id;
 }
 
 /** Every step on a key, in all of its lists. */

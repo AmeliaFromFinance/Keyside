@@ -12,9 +12,11 @@ use tokio::sync::broadcast;
 use crate::config::Paths;
 use crate::model::{self, Action, FormFactor, Key, KeyKind, LayoutFile, Page, Profile, StepList, Tone};
 use crate::store;
-use view::{FeedItem, KeyView, PageView, ViewPatch};
+use view::{FeedItem, FeedMatch, KeyView, PageView, ViewPatch};
 
 const FEED_KEEP: usize = 50;
+/// Lines a feed widget gets. Enough to fill a tall key; the client clips what doesn't fit.
+const FEED_SHOWN: usize = 20;
 const MAX_VARS: usize = 5_000;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -332,6 +334,16 @@ impl Engine {
         self.notify(Change::Keys);
     }
 
+    /// Takes lines off a feed, such as chat messages deleted by a moderator.
+    pub fn remove_feed(&mut self, feed: &str, m: &FeedMatch) {
+        let Some(q) = self.feeds.get_mut(feed) else { return };
+        let before = q.len();
+        q.retain(|i| !m.matches(i));
+        if q.len() != before {
+            self.notify(Change::Keys);
+        }
+    }
+
     pub fn set_connection(&mut self, c: ConnectionView) {
         if self.connections.get(&c.id) != Some(&c) {
             self.health.status(&c.id, crate::server::conn::now_ms(), &c.status, c.detail.as_deref());
@@ -575,8 +587,7 @@ impl Engine {
         }
         if let Some(w) = &key.widget {
             if let Some(feed) = &w.feed {
-                let n = w.lines.unwrap_or(5) as usize;
-                v.lines = Some(self.feeds.get(feed).map(|q| q.iter().rev().take(n).rev().cloned().collect()).unwrap_or_default());
+                v.lines = Some(self.feeds.get(feed).map(|q| q.iter().skip(q.len().saturating_sub(FEED_SHOWN)).cloned().collect()).unwrap_or_default());
             }
             if let Some(t) = &w.text {
                 v.sub = Some(view::template(t, get));
@@ -712,5 +723,36 @@ mod tests {
         assert!(e.set_var("user.goal", Value::from(5)));
         assert!(!e.set_var("bad name", Value::from(5)));
         assert!(!e.set_var("user.obj", serde_json::json!({"a": 1})));
+    }
+
+    #[test]
+    fn feed_widgets_show_the_latest_lines_and_drop_removed_ones() {
+        let (_t, mut e) = engine();
+        let keys = serde_json::json!([{ "id": "c", "x": 0, "y": 0, "kind": "widget", "label": "Chat", "actions": [], "widget": { "feed": "twitch.chat", "lines": 6 } }]);
+        with_keys(&mut e, keys, serde_json::json!([]));
+        let line = |n: usize, author: &str| FeedItem { text: format!("m{n}"), author: Some(author.into()), id: Some(format!("id{n}")), ..Default::default() };
+        for n in 0..30 {
+            e.push_feed("twitch.chat", line(n, if n % 2 == 0 { "moss" } else { "fern" }));
+        }
+        let texts = |e: &Engine| view(e).lines.unwrap().into_iter().map(|i| i.text).collect::<Vec<_>>();
+        // The lines setting no longer limits what is sent.
+        assert_eq!(texts(&e).len(), FEED_SHOWN);
+        assert_eq!(texts(&e).last().map(String::as_str), Some("m29"));
+        // Ids stay on the PC.
+        assert!(serde_json::to_value(&view(&e).lines.unwrap()[0]).unwrap().get("id").is_none());
+
+        let mut rx = e.subscribe();
+        e.remove_feed("twitch.chat", &FeedMatch { ids: vec!["id29".into(), "nope".into()], ..Default::default() });
+        assert_eq!(texts(&e).last().map(String::as_str), Some("m28"));
+        assert!(matches!(rx.try_recv(), Ok(Change::Keys)));
+        e.remove_feed("twitch.chat", &FeedMatch { author: Some("moss".into()), ..Default::default() });
+        assert!(texts(&e).iter().all(|t| t[1..].parse::<usize>().unwrap() % 2 == 1));
+        assert!(matches!(rx.try_recv(), Ok(Change::Keys)));
+        // Nothing matched: no update.
+        e.remove_feed("twitch.chat", &FeedMatch { ids: vec!["id29".into()], ..Default::default() });
+        e.remove_feed("other.chat", &FeedMatch { all: true, ..Default::default() });
+        assert!(rx.try_recv().is_err());
+        e.remove_feed("twitch.chat", &FeedMatch { all: true, ..Default::default() });
+        assert!(texts(&e).is_empty());
     }
 }

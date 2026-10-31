@@ -4,7 +4,7 @@ circle-dot circle-stop circle-play circle-pause play pause square skip-forward s
 message-square message-circle messages-square megaphone bell bell-off at-sign hash smile laugh heart star sparkles party-popper gift trophy crown flame zap bolt thumbs-up thumbs-down hand hand-heart
 users user user-plus user-check user-x user-round shield shield-check shield-off ban gavel eye eye-off lock lock-open key-round fingerprint
 bookmark scissors clipboard copy link link-2 external-link globe wifi wifi-off cloud cloud-upload download upload send share-2 webhook plug unplug cable server database
-folder folder-open file file-text image images palette brush pen pencil type text-cursor keyboard mouse-pointer-click command option
+folder folder-open file file-text image images palette brush pen pencil type text-align-start text-align-center text-align-end text-cursor keyboard mouse-pointer-click command option
 settings settings-2 sliders-horizontal sliders-vertical toggle-left toggle-right power power-off plus minus x check circle-check circle-x circle-alert triangle-alert info help-circle
 arrow-left arrow-right arrow-up arrow-down chevron-left chevron-right chevron-up chevron-down chevrons-left chevrons-right move maximize minimize corner-down-left undo-2 redo-2 log-out log-in home house
 sun moon lightbulb lightbulb-off lamp lamp-desk flashlight thermometer droplet coffee pizza cookie beer wine utensils bed bath

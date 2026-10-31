@@ -149,6 +149,29 @@ test("passes chat roles, platforms and redemptions on for chat triggers", async 
   await sb.close();
 });
 
+test("takes deleted messages and banned viewers off the chat feed", async () => {
+  const sb = await fakeBot(null);
+  const h = createTestHost(plugin, { connection: { host: "127.0.0.1", port: sb.port } });
+  await h.start();
+  await eventually(() => h.status()?.state === "connected");
+  const sub = await sb.until((m) => m.request === "Subscribe" && m.events?.Twitch?.includes("ChatMessageDeleted"));
+  assert.ok(sub.events.Twitch.includes("ChatCleared"));
+
+  sb.broadcast({ event: { source: "Twitch", type: "ChatMessage" }, data: { user: { name: "Fern" }, messageId: "t1", text: "spam" } });
+  sb.broadcast({ event: { source: "YouTube", type: "Message" }, data: { user: { name: "Ana" }, eventId: "y1", message: "hi" } });
+  await eventually(() => h.feed("chat").length === 2);
+  assert.deepEqual(h.feed("chat").map((i) => i.id), ["t1", "y1"]);
+
+  sb.broadcast({ event: { source: "Twitch", type: "ChatMessageDeleted" }, data: { messageId: "t1", targetUser: { name: "Fern" } } });
+  sb.broadcast({ event: { source: "Twitch", type: "UserTimedOut" }, data: { targetUser: { login: "fern", name: "Fern" }, duration: 60 } });
+  sb.broadcast({ event: { source: "YouTube", type: "UserBanned" }, data: { targetUser: { name: "Ana" } } });
+  sb.broadcast({ event: { source: "Twitch", type: "ChatCleared" }, data: {} });
+  await eventually(() => h.unfeeds("chat").length === 4);
+  assert.deepEqual(h.unfeeds("chat"), [{ ids: ["t1"] }, { author: "Fern" }, { author: "Ana" }, { all: true }]);
+  await h.stop();
+  await sb.close();
+});
+
 test("reads roles from every shape Streamer.bot uses", () => {
   assert.deepEqual(roles({ user: { role: 4 } }), ["broadcaster"]);
   assert.deepEqual(roles({ user: { role: 2, subscribed: true } }), ["vip", "sub"]);

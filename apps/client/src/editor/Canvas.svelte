@@ -42,6 +42,8 @@
   import { deck, req } from "../lib/deck.svelte.ts";
   import { haptic } from "../lib/native.ts";
 
+  let { onpages }: { onpages?: () => void } = $props();
+
   const factors: Array<[FormFactor, string]> = [
     ["phone-portrait", mark("Phone")],
     ["phone-landscape", mark("Phone, sideways")],
@@ -293,6 +295,7 @@
         { label: t("Empty page"), icon: "plus", run: () => addPage() },
         // A Stream Deck keeps its own fixed grid, which the dashboard may not fit.
         { label: t("Stream dashboard"), icon: "gauge", disabled: !!hw, run: () => void addDashboard() },
+        ...(onpages ? [{ label: t("All pages"), icon: "layers", run: onpages }] : []),
       ],
     };
   }

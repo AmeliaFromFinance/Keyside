@@ -55,6 +55,18 @@ export interface FeedEntry {
   reward?: string;
   /** What the viewer typed with a redemption. */
   input?: string;
+  /** Message id from the chat service, so `unfeed` can take the line off when it's deleted. */
+  id?: string;
+}
+
+/** Which feed lines to take off. A line goes if it matches any of these. */
+export interface FeedMatch {
+  /** Message ids, as sent in `FeedEntry.id`. */
+  ids?: string[];
+  /** Every line by this author, written the same way as `FeedEntry.author`. */
+  author?: string;
+  /** Every line, for example when chat is cleared. */
+  all?: boolean;
 }
 
 export interface Option {
@@ -122,6 +134,8 @@ export interface Host {
   setVar(name: string, value: VarValue): void;
   /** Adds a line to a feed declared in the manifest (chat, alerts). Text only. */
   feed(name: string, item: FeedEntry): void;
+  /** Takes lines off a feed, for example chat messages a moderator deleted. */
+  unfeed(name: string, match: FeedMatch): void;
   /** Connection state shown in the deck header. `pills` adds up to three status chips, like REC. */
   status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pills?: Pill[] | Pill | null): void;
   toast(text: string, tone?: "default" | "success" | "warning" | "danger"): void;
@@ -277,6 +291,16 @@ class Runtime implements Host {
 
   feed(name: string, item: FeedEntry) {
     this.#notify("feed.push", { feed: name, item });
+  }
+
+  unfeed(name: string, match: FeedMatch) {
+    const { ids, ...rest } = match;
+    if (!ids?.length) {
+      if (rest.author || rest.all) this.#notify("feed.remove", { feed: name, ...rest });
+      return;
+    }
+    // Keyside takes up to 100 ids a call.
+    for (let i = 0; i < ids.length; i += 100) this.#notify("feed.remove", { feed: name, ...(i ? {} : rest), ids: ids.slice(i, i + 100) });
   }
 
   status(state: "connected" | "connecting" | "offline" | "error", detail?: string, pills?: Pill[] | Pill | null) {

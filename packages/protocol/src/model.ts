@@ -141,7 +141,7 @@ export interface Widget {
   text?: string;
   /** Feed to show, e.g. "dev.keyside.twitch/chat". */
   feed?: string;
-  /** Lines kept from the feed. */
+  /** No longer used: feed widgets fill the key. Older layouts may still have it. */
   lines?: number;
   /** Variable holding a 0..1 value, drawn as a bar. */
   progress?: string;

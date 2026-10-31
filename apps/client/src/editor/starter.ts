@@ -149,7 +149,7 @@ function specs(id: string, f: Found): Spec[] {
       ];
     case "twitch":
       return [
-        { label: mark("Chat"), icon: "message-square", kind: "widget", w: 3, h: 2, widget: { feed: "twitch.chat", lines: 6 } },
+        { label: mark("Chat"), icon: "message-square", kind: "widget", w: 3, h: 2, widget: { feed: "twitch.chat" } },
         { label: mark("Viewers"), icon: "users", kind: "widget", widget: { text: "{twitch.viewers}" } },
         { label: mark("Marker"), icon: "bookmark", actions: [act(id, "marker", { description: "" })] },
         { label: mark("Clip"), icon: "scissors", actions: [act(id, "clip")] },
@@ -160,7 +160,7 @@ function specs(id: string, f: Found): Spec[] {
       ];
     case "youtube":
       return [
-        { label: mark("Chat"), icon: "message-square", kind: "widget", w: 3, h: 2, widget: { feed: "youtube.chat", lines: 6 } },
+        { label: mark("Chat"), icon: "message-square", kind: "widget", w: 3, h: 2, widget: { feed: "youtube.chat" } },
         { label: mark("Viewers"), icon: "users", kind: "widget", widget: { text: "{youtube.viewers}" } },
         { label: mark("Likes"), icon: "thumbs-up", kind: "widget", widget: { text: "{youtube.likes}" } },
         { label: mark("Stream health"), icon: "activity", actions: [act(id, "health")] },

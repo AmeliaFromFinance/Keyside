@@ -337,22 +337,36 @@ impl Conn {
         true
     }
 
+    /// Layouts this device may switch to from its own screen. Moderators stay on their pages, and Stream Deck layouts are for the deck.
+    fn switchable(&self, e: &crate::state::Engine) -> Vec<Value> {
+        if self.who.pages.is_some() {
+            return Vec::new();
+        }
+        e.layout().profiles.iter().filter(|p| p.deck.is_none()).map(|p| json!({ "id": p.id, "name": p.name })).collect()
+    }
+
     async fn send_page(&mut self, full: bool) -> anyhow::Result<()> {
-        let (view, profile_name, rev) = {
+        let (view, profile_name, rev, profiles) = {
             let e = self.app.engine.lock();
             let view = e.page_view(&self.profile, &self.page, self.ff, self.allowed().as_deref());
-            (view, e.profile(&self.profile).map(|p| p.name.clone()).unwrap_or_default(), e.layout().rev)
+            (view, e.profile(&self.profile).map(|p| p.name.clone()).unwrap_or_default(), e.layout().rev, self.switchable(&e))
         };
         let Some(view) = view else {
             self.sent.clear();
             self.sent_shape = None;
-            return self.link.send(&json!({ "t": "page", "rev": rev, "profile": { "id": self.profile, "name": profile_name }, "page": Value::Null, "locked": false })).await;
+            return self
+                .link
+                .send(&json!({ "t": "page", "rev": rev, "profile": { "id": self.profile, "name": profile_name }, "profiles": profiles, "page": Value::Null, "locked": false }))
+                .await;
         };
         let shape = shape(&self.profile, &profile_name, &view);
         if full || self.sent_shape.as_ref() != Some(&shape) {
             self.sent = view.keys.iter().map(|k| (k.id.clone(), k.clone())).collect();
             self.sent_shape = Some(shape);
-            return self.link.send(&json!({ "t": "page", "rev": rev, "profile": { "id": self.profile, "name": profile_name }, "page": view, "locked": false })).await;
+            return self
+                .link
+                .send(&json!({ "t": "page", "rev": rev, "profile": { "id": self.profile, "name": profile_name }, "profiles": profiles, "page": view, "locked": false }))
+                .await;
         }
         let changed = changed_keys(&self.sent, &view);
         if changed.is_empty() {
@@ -431,6 +445,15 @@ impl Conn {
                         std::mem::replace(&mut self.page, h) != self.page
                     }
                     Some("back") => self.back(),
+                    Some("profile") => {
+                        // Same as a Switch profile key: every phone follows.
+                        let to = v.get("profile").and_then(Value::as_str).unwrap_or("");
+                        let ok = self.switchable(&self.app.engine.lock()).iter().any(|p| p["id"] == to);
+                        if ok {
+                            self.app.navigate(&self.who.device, Nav::Profile(to.to_string()));
+                        }
+                        false
+                    }
                     Some("page") => match v.get("page").and_then(Value::as_str) {
                         Some(p) => {
                             let p = p.to_string();

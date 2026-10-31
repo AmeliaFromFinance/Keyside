@@ -23,14 +23,24 @@ use crate::app::App;
 use crate::state::Change;
 use crate::state::view::{display, fill, truthy};
 
+mod style;
+
+use style::{Kind, Style, TimeFormat};
+
 const MAX_TEMPLATE: usize = 500;
 const MAX_OPEN: usize = 64;
 static OPEN: AtomicUsize = AtomicUsize::new(0);
 
 const SCRIPT: &str = include_str!("../../assets/overlay/overlay.js");
-const STYLE: &str = include_str!("../../assets/overlay/overlay.css");
-const PAGE: &str = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Keyside overlay</title>\
-<link rel=\"stylesheet\" href=\"/overlay/overlay.css\"></head><body><div id=\"out\"></div><script src=\"/overlay/overlay.js\"></script></body></html>";
+
+/// The page links to a stylesheet made from its own options, so the page itself holds no styles.
+fn page(style: &Style) -> String {
+    format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Keyside overlay</title>\
+<link rel=\"stylesheet\" href=\"/overlay/overlay.css?{}\"></head><body><div id=\"out\"></div><script src=\"/overlay/overlay.js\"></script></body></html>",
+        style::attr(&style.query())
+    )
+}
 
 pub fn router() -> Router<Arc<App>> {
     Router::new()
@@ -44,14 +54,14 @@ pub fn router() -> Router<Arc<App>> {
 /// What one overlay shows.
 #[derive(Debug, Clone, PartialEq)]
 enum Spec {
-    Timer(String),
+    Timer(String, TimeFormat),
     Text(String),
 }
 
 impl Spec {
     fn from_query(q: &HashMap<String, String>) -> Option<Self> {
         match (q.get("timer"), q.get("t")) {
-            (Some(n), None) if timers::valid_name(n) => Some(Self::Timer(n.clone())),
+            (Some(n), None) if timers::valid_name(n) => Some(Self::Timer(n.clone(), TimeFormat::parse(q.get("format")))),
             (None, Some(t)) if !t.trim().is_empty() && t.len() <= MAX_TEMPLATE && !t.chars().any(|c| c.is_control() && c != '\n') => Some(Self::Text(t.clone())),
             _ => None,
         }
@@ -60,8 +70,8 @@ impl Spec {
     /// Only the filled-in text leaves the companion, never the template sources or anything else.
     fn render(&self, get: impl Fn(&str) -> Option<Value>) -> Value {
         match self {
-            Self::Timer(n) => json!({
-                "text": get(&format!("timer.{n}")).map(|v| display(&v)).unwrap_or_else(|| "00:00".into()),
+            Self::Timer(n, f) => json!({
+                "text": f.apply(&get(&format!("timer.{n}")).map(|v| display(&v)).unwrap_or_else(|| "00:00".into())),
                 "running": get(&format!("timer.{n}.running")).is_some_and(|v| truthy(&v)),
             }),
             Self::Text(t) => json!({ "text": fill(t, get, MAX_TEMPLATE) }),
@@ -86,7 +96,8 @@ fn allowed(addr: &SocketAddr, h: &HeaderMap, port: u16) -> bool {
 
 fn harden(r: &mut Response) {
     let h = r.headers_mut();
-    let csp = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    // The editor shows overlays in a frame as a preview, so only its own pages may frame them.
+    let csp = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
     h.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(csp));
     h.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
     h.insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
@@ -100,7 +111,7 @@ fn refuse() -> Response {
     r
 }
 
-fn reply(body: &'static str, kind: &'static str) -> Response {
+fn reply(body: impl IntoResponse, kind: &'static str) -> Response {
     let mut r = ([(header::CONTENT_TYPE, kind)], body).into_response();
     harden(&mut r);
     r
@@ -113,21 +124,28 @@ async fn script(ConnectInfo(addr): ConnectInfo<SocketAddr>, State(app): State<Ar
     reply(SCRIPT, "text/javascript; charset=utf-8")
 }
 
-async fn style(ConnectInfo(addr): ConnectInfo<SocketAddr>, State(app): State<Arc<App>>, headers: HeaderMap) -> Response {
+async fn style(ConnectInfo(addr): ConnectInfo<SocketAddr>, State(app): State<Arc<App>>, headers: HeaderMap, Query(q): Query<HashMap<String, String>>) -> Response {
     if !allowed(&addr, &headers, app.settings.read().admin_port) {
         return refuse();
     }
-    reply(STYLE, "text/css; charset=utf-8")
+    let kind = if q.get("kind").is_some_and(|k| k == "timer") { Kind::Timer } else { Kind::Text };
+    reply(Style::from_query(kind, &q).css(super::web::font_file), "text/css; charset=utf-8")
 }
 
-async fn timer_page(ConnectInfo(addr): ConnectInfo<SocketAddr>, State(app): State<Arc<App>>, headers: HeaderMap, Path(name): Path<String>) -> Response {
+async fn timer_page(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(app): State<Arc<App>>,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Response {
     if !allowed(&addr, &headers, app.settings.read().admin_port) {
         return refuse();
     }
     if !timers::valid_name(&name) {
         return (StatusCode::NOT_FOUND, "Timer names are short lowercase letters, digits, - or _.").into_response();
     }
-    reply(PAGE, "text/html; charset=utf-8")
+    reply(page(&Style::from_query(Kind::Timer, &q)), "text/html; charset=utf-8")
 }
 
 async fn text_page(ConnectInfo(addr): ConnectInfo<SocketAddr>, State(app): State<Arc<App>>, headers: HeaderMap, Query(q): Query<HashMap<String, String>>) -> Response {
@@ -137,7 +155,7 @@ async fn text_page(ConnectInfo(addr): ConnectInfo<SocketAddr>, State(app): State
     if !matches!(Spec::from_query(&q), Some(Spec::Text(_))) {
         return (StatusCode::BAD_REQUEST, "Add the text to show, like ?t={twitch.viewers} viewers").into_response();
     }
-    reply(PAGE, "text/html; charset=utf-8")
+    reply(page(&Style::from_query(Kind::Text, &q)), "text/html; charset=utf-8")
 }
 
 /// Counts open overlay streams, so a runaway page can't hold the companion busy.
@@ -201,7 +219,8 @@ mod tests {
 
     #[test]
     fn reads_what_to_show() {
-        assert_eq!(Spec::from_query(&q(&[("timer", "break")])), Some(Spec::Timer("break".into())));
+        assert_eq!(Spec::from_query(&q(&[("timer", "break")])), Some(Spec::Timer("break".into(), TimeFormat::Auto)));
+        assert_eq!(Spec::from_query(&q(&[("timer", "break"), ("format", "ss")])), Some(Spec::Timer("break".into(), TimeFormat::Secs)));
         assert_eq!(Spec::from_query(&q(&[("timer", "Break")])), None);
         assert_eq!(Spec::from_query(&q(&[("timer", "../x")])), None);
         assert_eq!(Spec::from_query(&q(&[("t", "{twitch.viewers} viewers")])), Some(Spec::Text("{twitch.viewers} viewers".into())));
@@ -219,8 +238,16 @@ mod tests {
             _ => None,
         };
         assert_eq!(Spec::Text("{twitch.viewers} viewers{nope}".into()).render(vars), json!({ "text": "42 viewers" }));
-        assert_eq!(Spec::Timer("break".into()).render(vars), json!({ "text": "04:59", "running": true }));
-        assert_eq!(Spec::Timer("other".into()).render(vars), json!({ "text": "00:00", "running": false }));
+        assert_eq!(Spec::Timer("break".into(), TimeFormat::Auto).render(vars), json!({ "text": "04:59", "running": true }));
+        assert_eq!(Spec::Timer("break".into(), TimeFormat::Hms).render(vars), json!({ "text": "00:04:59", "running": true }));
+        assert_eq!(Spec::Timer("other".into(), TimeFormat::Auto).render(vars), json!({ "text": "00:00", "running": false }));
+    }
+
+    #[test]
+    fn page_links_its_checked_style() {
+        let html = page(&Style::from_query(Kind::Text, &q(&[("font", "Open Sans"), ("size", "60"), ("color", "\"><script>")])));
+        assert!(html.contains("href=\"/overlay/overlay.css?kind=text&amp;font=Open%20Sans&amp;size=60\""));
+        assert!(!html.contains("<script>"));
     }
 
     #[test]

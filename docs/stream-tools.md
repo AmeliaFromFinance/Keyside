@@ -44,17 +44,32 @@ http://127.0.0.1:7442/overlay/text?t={twitch.viewers} viewers
 
 ### Options
 
-Add them to the address with `&` (or `?` when it's the first one), like `.../overlay/timer/break?size=96&color=ffcc00&hide=1`.
+The easiest way to style an overlay is in the editor: open the **Timer** step, or pick **Text overlay for OBS** in the editor menu (the gear). Change the font, colours and effects while watching the preview, then click **Copy overlay link**.
 
-| Option | Does | Example |
-| --- | --- | --- |
-| `size` | Text size in pixels. Timers default to 120, text to 48 | `size=96` |
-| `color` | Text colour, as hex without `#` or a colour name | `color=ffcc00`, `color=white` |
-| `font` | A font installed on the PC | `font=Inter` |
-| `weight` | `normal`, `bold` or 100 to 900 | `weight=900` |
-| `align` | `left`, `center` or `right` | `align=right` |
-| `shadow` | `0` turns the soft shadow off | `shadow=0` |
-| `hide` | `1` hides a timer while it's stopped, or text while it's empty | `hide=1` |
+You can also add options to the address yourself with `&` (or `?` when it's the first one), like `.../overlay/timer/break?size=96&color=ffcc00&hide=1`. Colours are hex without `#`: `rgb`, `rrggbb`, or `rrggbbaa` to make them see-through. A few names work too, like `white` or `red`. Numbers outside the range are moved to the nearest end. Anything Keyside doesn't understand is left at its default.
+
+| Option | Does | Values | Default |
+| --- | --- | --- | --- |
+| `font` | Font | `sans`, `serif`, `mono`, `inter`, `jetbrains-mono`, or the name of a font installed on the PC (letters, digits, spaces and `-`, up to 40) | `sans` |
+| `size` | Text size in pixels | 8 to 1000 | 120 for timers, 48 for text |
+| `weight` | How bold | 100 to 900, `normal`, `bold` | 700 |
+| `color` | Text colour | colour | `fff` |
+| `bg` | Background colour | colour | none |
+| `align` | Alignment | `left`, `center`, `right` | `center` for timers, `left` for text |
+| `pad` | Space around the text in pixels | 0 to 200 | a little, growing with the size |
+| `spacing` | Space between letters in pixels | -20 to 50 | 0 |
+| `upper` | `1` shows all capitals | `1` | off |
+| `shadow` | Shadow colour, or `0` for no shadow | colour or `0` | `00000099` |
+| `shadow-x`, `shadow-y` | How far the shadow moves right and down, in pixels | -50 to 50 | 0 and 2 |
+| `shadow-blur` | How soft the shadow is | 0 to 100 | 6 |
+| `glow` | Glow colour | colour | off |
+| `glow-size` | How far the glow reaches | 1 to 100 | 10 |
+| `outline` | Outline colour | colour | off |
+| `outline-width` | Outline thickness in pixels | 1 to 20 | 2 |
+| `format` | Timers only: how the time is written | `auto` (`04:59`, `1:02:05`), `hh:mm:ss`, `mm:ss`, `ss` (seconds only) | `auto` |
+| `hide` | `1` hides a timer while it's stopped, or text while it's empty | `1` | off |
+
+Inter and JetBrains Mono come with Keyside, so they look the same on every PC.
 
 ## Chat triggers
 

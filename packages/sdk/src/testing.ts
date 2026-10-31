@@ -31,6 +31,8 @@ export interface Harness {
   variable(name: string): unknown;
   /** Items pushed to one feed, oldest first. */
   feed(name: string): any[];
+  /** Removals sent for one feed (ids, author or all), oldest first. */
+  unfeeds(name: string): Array<{ ids?: string[]; author?: string; all?: boolean }>;
   /** Waits for batched key and variable updates to go out. */
   settle(): Promise<void>;
   stop(): Promise<void>;
@@ -119,6 +121,7 @@ export function createTestHost(def: PluginDefinition, opts: { connection?: Setti
       return v;
     },
     feed: (name) => sent.filter((s) => s.method === "feed.push" && s.params.feed === name).map((s) => s.params.item),
+    unfeeds: (name) => sent.filter((s) => s.method === "feed.remove" && s.params.feed === name).map(({ params: { feed: _, ...m } }) => m),
     settle: () => new Promise((r) => setTimeout(r, 80)),
     async stop() {
       closed = true;

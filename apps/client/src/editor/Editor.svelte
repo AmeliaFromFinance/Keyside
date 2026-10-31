@@ -13,14 +13,16 @@
   import Profiles from "./Profiles.svelte";
   import Styles from "./Styles.svelte";
   import Triggers from "./Triggers.svelte";
+  import TimerOverlay from "./TimerOverlay.svelte";
   import Splitter from "./Splitter.svelte";
   import Connections from "./Connections.svelte";
+  import Pages from "./Pages.svelte";
   import KeySearch from "./KeySearch.svelte";
   import PushReview from "./PushReview.svelte";
   import TemplateSave from "./TemplateSave.svelte";
   import ImageCrop from "./ImageCrop.svelte";
   import { cropping, applyCrop } from "./images.svelte.ts";
-  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection, keySteps, templates } from "./state.svelte.ts";
+  import { ed, load, push, discard, undo, redo, canUndo, canRedo, startLive, change, newId, page, profile, deleteKeys, copyKeys, pasteKey, duplicateKeys, shiftKeys, selection, selectAll, clearSelection, keySteps, templates } from "./state.svelte.ts";
   import Wizard from "./Wizard.svelte";
   import History from "./History.svelte";
   import { deck, req } from "../lib/deck.svelte.ts";
@@ -30,7 +32,7 @@
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
-  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | "styles" | "search" | "push" | "triggers" | "wizard" | "history" | null;
+  type Panel = "plugins" | "settings" | "review" | "share" | "streamdeck" | "devices" | "profiles" | "styles" | "search" | "push" | "triggers" | "wizard" | "history" | "pages" | "overlay" | null;
   let panel = $state<Panel>(null);
   let menu = $state(false);
   let paletteOpen = $state(false);
@@ -261,11 +263,13 @@
       <button onclick={() => ((menu = false), (panel = "styles"))}><Icon name="palette" size={18} />{t("Key styles")}</button>
       <button onclick={() => ((menu = false), (panel = "share"))}><Icon name="share-2" size={18} />{t("Share and gallery")}</button>
       <button onclick={() => ((menu = false), exportJson())}><Icon name="file-down" size={18} />{t("Export JSON")}</button>
+      <button onclick={() => ((menu = false), (panel = "pages"))}><Icon name="layers" size={18} />{t("All pages")}</button>
       <button onclick={() => ((menu = false), (panel = "history"))}><Icon name="history" size={18} />{t("History")}</button>
       <button onclick={() => ((menu = false), (panel = "plugins"))}><Icon name="plug" size={18} />{t("Plugins")}</button>
       {#if admin}
         <button onclick={() => ((menu = false), (panel = "streamdeck"))}><Icon name="layout-grid" size={18} />{t("Stream Deck plugins")}</button>
         <button onclick={() => ((menu = false), (panel = "triggers"))}><Icon name="messages-square" size={18} />{t("Chat triggers")}</button>
+        <button onclick={() => ((menu = false), (panel = "overlay"))}><Icon name="monitor-play" size={18} />{t("Text overlay for OBS")}</button>
         <button onclick={() => ((menu = false), (panel = "devices"))}><Icon name="smartphone" size={18} />{t("Devices")}</button>
         <button onclick={() => ((menu = false), (panel = "review"))}><Icon name="shield-check" size={18} />{t("Review imported steps")}{#if reviewCount}<span class="count">{reviewCount}</span>{/if}</button>
         <button onclick={() => ((menu = false), (panel = "wizard"))}><Icon name="sparkles" size={18} />{t("Setup wizard")}</button>
@@ -302,7 +306,7 @@
       {/if}
     </div>
     {#if loaded && ed.layout}
-      <Canvas />
+      <Canvas onpages={() => (panel = "pages")} />
     {:else}
       <div class="loading">{t("Loading layout…")}</div>
     {/if}
@@ -311,7 +315,7 @@
         <Splitter edge="left" value={panes.right} min={320} max={760} label={t("Resize the side panel")} onchange={(v) => (panes.right = v)} onreset={() => (panes.right = PANES.right)}>
           <button class="fold" title={t("Hide the side panel")} aria-label={t("Hide the side panel")} onclick={() => (panes.rightOpen = false)}><Icon name="chevron-right" size={14} /></button>
         </Splitter>
-        <div class="ins">{#if loaded}<Inspector {admin} />{/if}</div>
+        <div class="ins">{#if loaded}<Inspector {admin} onpages={() => (panel = "pages")} />{/if}</div>
         {#if admin && loaded}
           <div class="pairbox" class:sized={panes.pairOpen && panes.pair > 0} style:height={panes.pairOpen && panes.pair > 0 ? `${panes.pair}px` : undefined} bind:clientHeight={pairH}>
             {#if panes.pairOpen}
@@ -333,6 +337,7 @@
 <Sheet open={panel === "share"} onclose={() => (panel = null)} title={t("Share and gallery")} wide><Share {admin} onimported={() => (panel = null)} /></Sheet>
 <Sheet open={panel === "streamdeck"} onclose={() => (panel = null)} title={t("Stream Deck plugins")} wide><StreamDeck /></Sheet>
 <Sheet open={panel === "devices"} onclose={() => (panel = null)} title={t("Devices")} wide><PairPanel /></Sheet>
+<Sheet open={panel === "pages"} onclose={() => (panel = null)} title={t("Pages in {name}", { name: profile()?.name ?? "" })}><Pages onopen={() => (panel = null)} /></Sheet>
 <Sheet open={panel === "search"} onclose={() => (panel = null)} title={t("Search all keys")}><KeySearch onclose={() => (panel = null)} /></Sheet>
 <Sheet open={panel === "push"} onclose={() => (panel = null)} title={t("Review before pushing")}>
   <PushReview oncancel={() => (panel = null)} onpush={async () => (await push(), !ed.error && (panel = null))} />
@@ -346,6 +351,7 @@
 <Sheet open={panel === "profiles"} onclose={() => (panel = null)} title={t("Layouts")} wide><Profiles /></Sheet>
 <Sheet open={panel === "styles"} onclose={() => ((panel = null), (ed.styling = false))} title={t("Key styles")} wide><Styles /></Sheet>
 <Sheet open={panel === "triggers"} onclose={() => (panel = null)} title={t("Chat triggers")} wide><Triggers /></Sheet>
+<Sheet open={panel === "overlay"} onclose={() => (panel = null)} title={t("Text overlay for OBS")}><TimerOverlay kind="text" /></Sheet>
 <Sheet open={panel === "wizard"} onclose={closeWizard} title={t("Set up Keyside")} wide><Wizard fresh={firstRun} onclose={closeWizard} /></Sheet>
 <Sheet open={panel === "history"} onclose={() => (panel = null)} title={t("History")} wide><History onrestored={() => (panel = null)} /></Sheet>
 

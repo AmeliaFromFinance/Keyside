@@ -98,10 +98,23 @@
     el.select();
   }
 
+  let from: { id: string; x: number; y: number; at: number; was: string | null } | null = null;
+
   function drag(e: DragEvent, id: string) {
+    from = { id, x: e.clientX, y: e.clientY, at: performance.now(), was: ed.armed };
     e.dataTransfer?.setData("application/x-keyside-action", id);
     e.dataTransfer!.effectAllowed = "copy";
     ed.armed = id;
+  }
+
+  /** A click that wobbles a few pixels starts a drag, and the browser drops the click. Count a short drag that landed nowhere as that click. */
+  function dragEnd(e: DragEvent, id: string) {
+    const f = from;
+    from = null;
+    const near = e.clientX || e.clientY ? Math.hypot(e.clientX - (f?.x ?? 0), e.clientY - (f?.y ?? 0)) < 16 : false;
+    const quick = f ? performance.now() - f.at < 400 : false;
+    if (f?.id === id && e.dataTransfer?.dropEffect === "none" && (near || quick)) ed.armed = f.was === id ? null : id;
+    else ed.armed = null;
   }
 </script>
 
@@ -148,7 +161,7 @@
                 class:armed={ed.armed === id}
                 draggable="true"
                 ondragstart={(e) => drag(e, id)}
-                ondragend={() => (ed.armed = null)}
+                ondragend={(e) => dragEnd(e, id)}
                 onclick={() => (ed.armed = ed.armed === id ? null : id)}
                 title={tp.keys.map((k) => k.label).join(", ")}
               >
@@ -182,7 +195,7 @@
             class:armed={ed.armed === a.id}
             draggable="true"
             ondragstart={(e) => drag(e, a.id)}
-            ondragend={() => (ed.armed = null)}
+            ondragend={(e) => dragEnd(e, a.id)}
             onclick={() => (ed.armed = ed.armed === a.id ? null : a.id)}
             title={a.description ? t(a.description) : undefined}
           >

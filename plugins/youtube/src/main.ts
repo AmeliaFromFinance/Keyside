@@ -216,7 +216,14 @@ export function onMessage(m: any) {
   const source = "youtube";
   switch (s.type) {
     case "textMessageEvent":
-      host.feed("chat", { author: who, text: String(s.displayMessage ?? "").slice(0, 500), kind: "chat", source, roles: roles(m.authorDetails) });
+      host.feed("chat", { id: m.id ? String(m.id) : undefined, author: who, text: String(s.displayMessage ?? "").slice(0, 500), kind: "chat", source, roles: roles(m.authorDetails) });
+      break;
+    case "messageDeletedEvent":
+      if (s.messageDeletedDetails?.deletedMessageId) host.unfeed("chat", { ids: [String(s.messageDeletedDetails.deletedMessageId)] });
+      break;
+    // Bans and timeouts. Their lines go too.
+    case "userBannedEvent":
+      if (s.userBannedDetails?.bannedUserDetails?.displayName) host.unfeed("chat", { author: String(s.userBannedDetails.bannedUserDetails.displayName) });
       break;
     case "superChatEvent":
     case "superStickerEvent": {

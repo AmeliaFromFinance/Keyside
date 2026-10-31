@@ -362,6 +362,7 @@ pub struct Widget {
     pub text: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feed: Option<String>,
+    /// No longer used: feed widgets fill the key. Still read, so older layouts load.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lines: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -21,6 +21,15 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Stream dashboard: "Add page → Stream dashboard" makes a page of live tiles for the connected apps.
 - OBS Stream health keys can show bitrate and time live or recording, and publish {obs.bitrate}, {obs.dropped}, {obs.cpu} and {obs.fps}. New {core.chat_rate} and {twitch.subs}.
 - Overlays for OBS browser sources: /overlay/timer/<name> and /overlay/text?t=…. Timer steps have a "Copy overlay link" button.
+- Overlay styles: font, size, colours, background, alignment, shadow, glow, outline and timer format, picked in the editor with a live preview. "Text overlay for OBS" in the editor menu builds text overlay links.
+- Pages panel: see every page and folder of a layout with a small map of its keys, then open, rename, reorder, copy or delete them. Open it from the + next to the page tabs, Page settings or the editor menu.
+- Phones and tablets can switch layouts from the deck header, no Switch profile key needed.
+- Media key: Play or pause shows a play icon while music plays and pause while paused. "Show the song" adds the cover, title and artist.
+- Chat keys fill their whole height, and lines deleted by a moderator, timed out or banned, or cleared from chat disappear. Works for Twitch, YouTube and Streamer.bot (Twitch, YouTube and Kick).
+- Chat triggers: "Press this key" is searchable.
+- Plugin SDK: `host.unfeed()` takes lines off a feed. Feed lines can carry a message `id`. Host API 1.1.
+- Fixed: clicking an action in the button palette sometimes needed a second click, when the mouse moved slightly during the click.
+- Fixed: hovering over the apps button and then clicking it closed the list again.
 - Chat triggers: a chat command, words in chat or a channel point reward can press a key, with platform, who-may-use-it and cooldown settings.
 - Twitch: channel point redemptions show in Alerts.
 - Stream Deck + and + XL: put keys on the dials. Turning a dial moves its slider, pressing it or tapping the touch strip presses its key, and the strip shows each key's label and value.

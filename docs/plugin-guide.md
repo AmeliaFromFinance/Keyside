@@ -143,6 +143,7 @@ Next to `start(host)`, the definition can have `connectionChanged(host)` for whe
 | `host.status(state, detail?, pills?)` | Connection state in the deck header, plus up to three pills like REC |
 | `host.setVar(name, value)` | Publishes `{prefix.name}` |
 | `host.feed(name, item)` | Adds a line to a feed declared in the manifest (chat, alerts) |
+| `host.unfeed(name, match)` | Takes lines off a feed, such as deleted chat messages |
 | `host.toast(text, tone?)` | Short message on every device |
 | `host.saveConnection(values)` | Saves values like tokens into the connection settings |
 | `host.openBrowser(url)` | Opens an https page on the PC |
@@ -174,6 +175,17 @@ host.feed("events", { author: "Fern", text: "redeemed Hydrate", kind: "redeem", 
 | `input` | What the viewer typed with a redemption |
 
 Items without these fields still work: lines in a feed called `chat` count as chat from a viewer without roles.
+
+When a moderator deletes a message, times someone out or clears chat, take the lines off again. Give chat lines an `id` (the message id from the service, up to 100 characters) and remove them by id, by author, or all at once:
+
+```ts
+host.feed("chat", { id: msg.id, author: "Moss", text: "hello", kind: "chat" });
+host.unfeed("chat", { ids: [msg.id] });
+host.unfeed("chat", { author: "Moss" }); // spelled the same as on the lines
+host.unfeed("chat", { all: true });
+```
+
+Ids stay on the PC; phones never see them. Plugins that use `unfeed` need `"host": "^1.1"` in the manifest.
 
 ## Testing
 

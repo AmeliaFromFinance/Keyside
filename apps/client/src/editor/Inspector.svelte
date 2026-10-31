@@ -12,7 +12,7 @@
   import { plain } from "../lib/rich.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
 
-  let { admin = false }: { admin?: boolean } = $props();
+  let { admin = false, onpages }: { admin?: boolean; onpages?: () => void } = $props();
 
   /** A step list on the key: normal, toggle off, long press, double tap, or one state ("s0"…). */
   type Which = "on" | "off" | "long" | "double" | `s${number}`;
@@ -596,6 +596,7 @@
       </label>
     {/if}
     <p class="hint">{t("Select a key to edit it, or drop an action on an empty cell.")}</p>
+    {#if onpages}<button class="btn" onclick={onpages}><Icon name="layers" size={18} />{t("All pages")}</button>{/if}
     <button class="btn danger" onclick={() => deletePage(pg.id)} disabled={!pg.folder && (profile()?.pages.filter((p) => !p.folder).length ?? 0) <= 1}>
       <Icon name="trash-2" size={18} />{t("Delete page")}
     </button>

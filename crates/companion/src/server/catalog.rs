@@ -9,6 +9,10 @@ pub fn core_actions() -> Value {
             list.push(json!({ "id": "core.nowplaying", "group": "Media", "name": "Now playing", "icon": "disc-3", "description": "track and cover", "settings": { "type": "object", "properties": {
                 "op": { "type": "string", "title": "On press", "enum": ["toggle", "next", "previous"], "enumNames": ["Play or pause", "Next track", "Previous track"], "default": "toggle" },
                 "cover": { "type": "boolean", "title": "Show the cover", "default": true } } } }));
+            // Play or pause keys can follow the player too.
+            if let Some(props) = list.iter_mut().find(|a| a["id"] == "core.media").and_then(|a| a.pointer_mut("/settings/properties")).and_then(Value::as_object_mut) {
+                props.insert("track".into(), json!({ "type": "boolean", "title": "Show the song", "description": "Cover, title and artist from whatever is playing.", "default": false, "x-showWhen": { "key": ["play"] } }));
+            }
         }
         if cfg!(any(target_os = "linux", all(windows, feature = "appaudio"))) {
             let app = json!({ "type": "string", "title": "App", "x-options": "dynamic", "description": "Apps appear here once they've played sound." });

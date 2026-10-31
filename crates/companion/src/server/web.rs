@@ -9,14 +9,14 @@ use axum::response::{IntoResponse, Response};
 #[allow_missing = true]
 struct Client;
 
-/// Content-Security-Policy for every page. `frame` lists origins allowed in iframes
-/// (the Stream Deck settings panels on the local editor).
+/// Content-Security-Policy for every page. Frames may show this server (overlay previews)
+/// and `frame` (the Stream Deck settings panels on the local editor).
 pub fn csp(frame: Option<&str>) -> String {
     format!(
         "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; \
          connect-src 'self' ws: wss:; media-src 'self' data:; worker-src 'self'; manifest-src 'self'; object-src 'none'; \
-         base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src {}",
-        frame.unwrap_or("'none'")
+         base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src 'self' {}",
+        frame.unwrap_or("")
     )
 }
 
@@ -33,6 +33,12 @@ pub fn secure_headers(h: &mut HeaderMap, frame: Option<&str>) {
     set(h, header::HeaderName::from_static("cross-origin-opener-policy"), "same-origin");
     set(h, header::HeaderName::from_static("cross-origin-resource-policy"), "same-origin");
     set(h, header::HeaderName::from_static("permissions-policy"), "camera=(self), microphone=(), geolocation=(), usb=(), payment=()");
+}
+
+/// Path of a bundled font file, like `inter-latin-wght-normal` to `assets/inter-latin-wght-normal-<hash>.woff2`.
+pub fn font_file(name: &str) -> Option<String> {
+    let start = format!("assets/{name}-");
+    Client::iter().find(|f| f.strip_prefix(&start).and_then(|rest| rest.strip_suffix(".woff2")).is_some_and(|hash| !hash.is_empty() && !hash.contains('/'))).map(|f| f.into_owned())
 }
 
 fn mime(path: &str) -> &'static str {

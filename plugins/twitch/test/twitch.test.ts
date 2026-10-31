@@ -204,6 +204,29 @@ test("tags chat with roles and passes channel point redemptions on", async () =>
   await tw.close();
 });
 
+test("takes deleted messages, timed out viewers and cleared chat off the feed", async () => {
+  const tw = await fakeTwitch();
+  const h = createTestHost(plugin, { connection: { clientId: "abc", session: session("good") }, prefix: "twitch" });
+  await h.start();
+  await eventually(() => tw.api.hits.some((x) => x.body?.type === "channel.chat.clear"));
+  for (const type of ["channel.chat.message_delete", "channel.chat.clear_user_messages", "channel.chat.clear"]) {
+    assert.deepEqual(tw.api.hits.find((x) => x.body?.type === type)?.body.condition, { broadcaster_user_id: "42", user_id: "42" });
+  }
+  const note = (type: string, event: object) => tw.es.broadcast({ metadata: { message_type: "notification", subscription_type: type }, payload: { event } });
+
+  note("channel.chat.message", { message_id: "m1", chatter_user_name: "Moss", message: { text: "spam" } });
+  await eventually(() => h.feed("chat").length === 1);
+  assert.equal(h.feed("chat")[0].id, "m1");
+  note("channel.chat.message_delete", { message_id: "m1", target_user_name: "Moss" });
+  note("channel.chat.clear_user_messages", { target_user_name: "Moss", target_user_login: "moss" });
+  note("channel.chat.clear", {});
+  await eventually(() => h.unfeeds("chat").length === 3);
+  assert.deepEqual(h.unfeeds("chat"), [{ ids: ["m1"] }, { author: "Moss" }, { all: true }]);
+
+  await h.stop();
+  await tw.close();
+});
+
 test("works out roles from badges", () => {
   assert.deepEqual(roles({ badges: [{ set_id: "vip" }, { set_id: "founder" }] }), ["vip", "sub"]);
   assert.deepEqual(roles({ badges: [], chatter_user_id: "42", broadcaster_user_id: "42" }), ["broadcaster"]);

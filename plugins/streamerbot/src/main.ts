@@ -141,7 +141,22 @@ function onEvent(source: string, type: string, d: any) {
   const platform = PLATFORMS.has(source.toLowerCase()) ? source.toLowerCase() : undefined;
   if (type === "ChatMessage" || (source === "YouTube" && type === "Message")) {
     const body = text(msg.message) || text(d?.text) || text(d?.message);
-    if (body) host.feed("chat", { author: who, text: body.slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(msg.color ?? "") ? msg.color : undefined, kind: "chat", source: platform, roles: roles(d) });
+    const id = text(d?.messageId) || text(msg.msgId) || (source === "YouTube" ? text(d?.eventId) : "");
+    if (body) host.feed("chat", { id: id || undefined, author: who, text: body.slice(0, 500), color: /^#[0-9a-f]{6}$/i.test(msg.color ?? "") ? msg.color : undefined, kind: "chat", source: platform, roles: roles(d) });
+    return;
+  }
+  if (type === "ChatMessageDeleted" || type === "MessageDeleted") {
+    const id = text(d?.messageId) || text(d?.targetMessageId) || text(d?.deletedMessageId);
+    if (id) host.unfeed("chat", { ids: [id] });
+    return;
+  }
+  if (type === "UserBanned" || /^UserTimed[Oo]ut$/.test(type)) {
+    const target = text(d?.targetUser?.name) || text(d?.targetUser?.login) || text(d?.user_name) || text(d?.userName);
+    if (target) host.unfeed("chat", { author: target });
+    return;
+  }
+  if (type === "ChatCleared") {
+    host.unfeed("chat", { all: true });
     return;
   }
   if (type === "RewardRedemption") {
@@ -218,16 +233,23 @@ async function hello(m: any) {
     ready = true;
     sock.healthy();
     await loadActions();
-    const events: Record<string, string[]> = { General: ["Custom"], Misc: ["GlobalVariableUpdated"] };
+    const events: Array<[string, string[]]> = [
+      ["General", ["Custom"]],
+      ["Misc", ["GlobalVariableUpdated"]],
+    ];
     if (setting(host.connection, "chat", true)) {
-      Object.assign(events, {
-        Twitch: ["ChatMessage", "Follow", "Sub", "ReSub", "GiftSub", "GiftBomb", "Cheer", "Raid", "RewardRedemption"],
-        YouTube: ["Message", "NewSubscriber", "SuperChat", "NewSponsor"],
-        Kick: ["ChatMessage", "Follow", "Subscription", "Resubscription", "GiftSubscription", "MassGiftSubscription"],
-      });
+      events.push(
+        ["Twitch", ["ChatMessage", "Follow", "Sub", "ReSub", "GiftSub", "GiftBomb", "Cheer", "Raid", "RewardRedemption"]],
+        ["YouTube", ["Message", "NewSubscriber", "SuperChat", "NewSponsor"]],
+        ["Kick", ["ChatMessage", "Follow", "Subscription", "Resubscription", "GiftSubscription", "MassGiftSubscription"]],
+        // Moderation, to take lines off the chat feed. Separate, since older versions lack some of these.
+        ["Twitch", ["ChatMessageDeleted", "ChatCleared", "UserTimedOut", "UserBanned"]],
+        ["YouTube", ["MessageDeleted", "UserBanned", "UserTimedout"]],
+        ["Kick", ["UserBanned", "UserTimedOut"]],
+      );
     }
-    // One request per source, so an event this version doesn't know can't block the rest.
-    for (const [source, types] of Object.entries(events)) {
+    // A few events per request, so an event this version doesn't know can't block the rest.
+    for (const [source, types] of events) {
       await request("Subscribe", { events: { [source]: types } }).catch(() => {});
     }
     await loadGlobals();

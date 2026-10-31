@@ -336,6 +336,7 @@ function onEvent(type: string, e: any) {
     case "channel.chat.message":
       if (showChat)
         host.feed("chat", {
+          id: e.message_id ? String(e.message_id) : undefined,
           author: who,
           text: String(e.message?.text ?? "").slice(0, 500),
           color: /^#[0-9a-f]{6}$/i.test(e.color ?? "") ? e.color : undefined,
@@ -343,6 +344,16 @@ function onEvent(type: string, e: any) {
           source,
           roles: roles(e),
         });
+      return;
+    // Moderators deleting messages, timing out or banning someone, or clearing chat.
+    case "channel.chat.message_delete":
+      if (e.message_id) host.unfeed("chat", { ids: [String(e.message_id)] });
+      return;
+    case "channel.chat.clear_user_messages":
+      if (e.target_user_name) host.unfeed("chat", { author: String(e.target_user_name) });
+      return;
+    case "channel.chat.clear":
+      host.unfeed("chat", { all: true });
       return;
     case "channel.channel_points_custom_reward_redemption.add": {
       const title = String(e.reward?.title ?? "").slice(0, 100);
@@ -444,6 +455,9 @@ function subscriptions(user: string): Array<[string, string, Record<string, stri
   const b = { broadcaster_user_id: user };
   return [
     ["channel.chat.message", "1", { ...b, user_id: user }],
+    ["channel.chat.message_delete", "1", { ...b, user_id: user }],
+    ["channel.chat.clear_user_messages", "1", { ...b, user_id: user }],
+    ["channel.chat.clear", "1", { ...b, user_id: user }],
     ["channel.chat_settings.update", "1", { ...b, user_id: user }],
     ["channel.channel_points_custom_reward_redemption.add", "1", b],
     ["channel.follow", "2", { ...b, moderator_user_id: user }],

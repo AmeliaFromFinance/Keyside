@@ -97,6 +97,16 @@ export interface FeedPush extends Omit<FeedItem, "at"> {
   reward?: string;
   /** What the viewer typed with a redemption. */
   input?: string;
+  /** Message id from the chat service, for feed.remove. Up to 100 characters. */
+  id?: string;
+}
+
+/** Lines to take off a feed. A line goes if it matches any of these. */
+export interface FeedRemove {
+  feed: string;
+  ids?: string[];
+  author?: string;
+  all?: boolean;
 }
 
 /** A placed key using one of the plugin's actions. */
@@ -133,6 +143,7 @@ export interface PluginToHost {
   "key.set": { params: { instance: string; view: Partial<Omit<KeyView, "id" | "kind" | "x" | "y" | "w" | "h" | "lines">> | null }; result: void };
   "var.set": { params: { name: string; value: VarValue }; result: void };
   "feed.push": { params: { feed: string; item: FeedPush }; result: void };
+  "feed.remove": { params: FeedRemove; result: void };
   "status.set": { params: { state: "connected" | "connecting" | "offline" | "error"; detail?: string; pills?: Array<{ label: string; tone?: string; since?: number }> }; result: void };
   toast: { params: { text: string; tone?: "default" | "success" | "warning" | "danger" }; result: void };
   log: { params: { level: "debug" | "info" | "warn" | "error"; message: string }; result: void };

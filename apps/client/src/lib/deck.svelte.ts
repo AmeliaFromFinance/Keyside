@@ -26,6 +26,8 @@ export const deck = $state({
   lockReason: "" as string,
   retryAfter: 0,
   profile: null as { id: string; name: string } | null,
+  /** Layouts this device may switch to. */
+  profiles: [] as Array<{ id: string; name: string }>,
   page: null as PageView | null,
   rev: 0,
   connections: [] as ConnectionView[],
@@ -99,6 +101,7 @@ function handle(m: any) {
     case "page":
       deck.page = m.page;
       deck.profile = m.profile;
+      deck.profiles = m.profiles ?? [];
       deck.rev = m.rev;
       break;
     case "keys":
@@ -166,6 +169,10 @@ export function slide(key: string, value: number) {
 
 export function nav(to: "next" | "prev" | "back" | "home" | "page", page?: string) {
   conn?.send({ t: "nav", to, page });
+}
+
+export function switchProfile(profile: string) {
+  conn?.send({ t: "nav", to: "profile", profile });
 }
 
 export function unlock(pin: string) {

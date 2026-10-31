@@ -8,6 +8,8 @@
   let { apps, admin, phones, onsetup, ondevices }: { apps: App[]; admin: boolean; phones: number; onsetup: (id: string) => void; ondevices: () => void } = $props();
 
   let open = $state(false);
+  // Hover opened it, so the click that follows keeps it open rather than closing it.
+  let hovered = false;
   let root: HTMLElement;
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Hover only opens on a mouse. Touch and keyboard use the click.
@@ -31,15 +33,17 @@
   function enter() {
     if (!hoverable) return;
     clearTimeout(timer);
+    if (!open) hovered = true;
     open = true;
   }
   function leave() {
     if (!hoverable) return;
     clearTimeout(timer);
-    timer = setTimeout(() => (open = false), 250);
+    timer = setTimeout(() => ((open = false), (hovered = false)), 250);
   }
   function pick(fn: () => void) {
     open = false;
+    hovered = false;
     fn();
   }
 </script>
@@ -50,7 +54,7 @@
 />
 
 <div class="conn" bind:this={root} role="group" onpointerenter={enter} onpointerleave={leave}>
-  <button class="chip" aria-label={t("Connected apps and phones")} aria-expanded={open} aria-haspopup="true" onclick={() => (open = !open)}>
+  <button class="chip" aria-label={t("Connected apps and phones")} aria-expanded={open} aria-haspopup="true" onclick={() => ((open = hovered || !open), (hovered = false))}>
     <span class="dot" class:ok={tone === "ok"} class:busy={tone === "busy"} class:bad={tone === "bad"}></span>
     <span class="txt">{rows.length ? t("{n} of {total} apps", { n: up, total: rows.length }) : t("Apps")}</span>
     {#if admin}<span class="sep"></span><Icon name="smartphone" size={16} /><span class="mono">{phones}</span>{/if}

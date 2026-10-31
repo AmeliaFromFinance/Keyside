@@ -164,6 +164,25 @@ fn show(app: &App, t: Option<&Track>, art: Option<&str>) {
         };
         e.set_override(&inst.id, Some(patch));
     }
+    // Play or pause media keys show the state, and the song if asked.
+    for inst in e.instances_of("core.media") {
+        if inst.settings.get("key").and_then(Value::as_str).unwrap_or("play") != "play" {
+            continue;
+        }
+        let song = inst.settings.get("track").and_then(Value::as_bool).unwrap_or(false);
+        e.set_override(&inst.id, t.map(|t| media_key(t, song, art)));
+    }
+}
+
+/// A play icon while playing, pause while paused. With `song`, also the title, artist and cover.
+fn media_key(t: &Track, song: bool, art: Option<&str>) -> ViewPatch {
+    let mut p = ViewPatch { icon: Some(if t.playing { "play" } else { "pause" }.into()), ..Default::default() };
+    if song {
+        p.label = Some(if t.title.is_empty() { t.player.clone() } else { t.title.clone() });
+        p.sub = Some(if t.artist.is_empty() { t.player.clone() } else { t.artist.clone() });
+        p.image = art.map(str::to_string);
+    }
+    p
 }
 
 /// Shrinks a cover to a small JPEG data URL for keys.
@@ -223,6 +242,18 @@ mod tests {
         assert_eq!(super::fetch_art(&url, &http).await.as_deref(), Some(&b"img"[..]));
         assert!(super::fetch_art("http://192.168.1.1/x.jpg", &http).await.is_none(), "plain http is refused");
         assert!(super::fetch_art("ftp://x/y", &http).await.is_none());
+    }
+
+    #[test]
+    fn media_keys_follow_the_player() {
+        let t = super::Track { player: "Spotify".into(), title: "Song".into(), artist: "Band".into(), playing: true, ..Default::default() };
+        let p = super::media_key(&t, false, Some("data:x"));
+        assert_eq!(p.icon.as_deref(), Some("play"));
+        assert!(p.label.is_none() && p.image.is_none(), "the label stays unless the song is asked for");
+        let paused = super::Track { playing: false, artist: String::new(), ..t };
+        let p = super::media_key(&paused, true, Some("data:x"));
+        assert_eq!(p.icon.as_deref(), Some("pause"));
+        assert_eq!((p.label.as_deref(), p.sub.as_deref(), p.image.as_deref()), (Some("Song"), Some("Spotify"), Some("data:x")));
     }
 
     #[test]

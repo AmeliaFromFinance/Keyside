@@ -62,7 +62,7 @@ export function dashboardPage(plugins: DashPlugin[], id: string, t: (text: strin
   const keys: Key[] = list.map((tile, i) => ({ ...tile, label: t(tile.label), id: `d${i}`, x: i % COLS, y: Math.floor(i / COLS) }));
   let rows = Math.ceil(keys.length / COLS);
   if (chat) {
-    keys.push({ id: "chat", kind: "widget", label: t("Chat"), icon: "message-square", x: 0, y: rows, w: COLS, h: 2, actions: [], widget: { feed: `${chat.prefix}.chat`, lines: 6 } });
+    keys.push({ id: "chat", kind: "widget", label: t("Chat"), icon: "message-square", x: 0, y: rows, w: COLS, h: 2, actions: [], widget: { feed: `${chat.prefix}.chat` } });
     rows += 2;
   }
   return { id, name: t("Dashboard"), cols: COLS, rows: Math.min(12, Math.max(rows, 2)), keys };

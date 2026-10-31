@@ -2,7 +2,8 @@
   // Chat triggers: a chat command, keyword or channel point reward presses a key.
   import type { Trigger } from "@keyside/protocol";
   import Icon from "../components/Icon.svelte";
-  import { ed, change, newId } from "./state.svelte.ts";
+  import Choose from "./Choose.svelte";
+  import { ed, change, newId, keySteps } from "./state.svelte.ts";
   import { t, mark } from "../lib/i18n.svelte.ts";
 
   const kinds: Array<[Trigger["kind"], string, string]> = [
@@ -23,13 +24,13 @@
     ["broadcaster", mark("Only me")],
   ];
 
-  /** Every key with steps, as "Layout · Page · Key". */
+  /** Every key with steps. */
   const keys = $derived(
     (ed.layout?.profiles ?? []).flatMap((p) =>
       p.pages.flatMap((pg) =>
         pg.keys
-          .filter((k) => k.actions.length || k.offActions?.length)
-          .map((k) => ({ value: `${p.id}/${pg.id}/${k.id}`, label: [p.name, pg.name, k.label || t("Untitled key")].join(" · ") })),
+          .filter((k) => keySteps(k).length)
+          .map((k) => ({ value: `${p.id}/${pg.id}/${k.id}`, label: k.label || t("Untitled key"), hint: `${p.name} · ${pg.name}`, icon: k.icon })),
       ),
     ),
   );
@@ -107,13 +108,10 @@
           }}
         />
       </label>
-      <label class="field key">
+      <div class="field key">
         <span>{t("Press this key")}</span>
-        <select value={target(tr)} onchange={(e) => retarget(tr.id, e.currentTarget.value)}>
-          {#if missing}<option value={target(tr)}>{t("Deleted key")}</option>{/if}
-          {#each keys as k (k.value)}<option value={k.value}>{k.label}</option>{/each}
-        </select>
-      </label>
+        <Choose label={t("Press this key")} value={target(tr)} choices={keys} placeholder={t("Deleted key")} onpick={(v) => retarget(tr.id, v)} />
+      </div>
     </div>
     {#if missing}<p class="warn">{t("The key for this trigger is gone. Pick another one.")}</p>{/if}
     {#if !tr.match.trim()}<p class="warn">{t("Fill in what to listen for.")}</p>{/if}

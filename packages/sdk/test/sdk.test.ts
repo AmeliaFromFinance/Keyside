@@ -49,3 +49,16 @@ test("keys that were removed can't be updated", async () => {
   assert.equal(h.view("k1"), undefined);
   await h.stop();
 });
+
+test("unfeed sends ids in batches of 100", async () => {
+  let host: any;
+  const h = createTestHost(definePlugin({ start: (x) => void (host = x), actions: {} }));
+  await h.start();
+  host.unfeed("chat", { ids: Array.from({ length: 150 }, (_, i) => `m${i}`), author: "moss" });
+  host.unfeed("chat", { all: true });
+  host.unfeed("chat", { ids: [] });
+  await h.settle();
+  const sent = h.unfeeds("chat");
+  assert.deepEqual(sent.map((m) => [m.ids?.length, m.author, m.all]), [[100, "moss", undefined], [50, undefined, undefined], [undefined, undefined, true]]);
+  await h.stop();
+});
