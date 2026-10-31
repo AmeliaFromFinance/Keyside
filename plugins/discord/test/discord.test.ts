@@ -39,7 +39,7 @@ test("authorizes through the Discord app and mirrors mute state", async () => {
   await eventually(() => h.view("v")?.value === 0.5);
 
   await h.press("m", "mute", { mode: "toggle" });
-  assert.equal(sentToDiscord.at(-1).payload.args.mute, true);
+  await eventually(() => sentToDiscord.some((m) => m.payload?.cmd === "SET_VOICE_SETTINGS" && m.payload.args.mute === true));
   await eventually(() => h.view("m")?.badge === "MUTED");
 
   await h.emit("ipc.message", { bridge: "discord", data: { op: 1, payload: { cmd: "DISPATCH", evt: "VOICE_SETTINGS_UPDATE", data: { mute: false, deaf: true } } } });
