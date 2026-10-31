@@ -14,6 +14,7 @@
   import Styles from "./Styles.svelte";
   import Triggers from "./Triggers.svelte";
   import Splitter from "./Splitter.svelte";
+  import Connections from "./Connections.svelte";
   import KeySearch from "./KeySearch.svelte";
   import PushReview from "./PushReview.svelte";
   import TemplateSave from "./TemplateSave.svelte";
@@ -26,7 +27,6 @@
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
   import { zoomControls } from "../lib/zoom.ts";
-  import { plain } from "../lib/rich.ts";
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
@@ -216,7 +216,6 @@
   const pills = $derived(
     plugins
       .filter((p) => p.status !== "disabled" && usedPlugins.has(p.id))
-      .slice(0, 3)
       .map((p) => ({ ...p, port: typeof p.values?.port === "number" ? p.values.port : null })),
   );
 </script>
@@ -238,14 +237,7 @@
       </select>
     </label>
     <div class="pills">
-      {#each pills as p (p.id)}
-        {@const live = deck.connections.find((c) => c.id === p.id)}
-        {@const st = live?.status ?? p.status}
-        <svelte:element this={admin ? "button" : "span"} class="chip" title={live?.detail ? plain(live.detail) : undefined} onclick={admin ? () => (ed.setup = p.id) : undefined} role={admin ? undefined : "status"}>
-          <span class="dot" class:ok={st === "connected"} class:busy={st === "connecting"} class:bad={st === "error"}></span>{p.name}{#if p.port}<span class="mono port">:{p.port}</span>{/if}
-        </svelte:element>
-      {/each}
-      {#if admin}<span class="chip phones" title={t("{n} phones online", { n: devicesOnline })}><span class="dot" class:ok={devicesOnline > 0}></span><Icon name="smartphone" size={16} /><span class="mono">{devicesOnline}</span></span>{/if}
+      <Connections apps={pills} {admin} phones={devicesOnline} onsetup={(id) => (ed.setup = id)} ondevices={() => (panel = "devices")} />
     </div>
     <div class="actions">
       {#if ed.dirty}
@@ -256,7 +248,7 @@
       <button class="btn icon ghost" aria-label={t("Search all keys")} title={t("Search all keys ({shortcut})", { shortcut: /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl+K" })} disabled={!loaded} onclick={() => (panel = "search")}><Icon name="search" /></button>
       <button class="btn icon ghost" aria-label={t("Undo")} title={t("Undo")} disabled={!canUndo()} onclick={undo}><Icon name="undo-2" /></button>
       <button class="btn icon ghost" aria-label={t("Redo")} title={t("Redo")} disabled={!canRedo()} onclick={redo}><Icon name="redo-2" /></button>
-      <button class="btn" onclick={() => (panel = "share")}>{t("Import")}</button>
+      <button class="btn import" onclick={() => (panel = "share")}>{t("Import")}</button>
       <button class="btn primary" onclick={() => (panel = "push")} disabled={!ed.dirty || ed.pushing}>{ed.pushing ? t("Pushing…") : t("Push to phones")}</button>
       <button class="btn icon" aria-label={t("More")} aria-expanded={menu} onclick={() => (menu = !menu)}><Icon name="settings" /></button>
     </div>
@@ -407,39 +399,19 @@
   }
   .pills {
     display: flex;
-    gap: 8px;
     flex: 1;
     min-width: 0;
-    overflow: hidden;
   }
-  .pills .chip {
-    background: var(--bg);
-    font: inherit;
-    color: inherit;
-    white-space: nowrap;
-    min-width: 0;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  button.chip {
-    border: 1px solid transparent;
-    cursor: pointer;
-  }
-  button.chip:hover {
-    border-color: var(--line);
-  }
-  .port {
-    color: var(--muted);
-  }
-  .chip.phones {
-    flex-shrink: 0;
-    gap: 6px;
-  }
-  /* Room for the app names on smaller screens. The bright Push button already shows a draft. */
-  @media (max-width: 1699px) {
-    .port,
+  /* Hide the save note on smaller screens. The bright Push button already shows a draft. */
+  @media (max-width: 1399px) {
     .saved {
+      display: none;
+    }
+  }
+  /* Import stays in the menu under Share and gallery. */
+  @media (max-width: 1199px) {
+    .import,
+    .brand .sub {
       display: none;
     }
   }
@@ -642,9 +614,6 @@
     .burger {
       display: inline-flex;
     }
-    .pills {
-      display: none;
-    }
   }
   @media (max-width: 767px) {
     .panes {
@@ -666,7 +635,7 @@
       border: none;
       padding: 0;
     }
-    .saved {
+    .pills {
       display: none;
     }
     .top {

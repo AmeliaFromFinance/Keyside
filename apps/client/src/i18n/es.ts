@@ -847,4 +847,10 @@ export default {
   "Paired devices: {n}": "Dispositivos vinculados: {n}",
   "1 change": "1 cambio",
   "Which apps do you use?": "¿Qué apps usas?",
+  "Connected": "Conectado",
+  "Not connected": "Sin conectar",
+  "Can't connect": "No se puede conectar",
+  "{n} of {total} apps": "{n} de {total} apps",
+  "No apps in this layout yet.": "Aún no hay apps en este diseño.",
+  "Connected apps and phones": "Apps y móviles conectados",
 } as Record<string, string>;

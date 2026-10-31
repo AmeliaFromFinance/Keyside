@@ -29,7 +29,8 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Plugins only run while a key uses them. Phones get only the keys that changed after a push, and no longer download the editor or other languages.
 - Plugin SDK: feed items can carry kind, source, author roles and reward details for chat triggers.
 - Phone: messages float above the keys instead of shrinking them.
-- Editor: the top bar stays readable on narrower screens.
+- Editor: connected apps and phones sit in one compact button at the top. Hover or click it to see each app, its port and status, and click one to set it up.
+- Editor: the top bar stays on one line down to 900 px wide.
 - Plugin permissions no longer show a raw {host}:{port} placeholder.
 - New screenshots in the README and on the website.
 - "Export JSON" moved into the editor menu.
