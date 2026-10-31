@@ -146,7 +146,7 @@ pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, list: Step
                     app.ran.lock().insert(key_path(&ctx.profile, &ctx.page, &ctx.key), ran.clone());
                 }
                 if let Err(e) = app.plugins.run(&plugin, steps, "press", &ctx.device).await {
-                    app.engine.lock().toast(e, Tone::Danger);
+                    app.engine.lock().failed(key_path(&ctx.profile, &ctx.page, &ctx.key), e);
                     return;
                 }
             }
@@ -158,7 +158,7 @@ pub async fn run_steps(app: Arc<App>, ctx: Ctx, actions: Vec<Action>, list: Step
                     Ok(None) => {}
                     Err(e) => {
                         tracing::info!(action = %step.kind, "step failed: {e}");
-                        app.engine.lock().toast(e, Tone::Danger);
+                        app.engine.lock().failed(key_path(&ctx.profile, &ctx.page, &ctx.key), e);
                         return;
                     }
                 }

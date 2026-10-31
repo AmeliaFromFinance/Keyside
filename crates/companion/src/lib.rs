@@ -25,6 +25,7 @@ pub mod streamdeck;
 pub mod templates;
 pub mod tokens;
 pub mod triggers;
+pub mod updates;
 
 use std::sync::Arc;
 
@@ -51,6 +52,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     #[cfg(any(target_os = "linux", all(windows, feature = "appaudio")))]
     actions::appaudio::spawn(app.clone());
     focus::spawn(app.clone());
+    updates::spawn(app.clone());
 
     // Keep plugins in step with layout changes, and save user variables and key states a
     // little after they change. Plugins run only while a key uses them, or for a while after

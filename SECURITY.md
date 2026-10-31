@@ -16,6 +16,8 @@ Only the latest release gets security fixes.
 
 **Access levels.** Each device is either deck only, editor, or moderator (chosen pages only). Revoking a device in the editor disconnects it straight away. Steps that start programs can only be added on the PC itself, and hotkey or typing steps added from another device stay off until you approve them on the PC.
 
+**HTTPS on your network.** The PC makes its own small certificate authority and uses it to sign the certificate browsers see. The authority is limited to local network addresses (private, link-local, Tailscale and `.local` names), so even if someone copied it from your PC, it couldn't vouch for any other website. Installing it on a phone (the iPhone profile in the deck settings) is optional. It removes the certificate warning and lets iPhones add Keyside to the Home Screen.
+
 **The editor.** The full editor only listens on `127.0.0.1`. It checks the `Host` header (against DNS rebinding) and the request origin (against other websites in your browser), and sign-in needs a link only the desktop app or `keyside open` can produce.
 
 **Plugins.** Each plugin runs in its own [Deno](https://deno.com) process with:

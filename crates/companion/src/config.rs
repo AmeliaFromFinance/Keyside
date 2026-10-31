@@ -62,6 +62,8 @@ pub struct Settings {
     pub editor_zoom: Option<f64>,
     /// The first-run setup was finished or skipped.
     pub setup_done: bool,
+    /// Ask GitHub once a day for a newer version.
+    pub update_check: bool,
 }
 
 impl Default for Settings {
@@ -80,6 +82,7 @@ impl Default for Settings {
             locale: "en".into(),
             editor_zoom: None,
             setup_done: false,
+            update_check: true,
         }
     }
 }

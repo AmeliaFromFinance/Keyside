@@ -27,6 +27,7 @@ Keyside only talks to:
 - **Your own devices** on your network (or your Tailscale network if you set that up).
 - **The apps and services your plugins connect to**, using the details you enter. For example the Twitch plugin talks to Twitch, the OBS plugin talks to OBS. Each plugin can only reach the hosts listed in its permissions.
 - **The plugin and layout registry**, a public file on GitHub, only when you open *Browse plugins* or *Browse layouts*.
+- **GitHub, once a day**, to see whether a newer Keyside is out. Only the request itself goes out, nothing about you or your setup. Turn it off in Settings.
 
 Webhook, WebSocket, OSC and UDP keys send exactly what you set up, to where you set it up.
 

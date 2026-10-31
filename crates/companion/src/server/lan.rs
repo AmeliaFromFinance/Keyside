@@ -16,7 +16,7 @@ use axum::Router;
 use axum::extract::connect_info::Connected;
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Request, State};
-use axum::http::{StatusCode, Uri, header};
+use axum::http::{HeaderValue, StatusCode, Uri, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
@@ -168,7 +168,11 @@ async fn device_ws(State(app): State<Arc<App>>, ConnectInfo(peer): ConnectInfo<P
 /// The web deck needs HTTPS (browsers only allow its crypto there). Plain requests are redirected.
 async fn fallback(ConnectInfo(peer): ConnectInfo<Peer>, State(app): State<Arc<App>>, req: Request) -> Response {
     if peer.tls {
-        return web::serve(req.uri().clone(), None).await;
+        return match req.uri().path() {
+            "/keyside.mobileconfig" => certificate(&app, true),
+            "/keyside-ca.cer" => certificate(&app, false),
+            _ => web::serve(req.uri().clone(), None).await,
+        };
     }
     let port = app.settings.read().lan_port;
     let host = req.headers().get(header::HOST).and_then(|h| h.to_str().ok()).unwrap_or("");
@@ -182,6 +186,73 @@ async fn fallback(ConnectInfo(peer): ConnectInfo<Peer>, State(app): State<Arc<Ap
         Ok(u) => Redirect::permanent(&u.to_string()).into_response(),
         Err(_) => StatusCode::BAD_REQUEST.into_response(),
     }
+}
+
+/// The certificate authority, as an iPhone profile or a plain certificate for other phones.
+fn certificate(app: &App, profile: bool) -> Response {
+    let ca = app.tls_ca.read().clone();
+    if ca.is_empty() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let (body, kind, file) = if profile {
+        (mobileconfig(&ca, &app.settings.read().name).into_bytes(), "application/x-apple-aspen-config", "keyside.mobileconfig")
+    } else {
+        (ca, "application/x-x509-ca-cert", "keyside-ca.cer")
+    };
+    let mut r = (StatusCode::OK, body).into_response();
+    let h = r.headers_mut();
+    web::secure_headers(h, None);
+    h.insert(header::CONTENT_TYPE, HeaderValue::from_static(kind));
+    if let Ok(v) = HeaderValue::from_str(&format!("attachment; filename=\"{file}\"")) {
+        h.insert(header::CONTENT_DISPOSITION, v);
+    }
+    r
+}
+
+/// An iPhone configuration profile that installs the authority as a trusted root.
+pub(crate) fn mobileconfig(ca: &[u8], pc: &str) -> String {
+    use base64::Engine as _;
+    use sha2::Digest as _;
+    let hash = sha2::Sha256::digest(ca);
+    // Stable ids, so installing again replaces the old profile instead of adding another.
+    let uuid = |salt: u8| {
+        let b: Vec<u8> = hash.iter().map(|x| x ^ salt).take(16).collect();
+        format!(
+            "{:02X}{:02X}{:02X}{:02X}-{:02X}{:02X}-{:02X}{:02X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}",
+            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]
+        )
+    };
+    let esc = |s: &str| s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+    let pc = esc(&pc.chars().filter(|c| !c.is_control()).take(60).collect::<String>());
+    let data = base64::engine::general_purpose::STANDARD.encode(ca);
+    let (outer, inner) = (uuid(0), uuid(0x5a));
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadCertificateFileName</key><string>keyside-ca.cer</string>
+      <key>PayloadContent</key><data>{data}</data>
+      <key>PayloadDisplayName</key><string>Keyside local network</string>
+      <key>PayloadIdentifier</key><string>dev.keyside.ca.{inner}</string>
+      <key>PayloadType</key><string>com.apple.security.root</string>
+      <key>PayloadUUID</key><string>{inner}</string>
+      <key>PayloadVersion</key><integer>1</integer>
+    </dict>
+  </array>
+  <key>PayloadDescription</key><string>Lets this device open Keyside on {pc} without a certificate warning. It only covers local network addresses.</string>
+  <key>PayloadDisplayName</key><string>Keyside on {pc}</string>
+  <key>PayloadIdentifier</key><string>dev.keyside.profile.{outer}</string>
+  <key>PayloadType</key><string>Configuration</string>
+  <key>PayloadUUID</key><string>{outer}</string>
+  <key>PayloadVersion</key><integer>1</integer>
+</dict>
+</plist>
+"#
+    )
 }
 
 /// The inbound API on the LAN is opt-in and HTTPS only.

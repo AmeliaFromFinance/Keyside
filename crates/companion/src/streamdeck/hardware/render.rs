@@ -338,6 +338,7 @@ mod tests {
             state: None,
             disabled: false,
             lines: None,
+            trouble: None,
         }
     }
 

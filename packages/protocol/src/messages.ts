@@ -19,6 +19,8 @@ export type ServerMsg =
   | { t: "keys"; rev: number; page: string; keys: KeyView[] }
   | { t: "status"; connections: ConnectionView[]; pills: StatusPill[] }
   | { t: "toast"; text: string; tone: Tone; at: number }
+  /** A press of this key on the current page didn't work. */
+  | { t: "failed"; key: string }
   | { t: "pong"; ts: number }
   | { t: "result"; id: number; ok: true; data?: unknown }
   | { t: "result"; id: number; ok: false; error: { code: string; message: string } }

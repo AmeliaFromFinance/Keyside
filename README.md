@@ -92,7 +92,7 @@ Setup for each plugin is in [docs/plugins.md](docs/plugins.md).
 2. **Pair your phone.** In the editor, choose *Pair a phone* and scan the QR code. Check the 6-digit code matches on both screens, then approve.
 3. **Build your deck.** Drag actions onto keys and press *Push to phones*.
 
-The Android app and any modern browser work the same way. On iPhone and iPad, scan the code with the Camera app and Keyside opens in Safari. In a browser, accept the PC's certificate once when asked; the editor shows its fingerprint so you can check it.
+The Android app and any modern browser work the same way. On iPhone and iPad, scan the code with the Camera app and Keyside opens in Safari. To add it to the Home Screen, follow the steps in the deck settings. In a browser, accept the PC's certificate once when asked; the editor shows its fingerprint so you can check it.
 
 Away from home? See [remote access](docs/remote-access.md).
 

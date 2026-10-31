@@ -108,6 +108,9 @@ pub struct KeyView {
     pub disabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lines: Option<Vec<FeedItem>>,
+    /// An app this key needs that isn't connected, by name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trouble: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -161,6 +164,7 @@ pub fn base_view(key: &Key, pos: [u8; 4], folder_size: Option<usize>) -> KeyView
         state: None,
         disabled: false,
         lines: None,
+        trouble: None,
     };
     match key.kind {
         KeyKind::Folder => {

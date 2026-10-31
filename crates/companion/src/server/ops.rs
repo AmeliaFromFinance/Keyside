@@ -279,6 +279,10 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             *app.staged_backup.lock() = None;
             Ok(Value::Null)
         }
+        "update.get" => {
+            need_admin(who)?;
+            Ok(json!({ "current": env!("CARGO_PKG_VERSION"), "latest": *app.update.read() }))
+        }
         "settings.get" => {
             need_admin(who)?;
             Ok(serde_json::to_value(app.settings.read().clone()).unwrap_or(Value::Null))

@@ -65,6 +65,10 @@ pub struct App {
     pub ran: Mutex<HashMap<String, Vec<usize>>>,
     pub addresses: RwLock<Vec<IpAddr>>,
     pub tls_fingerprint: RwLock<String>,
+    /// The certificate authority behind the HTTPS certificate, for phones to install.
+    pub tls_ca: RwLock<Vec<u8>>,
+    /// A newer release, once the update check finds one.
+    pub update: RwLock<Option<crate::updates::Update>>,
     pub bundled_plugins: Option<PathBuf>,
     pub started: std::time::Instant,
     /// Signed-in local editor sessions (cookie value -> last use).
@@ -126,6 +130,8 @@ impl App {
             ran: Mutex::new(HashMap::new()),
             addresses: RwLock::new(Vec::new()),
             tls_fingerprint: RwLock::new(String::new()),
+            tls_ca: RwLock::new(Vec::new()),
+            update: RwLock::new(None),
             bundled_plugins: opts.bundled_plugins,
             started: std::time::Instant::now(),
             admin_sessions: Mutex::new(HashMap::new()),

@@ -205,6 +205,8 @@ export interface KeyView {
   disabled?: boolean;
   /** Widget lines, newest last. */
   lines?: FeedItem[];
+  /** An app this key needs that isn't connected, by name. */
+  trouble?: string;
 }
 
 export interface FeedItem {

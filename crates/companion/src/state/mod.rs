@@ -49,6 +49,8 @@ pub enum Change {
     Toast {
         text: String,
         tone: Tone,
+        /// The key whose press failed, as "profile/page/key".
+        key: Option<String>,
     },
     Revoked(String),
     /// A device's settings changed. It reconnects to pick them up.
@@ -169,7 +171,12 @@ impl Engine {
     }
 
     pub fn toast(&self, text: impl Into<String>, tone: Tone) {
-        self.notify(Change::Toast { text: text.into(), tone });
+        self.notify(Change::Toast { text: text.into(), tone, key: None });
+    }
+
+    /// A press that didn't work: a red toast, and the key flashes on the device showing it.
+    pub fn failed(&self, key: String, text: impl Into<String>) {
+        self.notify(Change::Toast { text: text.into(), tone: Tone::Danger, key: Some(key) });
     }
 
     /// Reads toggle and multi-state positions again, after a restore.
@@ -606,7 +613,16 @@ impl Engine {
         v.sub = v.sub.map(|s| view::template(&s, get));
         v.meta = v.meta.map(|s| view::template(&s, get));
         v.badge = v.badge.map(|s| view::template(&s, get));
+        v.trouble = self.trouble(key);
         v
+    }
+
+    /// The first app this key needs that has dropped its connection.
+    fn trouble(&self, key: &Key) -> Option<String> {
+        key.step_lists().flat_map(|(_, steps)| steps).filter_map(|a| a.plugin().map(|(p, _)| p)).find_map(|p| {
+            let c = self.connections.get(p)?;
+            matches!(c.status.as_str(), "offline" | "error").then(|| c.name.clone())
+        })
     }
 }
 
@@ -666,6 +682,24 @@ mod tests {
 
     fn view(e: &Engine) -> KeyView {
         e.page_view("main", "p1", FormFactor::PhonePortrait, None).unwrap().keys.remove(0)
+    }
+
+    #[test]
+    fn keys_say_when_their_app_is_not_connected() {
+        let (_t, mut e) = engine();
+        with_keys(
+            &mut e,
+            serde_json::json!([{ "id": "k", "x": 0, "y": 0, "kind": "button", "label": "Mute", "actions": [{ "type": "dev.keyside.obs/mute", "settings": {} }] }]),
+            serde_json::json!([]),
+        );
+        let status = |s: &str| ConnectionView { id: "dev.keyside.obs".into(), name: "OBS Studio".into(), status: s.into(), detail: None };
+        assert_eq!(view(&e).trouble, None, "no status yet");
+        e.set_connection(status("connecting"));
+        assert_eq!(view(&e).trouble, None, "still trying");
+        e.set_connection(status("offline"));
+        assert_eq!(view(&e).trouble.as_deref(), Some("OBS Studio"));
+        e.set_connection(status("connected"));
+        assert_eq!(view(&e).trouble, None);
     }
 
     #[test]

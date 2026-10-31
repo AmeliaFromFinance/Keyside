@@ -86,6 +86,7 @@ pub async fn start(app: Arc<App>) -> Result<()> {
     cert_ips.push(IpAddr::from([127, 0, 0, 1]));
     let tls = crate::crypto::tls::load_or_create(&app.paths.dir("tls")?, &cert_ips, &hostname)?;
     *app.tls_fingerprint.write() = tls.fingerprint.clone();
+    *app.tls_ca.write() = tls.ca.clone();
 
     admin::start(app.clone(), settings.admin_port).await?;
     if settings.lan_enabled {

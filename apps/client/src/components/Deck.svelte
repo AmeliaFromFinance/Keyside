@@ -24,6 +24,11 @@
   let localLock = $state(false);
   let settings = $state(false);
   let layouts = $state(false);
+  // iPhone and iPad in Safari, where Keyside can be added to the Home Screen.
+  const iosBrowser =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      ? !(navigator as { standalone?: boolean }).standalone && !(globalThis as { Capacitor?: unknown }).Capacitor
+      : false;
   let now = $state(Date.now());
   let lockTimer: ReturnType<typeof setTimeout> | null = null;
   let lockArming = $state(false);
@@ -265,6 +270,21 @@
     </select>
   </label>
   <label class="check"><input type="checkbox" bind:checked={awake} /> {t("Keep the screen on")}</label>
+  {#if iosBrowser}
+    <details class="install">
+      <summary><Icon name="smartphone" size={18} />{t("Add Keyside to your Home Screen")}</summary>
+      <ol>
+        <li>
+          {t("Install the Keyside profile. It lets this device trust your PC on the local network only.")}
+          <a class="btn small" href="/keyside.mobileconfig"><Icon name="download" size={16} />{t("Get the profile")}</a>
+        </li>
+        <li>{t("Open Settings, tap Profile Downloaded, then Install.")}</li>
+        <li>{t("In Settings, go to General → About → Certificate Trust Settings and turn on Keyside local network.")}</li>
+        <li>{t("Back here, tap Share, then Add to Home Screen.")}</li>
+        <li>{t("Open Keyside from your Home Screen and pair it again with the code on the PC.")}</li>
+      </ol>
+    </details>
+  {/if}
   {#if canEdit && onedit}
     <button class="btn" onclick={() => ((settings = false), onedit())}><Icon name="pen" />{t("Edit layout")}</button>
   {/if}
@@ -556,5 +576,31 @@
   .layout.on {
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .install {
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .install summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .install ol {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 12px 0 0;
+    padding-left: 20px;
+    color: var(--muted);
+  }
+  .install a.btn {
+    display: flex;
+    width: fit-content;
+    margin-top: 8px;
+    text-decoration: none;
   }
 </style>

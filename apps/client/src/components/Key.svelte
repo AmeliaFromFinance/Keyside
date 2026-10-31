@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { KeyView } from "@keyside/protocol";
   import Icon from "./Icon.svelte";
-  import { assetImage } from "../lib/deck.svelte.ts";
+  import { assetImage, deck } from "../lib/deck.svelte.ts";
   import { clock, everySecond } from "../lib/format.ts";
   import { haptic } from "../lib/native.ts";
   import { t } from "../lib/i18n.svelte.ts";
@@ -169,6 +169,17 @@
       onup?.(view.id, false);
     }
   }
+
+  // A press that didn't work flashes the key red for a moment.
+  let failed = $state(false);
+  $effect(() => {
+    const f = deck.failed;
+    if (!f || f.key !== view.id || Date.now() - f.at > 2000) return;
+    failed = true;
+    haptic("medium");
+    const timer = setTimeout(() => (failed = false), 900);
+    return () => clearTimeout(timer);
+  });
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -183,9 +194,12 @@
   class:holding={holdStart > 0}
   class:tall
   class:feed={!!view.lines}
+  class:trouble={!!view.trouble}
+  class:failed
   role={view.kind === "slider" ? "slider" : "button"}
   tabindex="0"
-  aria-label={[view.label, view.sub, view.badge].filter(Boolean).join(", ")}
+  aria-label={[view.label, view.sub, view.badge, view.trouble && t("{app} isn't connected", { app: view.trouble })].filter(Boolean).join(", ")}
+  title={view.trouble ? t("{app} isn't connected", { app: view.trouble }) : undefined}
   aria-valuenow={view.kind === "slider" ? Math.round(value * 100) : undefined}
   aria-valuemin={view.kind === "slider" ? 0 : undefined}
   aria-valuemax={view.kind === "slider" ? 100 : undefined}
@@ -211,7 +225,9 @@
     <span class="icon">
       {#if plainIcon}<Icon name={plainIcon} />{/if}
     </span>
-    {#if view.badge}
+    {#if view.trouble}
+      <span class="warn" aria-hidden="true"><Icon name="triangle-alert" size={18} /></span>
+    {:else if view.badge}
       <span class="badge tone-{badgeTone}" class:filled={filledBadge}>{view.badge}</span>
     {:else if meta}
       <span class="meta mono">{meta}</span>
@@ -536,5 +552,29 @@
   }
   .feed .top:not(:has(.icon > *, .badge, .meta)) {
     display: none;
+  }
+  .trouble > :not(.top),
+  .trouble .icon {
+    opacity: 0.5;
+  }
+  .warn {
+    display: flex;
+    color: var(--warning);
+  }
+  .failed {
+    animation: failed 0.9s ease-out;
+  }
+  @keyframes failed {
+    0%,
+    40% {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px var(--danger-bg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .failed {
+      animation: none;
+      border-color: var(--danger);
+    }
   }
 </style>

@@ -28,7 +28,7 @@
   import { deck, req } from "../lib/deck.svelte.ts";
   import { t } from "../lib/i18n.svelte.ts";
   import { ago, everySecond } from "../lib/format.ts";
-  import { zoomControls } from "../lib/zoom.ts";
+  import { zoomControls, inDesktopApp } from "../lib/zoom.ts";
 
   let { admin = false, ondeck }: { admin?: boolean; ondeck: () => void } = $props();
 
@@ -110,6 +110,44 @@
     firstRun = false;
     void req("setup.done").catch(() => {});
   }
+
+  // A newer release, until it's dismissed for that version.
+  let update = $state<{ version: string; url: string } | null>(null);
+  let updateSeen = $state((() => {
+    try {
+      return localStorage.getItem("updateSeen") ?? "";
+    } catch {
+      return "";
+    }
+  })());
+  async function checkUpdate() {
+    if (!admin) return;
+    try {
+      update = (await req<{ latest: { version: string; url: string } | null }>("update.get")).latest;
+    } catch {
+      /* reconnecting */
+    }
+  }
+  function dismissUpdate() {
+    updateSeen = update?.version ?? "";
+    try {
+      localStorage.setItem("updateSeen", updateSeen);
+    } catch {
+      /* storage blocked */
+    }
+  }
+  function openUpdate(e: MouseEvent) {
+    // The desktop window can't open tabs, so the companion opens the browser.
+    if (!inDesktopApp() || !update) return;
+    e.preventDefault();
+    void req("open.link", { url: update.url }).catch(() => {});
+  }
+  $effect(() => {
+    if (!loaded) return;
+    void checkUpdate();
+    const timer = setInterval(checkUpdate, 3 * 3600_000);
+    return () => clearInterval(timer);
+  });
 
   async function refreshMeta() {
     try {
@@ -285,6 +323,13 @@
       {ed.error}
       {#if ed.conflict}<button class="btn small" onclick={() => load(false)}>{t("Reload")}</button>{/if}
       <button class="btn icon ghost" aria-label={t("Dismiss")} onclick={() => ((ed.error = ""), (ed.conflict = false))}><Icon name="x" size={18} /></button>
+    </div>
+  {/if}
+  {#if update && update.version !== updateSeen}
+    <div class="banner info" role="status">
+      <Icon name="sparkles" size={18} />{t("Keyside {version} is out.", { version: update.version })}
+      <a class="btn small" href={update.url} target="_blank" rel="noreferrer" onclick={openUpdate}>{t("See what's new")}</a>
+      <button class="btn icon ghost" aria-label={t("Dismiss")} onclick={dismissUpdate}><Icon name="x" size={18} /></button>
     </div>
   {/if}
   {#if reviewCount && admin}<div class="banner warn" role="status"><Icon name="shield" size={18} />{t("{n} imported steps wait for your review.", { n: reviewCount })}<button class="btn small" onclick={() => (panel = "review")}>{t("Review")}</button></div>{/if}
@@ -490,8 +535,18 @@
     background: var(--danger-chip);
     color: var(--danger-text);
   }
+  .banner.info {
+    background: var(--accent-bg);
+    color: var(--accent-text);
+  }
   .banner .btn {
     margin-left: auto;
+  }
+  .banner.info .btn.icon {
+    margin-left: 0;
+  }
+  .banner a.btn {
+    text-decoration: none;
   }
   .small {
     min-height: 32px;

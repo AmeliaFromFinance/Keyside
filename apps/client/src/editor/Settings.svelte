@@ -107,6 +107,8 @@
     {/if}
     <label class="check"><input type="checkbox" bind:checked={s.followFocus} />{t("Switch layouts to match the app in front")}</label>
     <label class="check"><input type="checkbox" bind:checked={s.hardwareDecks} />{t("Use Stream Deck hardware plugged into this PC")}</label>
+    <label class="check"><input type="checkbox" bind:checked={s.updateCheck} />{t("Tell me when a new version is out")}</label>
+    <small class="muted">{t("Asks GitHub once a day. Nothing about you or your setup is sent.")}</small>
   </section>
 
   <section class="card">

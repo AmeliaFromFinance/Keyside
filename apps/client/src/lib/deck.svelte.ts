@@ -30,6 +30,8 @@ export const deck = $state({
   profiles: [] as Array<{ id: string; name: string }>,
   page: null as PageView | null,
   rev: 0,
+  /** The last key whose press didn't work, so it can flash. */
+  failed: null as { key: string; at: number } | null,
   connections: [] as ConnectionView[],
   pills: [] as StatusPill[],
   toast: null as Toast | null,
@@ -119,6 +121,9 @@ function handle(m: any) {
       break;
     case "toast":
       showToast({ text: m.text, tone: m.tone, at: m.at ?? Date.now() });
+      break;
+    case "failed":
+      deck.failed = { key: m.key, at: Date.now() };
       break;
   }
 }

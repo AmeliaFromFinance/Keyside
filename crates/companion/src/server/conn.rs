@@ -179,9 +179,13 @@ pub async fn run(app: Arc<App>, link: Link, who: Who, locked: bool) {
                         dirty_full = true;
                     }
                 }
-                Ok(Change::Status) => dirty_status = true,
-                Ok(Change::Toast { text, tone }) => {
-                    if !c.locked && c.link.send(&json!({ "t": "toast", "text": text, "tone": tone, "at": now_ms() })).await.is_err() { break; }
+                // Keys show when their app drops, so they need sending too.
+                Ok(Change::Status) => { dirty_status = true; dirty_keys = true; }
+                Ok(Change::Toast { text, tone, key }) => {
+                    if c.locked { continue; }
+                    if c.link.send(&json!({ "t": "toast", "text": text, "tone": tone, "at": now_ms() })).await.is_err() { break; }
+                    let here = key.as_deref().and_then(|k| k.strip_prefix(&format!("{}/{}/", c.profile, c.page)));
+                    if let Some(id) = here && c.link.send(&json!({ "t": "failed", "key": id })).await.is_err() { break; }
                 }
                 Ok(Change::Revoked(id)) if id == c.who.device => {
                     let _ = c.link.send(&json!({ "t": "bye", "reason": "revoked" })).await;
