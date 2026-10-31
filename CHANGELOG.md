@@ -4,8 +4,6 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
-- Chat keys: long messages wrap onto more lines instead of being cut off. "Max characters" shortens longer ones with "…".
-
 ## [1.0.0] - 2026-10-31
 
 First release.
@@ -36,6 +34,7 @@ First release.
 - Chat triggers: a command, words in chat or a channel point reward can press a key.
 - OBS overlays for timers and text, with your own font, colours, shadow, glow and outline.
 - Chat keys drop messages that get deleted, timed out or cleared.
+- Chat keys wrap long messages, with an optional character limit.
 - Built-in hotkeys, typing, media keys, links, apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.
 - Hotkeys and typing work on Wayland as well as X11, Windows and macOS.
 
