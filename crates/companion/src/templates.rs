@@ -52,7 +52,7 @@ fn prepare(mut keys: Vec<Key>) -> Result<Vec<Key>> {
         // Styles belong to one layout, and templates go into any.
         k.styles.clear();
     }
-    let page = Page { id: "template".into(), name: "Template".into(), subtitle: None, cols: GRID, rows: GRID, folder: false, keys, variants: Default::default() };
+    let page = Page { id: "template".into(), name: "Template".into(), subtitle: None, cols: GRID, rows: GRID, folder: false, keys, variants: Default::default(), open_when: None };
     model::validate_page(&page, &HashSet::new(), &HashSet::new()).map_err(|e| anyhow::anyhow!(e.0))?;
     Ok(page.keys)
 }

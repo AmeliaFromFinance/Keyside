@@ -25,6 +25,12 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Stop if already published
+        run: |
+          if gh api "repos/${{ github.repository }}/releases" --paginate --jq ".[] | select(.draft | not) | .tag_name" | grep -qx "$TAG"; then
+            echo "::error::$TAG is already published. Bump the version and release that instead."
+            exit 1
+          fi
       - run: |
           for id in $(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.draft and .tag_name == \"$TAG\") | .id"); do
             gh api -X DELETE "repos/${{ github.repository }}/releases/$id"
@@ -132,7 +138,7 @@ jobs:
         if: env.ANDROID_KEYSTORE != ''
         run: |
           echo "$ANDROID_KEYSTORE" | base64 -d > release.keystore
-          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
           "$tools/zipalign" -p 4 apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk Keyside.apk
           "$tools/apksigner" sign --ks release.keystore --ks-pass env:ANDROID_KEYSTORE_PASSWORD Keyside.apk
           rm release.keystore

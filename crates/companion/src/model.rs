@@ -123,6 +123,15 @@ pub struct Page {
     pub keys: Vec<Key>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub variants: BTreeMap<FormFactor, Variant>,
+    /// Phones open this page when a variable changes to a value, like the OBS scene to "BRB".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_when: Option<OpenWhen>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpenWhen {
+    pub var: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -767,6 +776,11 @@ pub(crate) fn validate_page(pg: &Page, page_ids: &HashSet<&str>, style_ids: &Has
     }
     text("page name", &pg.name, 40)?;
     opt_text("page subtitle", &pg.subtitle, 60)?;
+    if let Some(w) = &pg.open_when
+        && (!valid_var_name(&w.var) || w.value.chars().count() > 200)
+    {
+        return bad("page opens on an invalid variable or value");
+    }
     if !grid(pg.cols) || !grid(pg.rows) {
         return bad("grid must be 1 to 12 cells each way");
     }

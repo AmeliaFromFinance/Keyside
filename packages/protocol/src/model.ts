@@ -77,6 +77,8 @@ export interface Page {
   keys: Key[];
   /** Optional per-device arrangements. Without one, landscape phones get the page transposed. */
   variants?: Partial<Record<FormFactor, Variant>>;
+  /** Phones open this page when the variable changes to this value, like the OBS scene to "BRB". */
+  openWhen?: { var: string; value: string };
 }
 
 export interface Variant {

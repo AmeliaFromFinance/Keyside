@@ -18,7 +18,7 @@
   type Which = "on" | "off" | "long" | "double" | `s${number}`;
 
   /** Where the icon picker puts its choice: the key, or one of its states. */
-  let picking = $state<"key" | number | null>(null);
+  let picking = $state<"key" | "group" | number | null>(null);
   let adding = $state<Which | null>(null);
   let openState = $state<number | null>(0);
   let open = $state<string | null>(null);
@@ -74,6 +74,28 @@
   function edit(fn: (k: Key) => void) {
     const k = selectedKey();
     if (k) change(() => fn(k));
+  }
+
+  // Several selected keys: shared fields show a value only when every key has it.
+  const groupKeys = $derived(pg?.keys.filter((k) => group.includes(k.id)) ?? []);
+  const groupColor = $derived(new Set(groupKeys.map((k) => k.color ?? "default")).size === 1 ? (groupKeys[0]?.color ?? "default") : null);
+  const groupHold = $derived(groupKeys.every((k) => k.hold) ? true : groupKeys.some((k) => k.hold) ? null : false);
+  const holdable = (k: Key) => !k.longActions?.length && !k.doubleActions?.length;
+
+  function editAll(fn: (k: Key) => void) {
+    change(() => {
+      for (const k of page()?.keys ?? []) if (group.includes(k.id)) fn(k);
+    });
+  }
+
+  function toggleGroupStyle(id: string) {
+    const all = groupKeys.every((k) => k.styles?.includes(id));
+    editAll((k) => {
+      const l = (k.styles ?? []).filter((s) => s !== id);
+      if (!all && l.length < 8) l.push(id);
+      if (l.length) k.styles = l;
+      else delete k.styles;
+    });
   }
 
   function stepsOf(k: Key | undefined, w: Which, create = false): Action[] {
@@ -270,6 +292,26 @@
   const mainLists = $derived<Which[]>(key?.kind === "toggle" ? ["on", "off"] : ["on"]);
   const sameBatch = $derived(list("on").some((a, i, l) => i > 0 && a.type.includes("/") && l[i - 1].type.split("/")[0] === a.type.split("/")[0]));
   const varNames = $derived(Object.keys(ed.catalog.variables).sort());
+
+  // Apps whose live scene a page can follow, and the scene names each one has.
+  const sceneApps = $derived(
+    (
+      [
+        ["obs.scene", "OBS Studio", "dev.keyside.obs/scene"],
+        ["meld.scene", "Meld Studio", "dev.keyside.meld/scene"],
+        ["slobs.scene", "Streamlabs Desktop", "dev.keyside.streamlabs/scene"],
+      ] as const
+    ).filter(([v]) => v in ed.catalog.variables),
+  );
+  let sceneNames = $state<string[]>([]);
+  $effect(() => {
+    const app = sceneApps.find(([v]) => v === pg?.openWhen?.var);
+    sceneNames = [];
+    if (!app) return;
+    req<Array<{ value: string }>>("options.get", { type: app[2], field: "scene", settings: {} })
+      .then((list) => (sceneNames = list.map((o) => o.value)))
+      .catch(() => {});
+  });
   const fb = $derived(key?.feedback?.[0]);
   const feeds = $derived(ed.catalog.plugins.flatMap((p: any) => (p.feeds ?? []).map((f: any) => ({ value: `${p.prefix}.${f.name}`, label: `${p.name}: ${f.title}` }))));
   const choices = $derived(
@@ -319,6 +361,44 @@
       <button class="btn" onclick={clearSelection}><Icon name="x" size={18} />{t("Clear selection")}</button>
       <button class="btn danger" onclick={() => deleteKeys(group)}><Icon name="trash-2" size={18} />{t("Delete {n} keys", { n: group.length })}</button>
     </div>
+    <h3 class="sub">{t("Change all {n}", { n: group.length })}</h3>
+    <div class="field">
+      <span>{t("Colour")}{#if groupColor === null}<small class="mixed">{t("Mixed")}</small>{/if}</span>
+      <div class="swatches">
+        {#each colors as [c, name] (c)}
+          <button class="swatch c-{c}" class:on={groupColor === c} aria-label={t(name)} title={t(name)} onclick={() => editAll((k) => (k.color = c === "default" ? undefined : c))}></button>
+        {/each}
+      </div>
+    </div>
+    <div class="field">
+      <span>{t("Icon")}</span>
+      <button class="btn" onclick={() => (picking = "group")}><Icon name="image" size={18} />{t("Choose an icon for all")}</button>
+    </div>
+    {#if styles.length}
+      <div class="field">
+        <span>{t("Styles")}</span>
+        <div class="chips">
+          {#each styles as st (st.id)}
+            {@const n = groupKeys.filter((k) => k.styles?.includes(st.id)).length}
+            <button class="chip" class:on={n === groupKeys.length} class:some={n > 0 && n < groupKeys.length} aria-pressed={n === groupKeys.length ? "true" : n ? "mixed" : "false"} onclick={() => toggleGroupStyle(st.id)}>
+              {#if n === groupKeys.length}<Icon name="check" size={14} />{:else if n}<Icon name="minus" size={14} />{/if}{st.name}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    <label class="check">
+      <input
+        type="checkbox"
+        checked={groupHold === true}
+        indeterminate={groupHold === null}
+        onchange={(e) => {
+          const on = e.currentTarget.checked;
+          editAll((k) => (on && holdable(k) ? (k.hold ??= 1000) : delete k.hold));
+        }}
+      />
+      {t("Hold to confirm")}
+    </label>
     {#if others.length}
       <label class="field">
         <span>{t("Move to page")}</span>
@@ -606,6 +686,36 @@
     <header><h2>{t("Page settings")}</h2></header>
     <label class="field"><span>{t("Page name")}</span><input value={pg.name} maxlength="40" oninput={(e) => change(() => (pg.name = e.currentTarget.value))} /></label>
     <label class="field"><span>{t("Subtitle")}</span><input value={pg.subtitle ?? ""} maxlength="60" oninput={(e) => change(() => (pg.subtitle = e.currentTarget.value || undefined))} /></label>
+    {#if sceneApps.length}
+      <div class="field">
+        <span>{t("Open this page when the scene changes to")}</span>
+        <div class="two">
+          <select
+            aria-label={t("App")}
+            value={pg.openWhen?.var ?? ""}
+            onchange={(e) => {
+              const v = e.currentTarget.value;
+              change(() => (v ? (pg.openWhen = { var: v, value: pg.openWhen?.value ?? "" }) : delete pg.openWhen));
+            }}
+          >
+            <option value="">{t("Off")}</option>
+            {#each sceneApps as [v, name] (v)}<option value={v}>{name}</option>{/each}
+          </select>
+          {#if pg.openWhen}
+            <input
+              aria-label={t("Scene")}
+              list="scene-names"
+              maxlength="200"
+              placeholder={t("Scene name")}
+              value={pg.openWhen.value}
+              oninput={(e) => change(() => (pg.openWhen = { var: pg.openWhen!.var, value: e.currentTarget.value }))}
+            />
+            <datalist id="scene-names">{#each sceneNames as s (s)}<option value={s}></option>{/each}</datalist>
+          {/if}
+        </div>
+        <small>{t("Phones switch to this page when the scene changes. You can still move to other pages.")}</small>
+      </div>
+    {/if}
     {#if !pg.folder}
       <label class="check">
         <input type="checkbox" checked={profile()?.homePage === pg.id} onchange={() => change(() => (profile()!.homePage = pg.id))} />
@@ -623,9 +733,10 @@
 <Sheet open={picking !== null} onclose={() => (picking = null)} title={t("Choose an icon")} wide>
   {@const target = picking}
   <IconPicker
-    value={typeof target === "number" ? key?.states?.[target]?.icon : key?.icon}
+    value={typeof target === "number" ? key?.states?.[target]?.icon : target === "group" ? undefined : key?.icon}
     onpick={(i) => {
       if (typeof target === "number") editState(target, (q) => (q.icon = i));
+      else if (target === "group") editAll((k) => (k.icon = i));
       else edit((k) => (k.icon = i));
       picking = null;
     }}
@@ -1012,5 +1123,17 @@
   }
   .choice small {
     color: var(--muted);
+  }
+  h3.sub {
+    margin: 8px 0 0;
+    font-size: 0.95rem;
+    color: var(--muted);
+  }
+  .mixed {
+    margin-left: 8px;
+    color: var(--dim);
+  }
+  .chip.some {
+    border-style: dashed;
   }
 </style>

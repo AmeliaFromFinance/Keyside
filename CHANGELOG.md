@@ -4,6 +4,10 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
+- Editor: change the colour, icon, styles and Hold to confirm of every selected key at once.
+- Pages can open by themselves when the OBS, Meld or Streamlabs scene changes, like a BRB page during the BRB scene. Set it in Page settings.
+- The release workflow stops if that version is already published.
+
 ## [1.1.0] - 2026-10-31
 
 - iPhone and iPad: add Keyside to the Home Screen. The deck settings walk you through installing a profile so the phone trusts your PC.

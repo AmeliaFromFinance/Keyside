@@ -71,6 +71,10 @@ You can also add options to the address yourself with `&` (or `?` when it's the 
 
 Inter and JetBrains Mono come with Keyside, so they look the same on every PC.
 
+## Follow the scene
+
+A page can open by itself when the live scene changes. In the editor, open the page, and under **Page settings** pick the app (OBS Studio, Meld Studio or Streamlabs Desktop) and the scene. Phones switch to that page when the scene changes to it, and stay free to move to other pages.
+
 ## Chat triggers
 
 A chat trigger presses a key when something happens in chat:

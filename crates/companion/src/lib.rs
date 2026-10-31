@@ -14,6 +14,7 @@ pub mod iconpack;
 pub mod ids;
 pub mod mdns;
 pub mod model;
+pub mod openwhen;
 pub mod plugins;
 pub mod programs;
 pub mod recorder;
@@ -54,6 +55,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     actions::appaudio::spawn(app.clone());
     focus::spawn(app.clone());
     updates::spawn(app.clone());
+    openwhen::spawn(app.clone());
 
     // Keep plugins in step with layout changes, and save user variables and key states a
     // little after they change. Plugins run only while a key uses them, or for a while after

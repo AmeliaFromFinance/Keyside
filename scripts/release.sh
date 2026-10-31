@@ -10,6 +10,7 @@ new="${1#v}"
 tag="v$new"
 clean_tree || die "Commit your changes first."
 git rev-parse -q --verify "refs/tags/$tag" >/dev/null && die "$tag already exists."
+git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null && die "$tag already exists on GitHub."
 
 # Everything under "## Unreleased" becomes the release notes.
 notes=$(awk '/^## Unreleased/{on=1; next} /^## \[/{on=0} on' CHANGELOG.md | sed '/^[[:space:]]*$/d')

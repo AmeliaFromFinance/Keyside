@@ -837,10 +837,20 @@ pub fn import(bytes: &[u8], env: &mut dyn Env) -> Result<Imported> {
             folder_names.get(alias).and_then(|t| one_line(t, 40)).or_else(|| one_line(&p.name, 40)).unwrap_or_else(|| "Folder".into())
         };
         let id = run.ids[alias].clone();
-        pages.push(Page { id, name, subtitle: None, folder: i >= top, cols, rows: rows + dial_row, keys, variants: Default::default() });
+        pages.push(Page { id, name, subtitle: None, folder: i >= top, cols, rows: rows + dial_row, keys, variants: Default::default(), open_when: None });
     }
     if pages.is_empty() {
-        pages.push(Page { id: "p1".into(), name: "Page 1".into(), subtitle: None, folder: false, cols, rows: rows + dial_row, keys: Vec::new(), variants: Default::default() });
+        pages.push(Page {
+            id: "p1".into(),
+            name: "Page 1".into(),
+            subtitle: None,
+            folder: false,
+            cols,
+            rows: rows + dial_row,
+            keys: Vec::new(),
+            variants: Default::default(),
+            open_when: None,
+        });
     }
 
     let missing = |m: BTreeMap<String, (String, usize)>| {

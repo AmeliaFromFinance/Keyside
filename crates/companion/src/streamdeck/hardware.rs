@@ -120,7 +120,17 @@ pub fn layout_for_new_deck(app: &App, model: &str, serial: &str, cols: u8, rows:
         n += 1;
     }
     let dial_row = u8::from(crate::model::model_dials(model) > 0);
-    let page = Page { id: "main".into(), name: "Main".into(), subtitle: None, folder: false, cols, rows: rows + dial_row, keys: Vec::new(), variants: Default::default() };
+    let page = Page {
+        id: "main".into(),
+        name: "Main".into(),
+        subtitle: None,
+        folder: false,
+        cols,
+        rows: rows + dial_row,
+        keys: Vec::new(),
+        variants: Default::default(),
+        open_when: None,
+    };
     layout.profiles.push(Profile {
         id: format!("deck-{}", crate::ids::random_b64(6)),
         name: name.clone(),

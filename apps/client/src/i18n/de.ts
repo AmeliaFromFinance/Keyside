@@ -929,4 +929,11 @@ export default {
   "These keys need a Stream Deck plugin. Add it under Stream Deck plugins and the keys work:": "Diese Tasten brauchen ein Stream-Deck-Plugin. Füge es unter „Stream-Deck-Plugins“ hinzu, dann funktionieren sie:",
   "{name}: 1 key": "{name}: 1 Taste",
   "{name}: {n} keys": "{name}: {n} Tasten",
+  "Change all {n}": "Alle {n} ändern",
+  "Mixed": "Gemischt",
+  "Choose an icon for all": "Ein Symbol für alle wählen",
+  "Open this page when the scene changes to": "Diese Seite öffnen, wenn die Szene wechselt zu",
+  "Scene name": "Szenenname",
+  "Phones switch to this page when the scene changes. You can still move to other pages.": "Handys wechseln zu dieser Seite, wenn die Szene wechselt. Du kannst trotzdem zu anderen Seiten gehen.",
+  "Off": "Aus",
 } as Record<string, string>;
