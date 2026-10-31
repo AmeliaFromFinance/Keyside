@@ -4,129 +4,63 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
-- Setup wizard on first run and from the editor menu: pick your apps, get a starter layout with a page for each, connect each plugin, pair a phone.
-- Multi-state keys: 2 to 8 states, each with its own label, icon, colour and steps. They can follow a variable so the key shows the real state.
-- Toggles and multi-state keys keep their position when Keyside restarts.
-- Long press and double tap steps on buttons, toggles and multi-state keys, with adjustable times, on phones and Stream Decks.
-- Key styles: named "when this variable matches, look like this" rules that any key can use, managed from the editor menu.
-- Editor: search every key in every layout with Ctrl+K or the search button, and jump straight to it.
-- Editor: copied keys survive switching layouts and reloading, and paste into other layouts with their steps.
-- Key templates: save one or more keys as a template and place them from the top of the button palette in any editor.
-- "Push to phones" shows a short review of what changed since the last push. Ctrl+S still pushes right away.
-- Drop an image file onto a key or an empty cell to use it as the key picture, with a square crop and zoom step.
-- Import Stream Deck icon packs (.streamDeckIconPack) or zips of images. Each pack gets its own searchable tab in the icon picker.
-- Push history: the last 20 pushed layouts, with a preview of what restoring one would change.
-- Backup and restore in Settings, optionally with passwords and keys encrypted by a passphrase.
-- Plugin health: uptime, restarts and crashes in the last hour, last error, recent status messages and a connection test, for Keyside and Stream Deck plugins.
-- Stream dashboard: "Add page → Stream dashboard" makes a page of live tiles for the connected apps.
-- OBS Stream health keys can show bitrate and time live or recording, and publish {obs.bitrate}, {obs.dropped}, {obs.cpu} and {obs.fps}. New {core.chat_rate} and {twitch.subs}.
-- Overlays for OBS browser sources: /overlay/timer/<name> and /overlay/text?t=…. Timer steps have a "Copy overlay link" button.
-- Overlay styles: font, size, colours, background, alignment, shadow, glow, outline and timer format, picked in the editor with a live preview. "Text overlay for OBS" in the editor menu builds text overlay links.
-- Pages panel: see every page and folder of a layout with a small map of its keys, then open, rename, reorder, copy or delete them. Open it from the + next to the page tabs, Page settings or the editor menu.
-- Phones and tablets can switch layouts from the deck header, no Switch profile key needed.
-- Media key: Play or pause shows a play icon while music plays and pause while paused. "Show the song" adds the cover, title and artist.
-- Chat keys fill their whole height, and lines deleted by a moderator, timed out or banned, or cleared from chat disappear. Works for Twitch, YouTube and Streamer.bot (Twitch, YouTube and Kick).
-- Chat triggers: "Press this key" is searchable.
-- Plugin SDK: `host.unfeed()` takes lines off a feed. Feed lines can carry a message `id`. Host API 1.1.
-- Fixed: clicking an action in the button palette sometimes needed a second click, when the mouse moved slightly during the click.
-- Fixed: hovering over the apps button and then clicking it closed the list again.
-- Chat triggers: a chat command, words in chat or a channel point reward can press a key, with platform, who-may-use-it and cooldown settings.
-- Twitch: channel point redemptions show in Alerts.
-- Stream Deck + and + XL: put keys on the dials. Turning a dial moves its slider, pressing it or tapping the touch strip presses its key, and the strip shows each key's label and value.
-- Physical Stream Decks: brightness and a time after which the deck turns dark, in Manage layouts. The press that wakes it runs nothing.
-- Physical Stream Decks can have several layouts, each shown while one of its apps is in front.
-- Plugins only run while a key uses them. Phones get only the keys that changed after a push, and no longer download the editor or other languages.
-- Plugin SDK: feed items can carry kind, source, author roles and reward details for chat triggers.
-- Phone: messages float above the keys instead of shrinking them.
-- Editor: connected apps and phones sit in one compact button at the top. Hover or click it to see each app, its port and status, and click one to set it up.
-- Editor: the top bar stays on one line down to 900 px wide.
-- Plugin permissions no longer show a raw {host}:{port} placeholder.
-- New screenshots in the README and on the website.
-- "Export JSON" moved into the editor menu.
-- Streamer.bot: works with versions that don't send a Hello, with authentication that isn't enforced, and reads globals in the shape Streamer.bot sends. Kick chat and alerts.
-- Meld Studio: keys for vertical screenshots and for showing or dismissing the replay of the last clip.
-- OBS: scenes are listed in the order OBS shows them.
-- Spotify: podcast episodes show up as now playing.
-- StreamElements: more alert types in the feed, including Super Chats and YouTube members.
-- Twitch: ad schedule times are read in either format Twitch sends.
-- Plugins get a shutdown message so `stop()` runs, and plugin processes end when Keyside quits.
-- A key that repeats while held stops when the phone disconnects or changes page mid-press. Push-to-talk keys are released too.
-- Stream Deck plugin settings can no longer make the stored layout invalid.
-- Hotkey and typing steps added from another device wait for review on the PC.
-- The editor keeps dynamic dropdowns from retrying nonstop while a plugin is off, shows the label you're typing, and recovers when the layout fails to load.
-- Phones send their screen size again after reconnecting, so tablets keep their layout.
-- A damaged settings, devices or tokens file is set aside instead of keeping Keyside from starting.
-- User variables are saved shortly after they change instead of on every slider move.
-- Editor: drag a key to move it, or onto another key to swap them. Works with mouse, touch and pen.
-- Editor: right-click a key, or press and hold on a touch screen, for test run, duplicate, copy, cut, move and delete. Empty cells offer paste, new key and new folder.
-- Editor: Ctrl+C, Ctrl+X, Ctrl+V and Ctrl+D for keys, arrow keys move the selected key, and deleting shows an Undo button.
-- Editor: select several keys with Shift-click, Ctrl+A, or "Select more" on touch screens. Drag, delete, copy, cut, duplicate or nudge them together. Pasted keys keep their arrangement.
-- Editor: drop keys on a page tab, or pick "Move to page", to move them to another page.
-- Editor: while dragging, a small copy of the key follows your finger, the cells it would land on light up, and it says so before you let go if it won't fit.
-- Editor: moving keys in the sideways phone preview now puts them in the right place.
-- Editor: the toolbar Undo and Redo buttons now turn on as soon as there's something to undo.
-- Devices: click a paired device to rename it, change its access, set, change or remove its PIN, or revoke it. The PIN shows on hover, or on a tap on touch screens.
-- Plugins: setup steps in the Plugins panel with clickable links and one-click copy for redirect URLs, tokens and sign-in codes.
-- Editor: a key whose app isn't connected says why and has a Set up button. The app names at the top open their setup too.
-- Plugins: connection messages, like a sign-in code or what to do next, show in the Plugins panel as they happen.
-- Discord: says to open Discord and press Authorize, and explains what to do if it was missed, cancelled or the redirect is missing.
-- Equibop: found in `~/.local/bin` and other usual folders even when they aren't on the desktop's PATH, and a crashing Equibop is no longer reported as not installed.
-- Linux AppImage: programs, links and sign-in pages Keyside opens no longer inherit the AppImage's library settings, which could stop them from starting.
-- Deck: tap the connection bar to fold it into one slim row with a status dot per app. The phone remembers the choice.
-- Editor: drag the edges of the button palette, the side panel and Pair a phone to resize them. The small arrow on each edge, or the Pair a phone title, folds them away. Sizes are remembered.
-- Stream Decks: a newly plugged-in deck gets its own layout sized to its keys, like 3 × 2 for a Mini, and keeps showing it when the active layout changes. Unlink it in Manage layouts to follow the active layout again.
-- Hotkey: click the box and press the shortcut to record it. The pencil still lets you type one.
-- Linux: hotkeys and typed text work on Wayland desktops like Hyprland and Sway, without getting in the way of fcitx5 or IBus. Media keys control the playing app and system volume directly.
-- Hotkey, Type text and Media key keys show why when they can't send keys, instead of doing nothing.
-- Timer: optional "Reset when stopped".
-- Spotify: Like uses Spotify's new library endpoint, so it works with apps made after February 2026. Refusals say what Spotify actually said instead of always blaming Premium.
-- Stream Deck plugins: JavaScript plugins with their own node_modules start (including the Streamer.bot plugin). Plugins that use sharp for images still show their keys. A plugin that keeps stopping says why.
-- Stream Deck plugins: settings pages built with Vue or schema checkers (like Streamer.bot's) now draw, and can reach the same addresses as their plugin, plain ws:// included. A new key's settings open as soon as it's pushed.
-- Physical Stream Decks go back to the Elgato logo when Keyside quits, including at logout.
-- Devices: changing a phone's name, PIN or access on the PC no longer makes the phone forget it's paired.
-- Deck: tablets and landscape phones with a PIN keep their layout after unlocking.
-- Editor: folders can be deleted in a layout with only one page. Changes made while pushing are no longer lost.
-- Plugins can't change the addresses they're allowed to reach. A plugin no longer restarts when a background request fails.
-- HTTP API: revoking a token also closes its open event stream.
-- YouTube: viewer and health checks no longer double up when one broadcast ends and the next starts.
-- Deck: tap a toast to dismiss it. Toasts also go away on their own.
-- Deck: the lock button works on phones that cancel a long press for their own menus, and a quick tap explains that it needs a hold. Held keys with pictures no longer get cut short by the iPhone's "Save image" callout.
-- "Last seen" shows days and years instead of thousands of hours.
-- Sliders send their value once, when you let go, instead of many times while you drag. The companion also sends one value per slider at a time, newest first.
-- A second finger on a key that's already held doesn't press it again.
-- Discord can't start two sign-ins at once after reconnecting.
-- Keyboard: Enter, Space and arrow keys work on sliders and the lock button, and disabled keys can't be pressed from the keyboard.
-- Android: pairing keys are left out of device backups.
-- Plugin SDK: `key.set` always replaces the view, and the published package ships compiled JavaScript so `npm test` works in a new plugin.
-
-## [0.1.0] - 2026-10-29
+## [1.0.0] - 2026-10-31
 
 First release.
 
-- Deck for phones, tablets and browsers, with layouts that adapt to every screen.
-- Desktop editor with drag and drop, undo, live preview and per-screen arrangements. It sizes itself for big screens and zooms with Ctrl and + or -, or Ctrl and the scroll wheel. Palette groups fold away, and search finds plugins and actions.
-- QR pairing with a confirmation code, end-to-end encryption and optional PIN.
-- Deck, editor and moderator access levels.
-- Built-in actions: hotkeys, text, media keys, links, apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.
-- Now playing key with track and cover from any player (Linux and Windows), and media.* variables.
-- Per-app mute and volume on Linux and Windows.
-- OBS screenshots, split recordings, audio monitoring and a stream health key.
-- Twitch polls, predictions, channel point rewards and shield mode.
-- Discord noise suppression, echo cancellation and automatic gain control.
-- Home Assistant thermostats, light colour temperature, media players with covers and camera snapshots.
-- VTube Studio items and sliders that move model parameters.
-- Voicemeeter macro buttons, presets and recorder controls.
-- Spotify keys that queue a song or move playback to another device.
-- YouTube stream health and a key to change the title.
-- Streamer.bot keys that set global variables, and action arguments that can use Keyside variables.
-- Plugins for OBS Studio, Meld Studio, Streamlabs Desktop, Streamer.bot, StreamElements, Twitch, YouTube Live, VTube Studio, VNyan, Warudo, veadotube, Discord, Spotify, Voicemeeter, GoXLR, Elgato Key Light, Philips Hue and Home Assistant.
-- Discord keys also work with Equibop on Linux.
-- Sandboxed plugin runtime with a TypeScript SDK and test harness.
-- Stream Deck plugin support, including their settings pages.
-- Physical Elgato Stream Deck support.
-- Layout sharing with codes, files and a gallery.
-- Step recorder, multi-actions, toggles, folders, sliders and chat widgets.
-- If and otherwise steps that check a variable, and keys that repeat while held.
-- HTTP API with scoped tokens.
-- English, German, Spanish and French.
-- Apps for Windows, macOS, Linux, Android and iOS.
+### Deck
+
+- Works on Android, iOS, tablets and any browser. Layouts fit portrait, landscape and big screens.
+- Live keys: the scene on air, who is muted, how long you've been recording.
+- Buttons, toggles, multi-state keys, folders, sliders, timers and chat keys.
+- Long press, double tap, hold to confirm and repeat while held.
+- Switch layouts from the deck header.
+- Stream dashboard page with live time, bitrate, dropped frames, CPU and chat.
+- Lock the keys with a long press, and fold the connection bar into one slim row.
+
+### Editor
+
+- Drag and drop actions, live preview, undo and redo, and arrangements per screen size.
+- Move, swap, copy, paste and multi-select keys with mouse, touch or keyboard.
+- Search every key with Ctrl+K, and see every page in the Pages panel.
+- Key styles, templates, icon packs, and your own pictures with crop and zoom.
+- Multi-actions with if and otherwise steps that check a variable, and a step recorder.
+- Setup wizard: pick your apps and get a ready-made layout.
+- Review changes before pushing, plus push history and backup and restore.
+- Resizable, foldable panels. English, German, Spanish and French.
+
+### Stream tools
+
+- Chat triggers: a command, words in chat or a channel point reward can press a key.
+- OBS overlays for timers and text, with your own font, colours, shadow, glow and outline.
+- Chat keys drop messages that get deleted, timed out or cleared.
+- Built-in hotkeys, typing, media keys, links, apps, sounds, timers, variables, webhooks, WebSocket, OSC, UDP and MIDI.
+- Hotkeys and typing work on Wayland as well as X11, Windows and macOS.
+
+### Apps
+
+- OBS Studio, Meld Studio, Streamlabs Desktop, Streamer.bot, Twitch, YouTube Live, StreamElements, VTube Studio, VNyan, Warudo, veadotube, Discord, Spotify, Voicemeeter, GoXLR, Elgato Key Light, Philips Hue and Home Assistant.
+- Step-by-step setup in the Plugins panel, with copy buttons for links and codes.
+- Plugin health: uptime, crashes, last error and a connection test.
+
+### Stream Decks
+
+- Elgato Stream Decks get a layout sized to their keys, including dials and the touch strip on the Stream Deck +.
+- Brightness, sleep, and layouts that follow the app in front.
+- Plugins made for Elgato's Stream Deck app install too, settings pages included.
+- Decks go back to the Elgato logo when Keyside quits.
+
+### Privacy and security
+
+- No account, no cloud, no telemetry.
+- QR pairing with a code to compare on both screens, end-to-end encryption and an optional PIN.
+- Deck, editor and moderator access for each device.
+- Plugins run in a sandbox and only reach the addresses you allow.
+- Shared layouts and steps added from other devices wait for review before they can control apps.
+
+### For developers
+
+- Plugin SDK in TypeScript with a test harness and a starter template.
+- HTTP API with scoped tokens to press keys, set variables and change keys.
+
+Apps for Windows, macOS, Linux, Android and iOS.

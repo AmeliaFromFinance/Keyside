@@ -1,7 +1,7 @@
 [package]
 name = "keyside-desktop"
 description = "Keyside for Windows, macOS and Linux: runs the companion and keeps it in the tray."
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 publish = false
