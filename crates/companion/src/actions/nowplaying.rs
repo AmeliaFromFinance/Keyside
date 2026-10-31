@@ -81,11 +81,20 @@ pub async fn control(c: Control) -> Result<(), String> {
     wait.await.map_err(|_| "media watcher stopped")?
 }
 
+/// Whether a media service was found. None until the watcher has looked.
+static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+pub fn available() -> Option<bool> {
+    AVAILABLE.get().copied()
+}
+
 pub fn spawn(app: Arc<App>) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(8);
     let _ = CONTROL.set(tx);
     tokio::spawn(async move {
-        let Some(mut be) = backend::Backend::new().await else {
+        let be = backend::Backend::new().await;
+        let _ = AVAILABLE.set(be.is_some());
+        let Some(mut be) = be else {
             tracing::info!("now playing is off: no media service found");
             app.engine.lock().set_var("media.available", Value::Bool(false));
             show(&app, None, None);

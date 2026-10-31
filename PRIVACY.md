@@ -14,7 +14,13 @@ The companion keeps everything in one folder:
 
 It holds your layouts, settings, uploaded images and sounds, the list of paired devices, API tokens (stored hashed), and plugin settings.
 
+Automatic backups go into the `backups` folder inside it, one a day, the newest 7 kept. They contain the same data, without plugin passwords, device keys or PINs, and never leave the PC.
+
 Passwords and sign-in tokens for plugins (OBS password, Twitch session and so on) go into your system keychain. If there is no keychain, they go into a file only your user account can read.
+
+## Diagnostics
+
+*Copy diagnostics* in Settings makes a text report for bug reports: versions, settings, plugin status and recent log messages. It leaves out passwords, tokens, PINs, keys, pairing links, names, addresses of other devices and what is on your keys. Keyside doesn't send it anywhere; it is only shared if you paste or send it yourself.
 
 ## What stays on your phone
 

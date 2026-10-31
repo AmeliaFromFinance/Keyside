@@ -28,7 +28,16 @@
     secrets?: unknown;
   }
 
-  let { onrestored }: { onrestored?: () => void } = $props();
+  interface Auto {
+    id: string;
+    created: number;
+    size: number;
+    keyside: string;
+    contents: Contents;
+  }
+
+  // `settings` is the Settings form, so saving it later keeps this choice.
+  let { onrestored, settings }: { onrestored?: () => void; settings?: Record<string, any> | null } = $props();
 
   const MIN = 8;
   let secrets = $state(false);
@@ -41,7 +50,71 @@
   let done = $state<{ restartNeeded: boolean; devicesDropped: number; secrets: boolean } | null>(null);
   let error = $state("");
 
+  let autos = $state<Auto[]>([]);
+  let autoFolder = $state("");
+  let autoBusy = $state("");
+
   const passOk = $derived(!secrets || (pass.length >= MIN && pass === pass2));
+
+  async function loadAutos() {
+    const r = await req<{ backups: Auto[]; folder: string }>("backup.auto.list");
+    autos = r.backups;
+    autoFolder = r.folder;
+  }
+  $effect(() => void loadAutos().catch((e) => (error = e.message)));
+
+  async function setAuto(on: boolean) {
+    error = "";
+    try {
+      await req("settings.set", { autoBackup: on });
+      if (settings) settings.autoBackup = on;
+    } catch (e: any) {
+      error = e.message;
+    }
+  }
+
+  async function stageAuto(id: string) {
+    error = "";
+    done = null;
+    staged = null;
+    autoBusy = id;
+    try {
+      staged = await req("backup.auto.stage", { id }, 60_000);
+    } catch (e: any) {
+      error = e.message;
+      await loadAutos().catch(() => {});
+    } finally {
+      autoBusy = "";
+    }
+  }
+
+  async function downloadAuto(id: string) {
+    error = "";
+    try {
+      const r = await fetch("/admin/backup/auto", {
+        method: "POST",
+        headers: { "x-keyside": "1", "content-type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!r.ok) throw new Error((await r.text()) || r.statusText);
+      save(await r.blob(), id);
+    } catch (e: any) {
+      error = e.message;
+    }
+  }
+
+  async function showFolder() {
+    error = "";
+    await req("backup.auto.folder").catch((e) => (error = e.message));
+  }
+
+  function save(blob: Blob, name: string) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
 
   async function download() {
     error = "";
@@ -53,13 +126,8 @@
         body: JSON.stringify({ passphrase: secrets ? pass : null }),
       });
       if (!r.ok) throw new Error((await r.text()) || r.statusText);
-      const blob = await r.blob();
       const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? "keyside-backup.zip";
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      save(await r.blob(), name);
       pass = pass2 = "";
     } catch (e: any) {
       error = e.message;
@@ -98,6 +166,7 @@
       // The layout changed under the editor; drafts of the old one no longer apply.
       await load(false);
       await reloadCatalog();
+      await loadAutos().catch(() => {});
       onrestored?.();
     } catch (e: any) {
       error = e.message;
@@ -129,6 +198,35 @@
   <div class="row">
     <button class="btn primary" disabled={making || !passOk} onclick={download}><Icon name="download" size={18} />{making ? t("Making the backup…") : t("Download backup")}</button>
     <label class="btn"><Icon name="file-up" size={18} />{t("Restore from file")}<input type="file" accept=".zip,application/zip" class="sr-only" onchange={pick} /></label>
+  </div>
+
+  <div class="auto">
+    <h4>{t("Automatic backups")}</h4>
+    {#if settings}
+      <label class="check"><input type="checkbox" checked={settings.autoBackup} onchange={(e) => void setAuto(e.currentTarget.checked)} />{t("Save a backup every day")}</label>
+    {/if}
+    <p class="muted">{t("The newest 7 stay on this PC. A day without changes adds none. Automatic backups never include passwords and keys.")}</p>
+    {#if autos.length}
+      <ul class="list">
+        {#each autos as b (b.id)}
+          <li>
+            <span class="what">
+              <b>{new Date(b.created).toLocaleString()}</b>
+              <span class="muted">{size(b.size)} · {t("Layouts: {layouts} · Pages: {pages} · Keys: {keys}", { layouts: b.contents.layouts, pages: b.contents.pages, keys: b.contents.keys })} · {t("Plugins: {n}", { n: b.contents.plugins })} · {t("Paired devices: {n}", { n: b.contents.devices })}</span>
+            </span>
+            <span class="acts">
+              <button class="btn" disabled={!!autoBusy || restoring} onclick={() => stageAuto(b.id)}><Icon name="rotate-ccw" size={16} />{autoBusy === b.id ? t("Checking…") : t("Restore")}</button>
+              <button class="btn" onclick={() => downloadAuto(b.id)}><Icon name="download" size={16} />{t("Download")}</button>
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="muted">{t("None yet. The first one is saved a minute after Keyside starts.")}</p>
+    {/if}
+    <div class="row">
+      <button class="btn" onclick={showFolder} title={autoFolder}><Icon name="folder-open" size={16} />{t("Show folder")}</button>
+    </div>
   </div>
 
   {#if staged}
@@ -214,6 +312,37 @@
     padding: 12px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line);
+  }
+  .auto {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .what {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .acts {
+    display: flex;
+    gap: 8px;
   }
   .muted {
     color: var(--muted);

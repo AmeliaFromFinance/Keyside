@@ -279,6 +279,27 @@ pub async fn handle(app: &Arc<App>, who: &Who, op: &str, a: Value) -> R {
             *app.staged_backup.lock() = None;
             Ok(Value::Null)
         }
+        "backup.auto.list" => {
+            need_admin(who)?;
+            let a = app.clone();
+            let list = tokio::task::spawn_blocking(move || crate::autobackup::list(&a)).await.map_err(OpError::failed)?.map_err(OpError::failed)?;
+            Ok(json!({ "backups": list, "folder": app.paths.root().join(crate::autobackup::DIR) }))
+        }
+        "backup.auto.stage" => {
+            need_admin(who)?;
+            let (ap, id) = (app.clone(), s(&a, "id")?.to_string());
+            tokio::task::spawn_blocking(move || crate::autobackup::stage(&ap, &id)).await.map_err(OpError::failed)?.map_err(|e| OpError::not_found(format!("{e:#}")))
+        }
+        "backup.auto.folder" => {
+            need_admin(who)?;
+            let dir = app.paths.dir(crate::autobackup::DIR).map_err(OpError::failed)?;
+            crate::programs::open(&dir.to_string_lossy()).map_err(|e| OpError::failed(format!("could not open the folder: {e}")))?;
+            Ok(Value::Null)
+        }
+        "diagnostics.get" => {
+            need_admin(who)?;
+            Ok(json!({ "text": crate::diagnostics::report(app).await }))
+        }
         "update.get" => {
             need_admin(who)?;
             Ok(json!({ "current": env!("CARGO_PKG_VERSION"), "latest": *app.update.read() }))

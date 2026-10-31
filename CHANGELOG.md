@@ -7,6 +7,8 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Editor: change the colour, icon, styles and Hold to confirm of every selected key at once.
 - Pages can open by themselves when the OBS, Meld or Streamlabs scene changes, like a BRB page during the BRB scene. Set it in Page settings.
 - The release workflow stops if that version is already published.
+- Automatic backups: Keyside saves a backup once a day in the `backups` folder of its data folder and keeps the newest 7. They leave out passwords and keys. Restore or download them under Settings, Backup and restore.
+- Copy diagnostics in Settings: a text report for bug reports with versions, settings, plugin status and recent log messages, without passwords, tokens, names or addresses.
 
 ## [1.1.0] - 2026-10-31
 

@@ -222,13 +222,30 @@ async fn backup_inspect(State(app): State<Arc<App>>, headers: HeaderMap, body: B
         return StatusCode::FORBIDDEN.into_response();
     }
     match tokio::task::spawn_blocking(move || crate::backup::read(&body)).await {
-        Ok(Ok(b)) => {
-            let id = crate::ids::random_b64(12);
-            let info = json!({ "id": id, "manifest": b.manifest });
-            *app.staged_backup.lock() = Some((id, Instant::now(), b));
-            Json(info).into_response()
-        }
+        Ok(Ok(b)) => Json(crate::backup::stage(&app, b)).into_response(),
         Ok(Err(e)) => (StatusCode::BAD_REQUEST, format!("{e:#}")).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+/// Sends one of the automatic backups as a download.
+async fn backup_auto_download(State(app): State<Arc<App>>, headers: HeaderMap, Json(body): Json<Value>) -> Response {
+    if !csrf_ok(&app, &headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let id = body.get("id").and_then(Value::as_str).unwrap_or("").to_string();
+    let a = app.clone();
+    match tokio::task::spawn_blocking(move || crate::autobackup::path_of(&a, &id).and_then(|p| Ok((id, std::fs::read(p)?)))).await {
+        Ok(Ok((name, bytes))) => (
+            [
+                (header::CONTENT_TYPE, "application/zip".to_string()),
+                (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{name}\"")),
+                (header::CACHE_CONTROL, "no-store".into()),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Ok(Err(e)) => (StatusCode::NOT_FOUND, format!("{e:#}")).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -284,6 +301,7 @@ pub async fn start(app: Arc<App>, port: u16) -> anyhow::Result<()> {
         .route("/admin/upload/sdprofile", post(upload_sdprofile).layer(DefaultBodyLimit::max(crate::sdprofile::MAX_FILE)))
         .route("/admin/upload/asset", post(upload_asset).layer(DefaultBodyLimit::max(crate::assets::MAX_SOUND)))
         .route("/admin/backup", post(backup_create))
+        .route("/admin/backup/auto", post(backup_auto_download))
         .route("/admin/backup/inspect", post(backup_inspect).layer(DefaultBodyLimit::max(crate::backup::MAX_SIZE)))
         .nest("/api/v1", super::api::router())
         .nest("/overlay", super::overlay::router())

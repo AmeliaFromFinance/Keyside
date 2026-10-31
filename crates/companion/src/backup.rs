@@ -86,6 +86,9 @@ pub struct Manifest {
     pub contents: Contents,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secrets: Option<Sealed>,
+    /// Hash of the files, set on automatic backups so an unchanged setup isn't saved twice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash: Option<String>,
 }
 
 /// Passwords and keys, sealed with the passphrase.
@@ -195,13 +198,14 @@ fn count_contents(get: &dyn Fn(&str) -> Option<Vec<u8>>, names: &[String]) -> Co
     }
 }
 
-/// Makes a backup file. With a passphrase, passwords and keys go in too, encrypted.
-pub fn create(app: &App, passphrase: Option<&str>) -> Result<Vec<u8>> {
-    if passphrase.is_some_and(|p| p.chars().count() < MIN_PASSPHRASE) {
-        bail!("the passphrase needs at least {MIN_PASSPHRASE} characters");
-    }
+/// (path in the data folder, contents)
+pub(crate) type Files = Vec<(String, Vec<u8>)>;
+
+/// The files a backup holds, from memory and the data folder, sorted by name, and the paired
+/// devices with their keys.
+pub(crate) fn gather(app: &App) -> Result<(Files, Vec<Device>)> {
     let root = app.paths.root().to_path_buf();
-    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut files: Files = Vec::new();
     {
         let e = app.engine.lock();
         files.push(("layout.json".into(), serde_json::to_vec_pretty(e.layout())?));
@@ -223,7 +227,34 @@ pub fn create(app: &App, passphrase: Option<&str>) -> Result<Vec<u8>> {
     for (rel, path) in found {
         files.push((rel, std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?));
     }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok((files, devices))
+}
 
+/// SHA-256 over the names and contents of the files, to tell whether anything changed.
+pub(crate) fn hash_files(files: &[(String, Vec<u8>)]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    for (n, b) in files {
+        h.update((n.len() as u64).to_le_bytes());
+        h.update(n.as_bytes());
+        h.update((b.len() as u64).to_le_bytes());
+        h.update(b);
+    }
+    h.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Makes a backup file. With a passphrase, passwords and keys go in too, encrypted.
+pub fn create(app: &App, passphrase: Option<&str>) -> Result<Vec<u8>> {
+    if passphrase.is_some_and(|p| p.chars().count() < MIN_PASSPHRASE) {
+        bail!("the passphrase needs at least {MIN_PASSPHRASE} characters");
+    }
+    let (files, devices) = gather(app)?;
+    pack(app, &files, &devices, passphrase, None)
+}
+
+/// Zips gathered files into a backup. `hash` goes in the manifest for automatic backups.
+pub(crate) fn pack(app: &App, files: &[(String, Vec<u8>)], devices: &[Device], passphrase: Option<&str>, hash: Option<String>) -> Result<Vec<u8>> {
     let names: Vec<String> = files.iter().map(|(n, _)| n.clone()).collect();
     let mut contents = {
         let map: HashMap<&str, &Vec<u8>> = files.iter().map(|(n, b)| (n.as_str(), b)).collect();
@@ -235,7 +266,7 @@ pub fn create(app: &App, passphrase: Option<&str>) -> Result<Vec<u8>> {
     let mut vault_bytes = Vec::new();
     if let Some(pass) = passphrase {
         let mut v = Vault { cid: app.identity.read().cid.clone(), ..Default::default() };
-        for d in &devices {
+        for d in devices {
             v.devices.insert(d.id.clone(), (d.secret.clone(), d.pin.clone()));
             if let Some(pin) = app.plugins.secrets.get(PIN_SECRET, &d.id) {
                 v.secrets.push((PIN_SECRET.into(), d.id.clone(), pin));
@@ -258,6 +289,7 @@ pub fn create(app: &App, passphrase: Option<&str>) -> Result<Vec<u8>> {
         name: app.settings.read().name.clone(),
         contents,
         secrets: sealed,
+        hash,
     };
 
     let mut out = std::io::Cursor::new(Vec::new());
@@ -270,13 +302,35 @@ pub fn create(app: &App, passphrase: Option<&str>) -> Result<Vec<u8>> {
             z.start_file(VAULT, opts)?;
             z.write_all(&vault_bytes)?;
         }
-        for (n, b) in &files {
+        for (n, b) in files {
             z.start_file(format!("{FILES}{n}"), opts)?;
             z.write_all(b)?;
         }
         z.finish()?;
     }
     Ok(out.into_inner())
+}
+
+/// Reads only the manifest of a backup file, without checking the rest.
+pub(crate) fn peek(path: &Path) -> Result<Manifest> {
+    let f = std::fs::File::open(path)?;
+    let mut zip = zip::ZipArchive::new(std::io::BufReader::new(f)).context("not a Keyside backup")?;
+    let mut entry = zip.by_name(MANIFEST).context("not a Keyside backup")?;
+    let mut buf = Vec::new();
+    (&mut entry).take(1024 * 1024).read_to_end(&mut buf)?;
+    let m: Manifest = serde_json::from_slice(&buf).context("not a Keyside backup")?;
+    if m.format != FORMAT {
+        bail!("not a Keyside backup");
+    }
+    Ok(m)
+}
+
+/// Keeps a checked backup until the person confirms the restore. Returns what the editor shows.
+pub fn stage(app: &App, b: Backup) -> Value {
+    let id = crate::ids::random_b64(12);
+    let info = json!({ "id": id, "manifest": b.manifest });
+    *app.staged_backup.lock() = Some((id, std::time::Instant::now(), b));
+    info
 }
 
 /// A backup read into memory and checked.

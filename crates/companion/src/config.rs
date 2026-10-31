@@ -64,6 +64,8 @@ pub struct Settings {
     pub setup_done: bool,
     /// Ask GitHub once a day for a newer version.
     pub update_check: bool,
+    /// Save a backup to the data folder once a day.
+    pub auto_backup: bool,
 }
 
 impl Default for Settings {
@@ -83,6 +85,7 @@ impl Default for Settings {
             editor_zoom: None,
             setup_done: false,
             update_check: true,
+            auto_backup: true,
         }
     }
 }

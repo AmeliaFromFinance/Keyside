@@ -71,7 +71,7 @@ fn open_editor(handle: &AppHandle) {
 }
 
 fn main() {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_env("KEYSIDE_LOG").unwrap_or_else(|_| "info".into())).init();
+    keyside::logs::init(true);
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_editor(app)))

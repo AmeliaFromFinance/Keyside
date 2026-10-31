@@ -152,6 +152,15 @@ pub async fn release() {
     imp::release().await;
 }
 
+/// Models of the decks plugged in right now.
+static CONNECTED: parking_lot::Mutex<Vec<&'static str>> = parking_lot::const_mutex(Vec::new());
+
+pub fn connected() -> Vec<&'static str> {
+    let mut v = CONNECTED.lock().clone();
+    v.sort_unstable();
+    v
+}
+
 #[cfg(feature = "render")]
 pub mod render;
 
@@ -280,6 +289,7 @@ mod imp {
                 for (_, d) in decks.drain() {
                     let _ = d.deck.reset();
                 }
+                super::CONNECTED.lock().clear();
                 RUNNING.store(false, Ordering::SeqCst);
                 return;
             }
@@ -316,18 +326,26 @@ mod imp {
                         decks.insert(serial, Open { reader: deck.get_reader(), deck, cmds: cmd_rx, events: ev_tx });
                     }
                 }
+                publish(&decks);
             }
             if decks.is_empty() {
                 std::thread::sleep(Duration::from_millis(250));
                 continue;
             }
             let gone: Vec<String> = decks.iter().filter(|(_, d)| !service(d)).map(|(s, _)| s.clone()).collect();
-            for s in gone {
-                if let Some(d) = decks.remove(&s) {
+            for s in &gone {
+                if let Some(d) = decks.remove(s) {
                     let _ = d.events.blocking_send(Event::Gone);
                 }
             }
+            if !gone.is_empty() {
+                publish(&decks);
+            }
         }
+    }
+
+    fn publish(decks: &HashMap<String, Open>) {
+        *super::CONNECTED.lock() = decks.values().map(|d| name(d.deck.kind())).collect();
     }
 
     /// One round for one deck. False when it was unplugged or its controller stopped.

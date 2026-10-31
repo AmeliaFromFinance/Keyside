@@ -4,6 +4,7 @@
   import { t, lang, setLang, languages, type Lang } from "../lib/i18n.svelte.ts";
   import { inDesktopApp, zoomTo } from "../lib/zoom.ts";
   import Backup from "./Backup.svelte";
+  import Diagnostics from "./Diagnostics.svelte";
 
   interface Info {
     name: string;
@@ -154,7 +155,9 @@
   </div>
 </section>
 
-<Backup onrestored={() => void refresh().catch((e) => (error = e.message))} />
+<Backup settings={s} onrestored={() => void refresh().catch((e) => (error = e.message))} />
+
+<Diagnostics />
 
 <style>
   .fp {

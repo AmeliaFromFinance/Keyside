@@ -105,6 +105,11 @@ fn show(app: &App) {
     }
 }
 
+/// Whether per-app volume works here, and why not if it doesn't.
+pub fn availability() -> Result<(), &'static str> {
+    if STATE.lock().available { Ok(()) } else { Err(backend::UNAVAILABLE) }
+}
+
 /// App names to pick from in the editor.
 pub fn names() -> Vec<String> {
     STATE.lock().names.iter().cloned().collect()

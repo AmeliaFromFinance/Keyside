@@ -3,15 +3,18 @@
 pub mod actions;
 pub mod app;
 pub mod assets;
+pub mod autobackup;
 pub mod backup;
 pub mod config;
 pub mod crypto;
 pub mod devices;
+pub mod diagnostics;
 pub mod focus;
 pub mod health;
 pub mod history;
 pub mod iconpack;
 pub mod ids;
+pub mod logs;
 pub mod mdns;
 pub mod model;
 pub mod openwhen;
@@ -56,6 +59,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Arc<App>> {
     focus::spawn(app.clone());
     updates::spawn(app.clone());
     openwhen::spawn(app.clone());
+    autobackup::spawn(app.clone());
 
     // Keep plugins in step with layout changes, and save user variables and key states a
     // little after they change. Plugins run only while a key uses them, or for a while after
