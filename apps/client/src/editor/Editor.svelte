@@ -245,13 +245,13 @@
           <span class="dot" class:ok={st === "connected"} class:busy={st === "connecting"} class:bad={st === "error"}></span>{p.name}{#if p.port}<span class="mono port">:{p.port}</span>{/if}
         </svelte:element>
       {/each}
-      {#if admin}<span class="chip"><span class="dot" class:ok={devicesOnline > 0}></span>{t("{n} phones online", { n: devicesOnline })}</span>{/if}
+      {#if admin}<span class="chip phones" title={t("{n} phones online", { n: devicesOnline })}><span class="dot" class:ok={devicesOnline > 0}></span><Icon name="smartphone" size={16} /><span class="mono">{devicesOnline}</span></span>{/if}
     </div>
     <div class="actions">
       {#if ed.dirty}
         <span class="saved">{t("Draft saved {t} ago", { t: ago(ed.savedAt, now) })}</span>
       {:else if loaded}
-        <span class="saved">{t("Up to date")}</span>
+        <span class="saved quiet">{t("Up to date")}</span>
       {/if}
       <button class="btn icon ghost" aria-label={t("Search all keys")} title={t("Search all keys ({shortcut})", { shortcut: /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl+K" })} disabled={!loaded} onclick={() => (panel = "search")}><Icon name="search" /></button>
       <button class="btn icon ghost" aria-label={t("Undo")} title={t("Undo")} disabled={!canUndo()} onclick={undo}><Icon name="undo-2" /></button>
@@ -431,6 +431,17 @@
   }
   .port {
     color: var(--muted);
+  }
+  .chip.phones {
+    flex-shrink: 0;
+    gap: 6px;
+  }
+  /* Room for the app names on smaller screens. The bright Push button already shows a draft. */
+  @media (max-width: 1699px) {
+    .port,
+    .saved {
+      display: none;
+    }
   }
   .actions {
     display: flex;

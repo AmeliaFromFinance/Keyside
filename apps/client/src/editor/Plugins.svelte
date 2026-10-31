@@ -85,7 +85,7 @@
 
   function describe(p: Perms): string[] {
     const out: string[] = [];
-    for (const n of p.net ?? []) out.push(n.includes("{") ? t("Connect to the address set in its settings ({n})", { n }) : t("Connect to {n}", { n }));
+    for (const n of p.net ?? []) out.push(n.includes("{") ? t("Connect to the address set in its settings") : t("Connect to {n}", { n }));
     if (p.udp) out.push(t("Send UDP messages to those addresses"));
     if (p.ipc?.includes("discord")) out.push(t("Talk to the Discord app on this PC"));
     for (const c of p.run ?? []) out.push(t("Run {command}", { command: c.join(" ") }));
@@ -198,7 +198,7 @@
             <ul>{#each describe(p.requested) as d (d)}<li>{d}</li>{/each}</ul>
             <button class="btn primary" onclick={() => run(() => req("plugins.approve", { id: p.id }))}>{t("Allow")}</button>
           {/if}
-          <p class="muted">{t("Variables start with {prefix}.", { prefix: `${p.prefix}.` })}</p>
+          <p class="muted">{t("Variables start with {prefix}.", { prefix: p.prefix })}</p>
           {#if admin && p.enabled}<Health id={p.id} />{/if}
           {#if admin}
             <div class="row">

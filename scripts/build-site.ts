@@ -86,8 +86,9 @@ for (const f of ["site.css", "deck.js", "CNAME"]) copyFileSync(join(site, f), jo
 
 const assets: Array<[string, string]> = [
   ["apps/client/public/icon.svg", "icon.svg"],
-  ["docs/images/phone.png", "images/phone.png"],
-  ["docs/images/editor.png", "images/editor.png"],
+  ...["phone", "editor", "dashboard", "keys", "streamdeck", "triggers", "review", "search", "wizard"].map(
+    (n): [string, string] => [`docs/images/${n}.png`, `images/${n}.png`],
+  ),
   ["apps/client/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2", "fonts/inter.woff2"],
   ["apps/client/node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2", "fonts/jetbrains-mono.woff2"],
 ];

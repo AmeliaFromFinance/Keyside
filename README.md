@@ -41,6 +41,19 @@ Keys show live state: the scene that's on air, which inputs are muted, how long 
 - **HTTP API** so other tools can press keys, set variables and restyle keys.
 - **No account, no cloud, no telemetry.**
 
+## A closer look
+
+| | |
+| --- | --- |
+| <img src="docs/images/dashboard.png" alt="A tablet showing a stream dashboard with timers, bitrate, CPU and chat" /> | <img src="docs/images/keys.png" alt="A key with three states" /> |
+| **Stream dashboard.** Live time, bitrate, dropped frames and chat at a glance. | **Smarter keys.** Multi-state keys, double tap, long press and shared styles. |
+| <img src="docs/images/streamdeck.png" alt="A Stream Deck + layout with dial sliders" /> | <img src="docs/images/triggers.png" alt="Chat triggers for a command and a channel point reward" /> |
+| **Stream Deck +.** Dials move sliders, the touch strip presses keys. | **Chat triggers.** Commands and channel point rewards press keys for you. |
+| <img src="docs/images/review.png" alt="Changes to review before pushing" /> | <img src="docs/images/search.png" alt="Searching every key" /> |
+| **Review before pushing.** See every change, then send it to your devices. | **Search everything.** Press Ctrl+K to find any key on any page. |
+| <img src="docs/images/wizard.png" alt="The setup wizard" /> | <img src="docs/images/health.png" alt="Plugin health with uptime, crashes and a connection test" /> |
+| **Guided setup.** Pick your apps and get a ready-made layout. | **Plugin health.** Uptime, crashes, last error and a connection test. |
+
 ## Plugins included
 
 | App | What you get |

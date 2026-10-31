@@ -28,6 +28,10 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 - Physical Stream Decks can have several layouts, each shown while one of its apps is in front.
 - Plugins only run while a key uses them. Phones get only the keys that changed after a push, and no longer download the editor or other languages.
 - Plugin SDK: feed items can carry kind, source, author roles and reward details for chat triggers.
+- Phone: messages float above the keys instead of shrinking them.
+- Editor: the top bar stays readable on narrower screens.
+- Plugin permissions no longer show a raw {host}:{port} placeholder.
+- New screenshots in the README and on the website.
 - "Export JSON" moved into the editor menu.
 - Streamer.bot: works with versions that don't send a Hello, with authentication that isn't enforced, and reads globals in the shape Streamer.bot sends. Kick chat and alerts.
 - Meld Studio: keys for vertical screenshots and for showing or dismissing the replay of the last clip.

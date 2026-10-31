@@ -223,7 +223,8 @@
       </nav>
     {/if}
 
-    <footer aria-live="polite">
+    <!-- Floats over the bottom of the screen, so keys keep that space when there's no message. -->
+    <footer class="toasts" aria-live="polite">
       <button class="toast" class:show={!!deck.toast} disabled={!deck.toast} title={t("Dismiss")} onclick={dismissToast}>
         {#if deck.toast}
           <span class="ticon tone-{deck.toast.tone}">
@@ -453,7 +454,19 @@
     background: var(--accent);
   }
 
+  .toasts {
+    position: fixed;
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    z-index: 30;
+    max-width: 560px;
+    margin: 0 auto;
+    pointer-events: none;
+  }
   .toast {
+    pointer-events: auto;
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
     display: flex;
     align-items: center;
     gap: 12px;

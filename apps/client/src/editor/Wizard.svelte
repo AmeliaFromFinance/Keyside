@@ -125,7 +125,7 @@
   {#if error}<p class="bad" role="alert">{error}</p>{/if}
 
   {#if step === "apps"}
-    <h3>{fresh ? t("Welcome to Keyside") : t("Set up Keyside")}</h3>
+    <h3>{fresh ? t("Welcome to Keyside") : t("Which apps do you use?")}</h3>
     <p class="muted">{t("Pick the apps you use. Keyside makes a layout with a page of keys for each, then helps you connect them.")}</p>
     <div class="apps" role="group" aria-label={t("Apps")}>
       {#each STARTER_APPS as a (a.id)}

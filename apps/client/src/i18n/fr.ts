@@ -57,7 +57,7 @@ export default {
   "Code {code}": "Code {code}",
   "Colour": "Couleur",
   "Companion on": "Companion sur",
-  "Connect to the address set in its settings ({n})": "Se connecter à l'adresse de ses réglages ({n})",
+  "Connect to the address set in its settings": "Se connecter à l'adresse de ses réglages",
   "Connect to {n}": "Se connecter à {n}",
   "Connected to": "Connecté à",
   "Connecting…": "Connexion…",
@@ -846,4 +846,5 @@ export default {
   "{time} ago": "il y a {time}",
   "Paired devices: {n}": "Appareils associés : {n}",
   "1 change": "1 modification",
+  "Which apps do you use?": "Quelles applis utilises-tu ?",
 } as Record<string, string>;

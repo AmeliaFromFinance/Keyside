@@ -392,6 +392,29 @@ h3 {
   border: 1px solid var(--line);
 }
 
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px 28px;
+  margin-top: 32px;
+}
+.gallery figure {
+  margin: 0;
+}
+.gallery .wide {
+  grid-column: 1 / -1;
+  max-width: 760px;
+  justify-self: center;
+}
+.gallery figcaption {
+  margin-top: 12px;
+  color: var(--muted);
+}
+.gallery figcaption b {
+  color: var(--text);
+  font-weight: 650;
+}
+
 .names {
   display: flex;
   flex-wrap: wrap;
@@ -594,6 +617,7 @@ footer p + p {
     margin-right: auto;
   }
   .steps ol,
+  .gallery,
   .split.three {
     grid-template-columns: 1fr;
     gap: 28px;
