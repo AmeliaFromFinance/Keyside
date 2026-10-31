@@ -1,6 +1,6 @@
 # Stream tools
 
-Three things that help while you're live: a ready-made dashboard page, overlays for OBS, and chat triggers.
+Things that help while you're live: a ready-made dashboard page, overlays for OBS, pages that follow the scene, and chat triggers.
 
 ## Stream dashboard
 
