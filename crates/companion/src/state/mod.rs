@@ -587,7 +587,13 @@ impl Engine {
         }
         if let Some(w) = &key.widget {
             if let Some(feed) = &w.feed {
-                v.lines = Some(self.feeds.get(feed).map(|q| q.iter().skip(q.len().saturating_sub(FEED_SHOWN)).cloned().collect()).unwrap_or_default());
+                let mut lines: Vec<FeedItem> = self.feeds.get(feed).map(|q| q.iter().skip(q.len().saturating_sub(FEED_SHOWN)).cloned().collect()).unwrap_or_default();
+                if let Some(max) = w.max_chars {
+                    for l in &mut lines {
+                        view::shorten(&mut l.text, max as usize);
+                    }
+                }
+                v.lines = Some(lines);
             }
             if let Some(t) = &w.text {
                 v.sub = Some(view::template(t, get));

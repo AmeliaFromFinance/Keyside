@@ -283,6 +283,15 @@ pub fn loose_eq(a: &Value, b: &Value) -> bool {
 }
 
 /// Replaces {name} with variable values. Unknown names become empty. Output is capped.
+/// Cuts `s` to `max` characters, ending in "…" when anything was cut.
+pub fn shorten(s: &mut String, max: usize) {
+    if let Some((i, _)) = s.char_indices().nth(max) {
+        s.truncate(i);
+        s.truncate(s.trim_end().len());
+        s.push('…');
+    }
+}
+
 pub fn template(s: &str, get: impl Fn(&str) -> Option<Value>) -> String {
     fill(s, get, 128)
 }
@@ -317,6 +326,16 @@ pub fn fill(s: &str, get: impl Fn(&str) -> Option<Value>, cap: usize) -> String 
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn shortens_long_messages() {
+        let mut s = "hello there chat".to_string();
+        super::shorten(&mut s, 6);
+        assert_eq!(s, "hello…");
+        let mut s = "héllo".to_string();
+        super::shorten(&mut s, 5);
+        assert_eq!(s, "héllo", "nothing to cut");
+    }
+
     use super::*;
     use serde_json::json;
 

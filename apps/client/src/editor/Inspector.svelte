@@ -400,6 +400,23 @@
           {#each feeds as f (f.value)}<option value={f.value}>{f.label}</option>{/each}
         </select>
       </label>
+      {#if key.widget?.feed}
+        <label class="field">
+          <span>{t("Max characters")}</span>
+          <input
+            type="number"
+            min="1"
+            max="500"
+            value={key.widget?.maxChars ?? ""}
+            placeholder={t("No limit")}
+            oninput={(e) => {
+              const n = Math.round(Number(e.currentTarget.value));
+              edit((k) => (k.widget = { ...k.widget, maxChars: n >= 1 ? Math.min(n, 500) : undefined }));
+            }}
+          />
+          <small>{t("Longer messages end in “…”.")}</small>
+        </label>
+      {/if}
     {/if}
 
     {#if key.kind === "slider"}

@@ -4,6 +4,8 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
+- Chat keys: long messages wrap onto more lines instead of being cut off. "Max characters" shortens longer ones with "…".
+
 ## [1.0.0] - 2026-10-31
 
 First release.

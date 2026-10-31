@@ -519,9 +519,8 @@
   }
   .lines li {
     flex: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
   }
   .lines b {
     font-weight: 600;

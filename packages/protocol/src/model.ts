@@ -145,6 +145,8 @@ export interface Widget {
   lines?: number;
   /** Variable holding a 0..1 value, drawn as a bar. */
   progress?: string;
+  /** Feed messages longer than this end in "…". 1 to 500. */
+  maxChars?: number;
 }
 
 export interface Action {

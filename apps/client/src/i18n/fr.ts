@@ -902,4 +902,7 @@ export default {
   "{name} copy": "{name} copie",
   "Show the song": "Afficher le morceau",
   "Cover, title and artist from whatever is playing.": "Pochette, titre et artiste de ce qui est en lecture.",
+  "Max characters": "Caractères max.",
+  "No limit": "Aucune limite",
+  "Longer messages end in “…”.": "Les messages plus longs se terminent par « … ».",
 } as Record<string, string>;

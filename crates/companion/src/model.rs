@@ -367,6 +367,9 @@ pub struct Widget {
     pub lines: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub progress: Option<String>,
+    /// Feed messages longer than this end in "…".
+    #[serde(default, rename = "maxChars", skip_serializing_if = "Option::is_none")]
+    pub max_chars: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -824,6 +827,9 @@ pub(crate) fn validate_page(pg: &Page, page_ids: &HashSet<&str>, style_ids: &Has
                 }
                 if w.lines.is_some_and(|n| n == 0 || n > 20) {
                     return bad("widget shows 1 to 20 lines");
+                }
+                if w.max_chars.is_some_and(|n| n == 0 || n > 500) {
+                    return bad("max characters must be 1 to 500");
                 }
             }
             _ => {}
