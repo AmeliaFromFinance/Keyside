@@ -4,6 +4,8 @@ All notable changes to Keyside. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
+## [1.1.0] - 2026-10-31
+
 - iPhone and iPad: add Keyside to the Home Screen. The deck settings walk you through installing a profile so the phone trusts your PC.
 - HTTPS: the PC now signs its certificate with its own certificate authority, limited to local network addresses. Browsers ask to accept the new certificate once.
 - The editor says when a new version is out. Turn it off in Settings.
